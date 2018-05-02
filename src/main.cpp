@@ -3,6 +3,7 @@
 #include <iostream>
 #include <random>
 
+#include "gnuplot.h"
 #include "mesh.h"
 #include "z2.h"
 
@@ -37,6 +38,12 @@ int main(int argc, char **argv)
 	auto nWarm = vm["warm"].as<int>();
 	auto nMeas = vm["meas"].as<int>();
 
+	auto plot = Gnuplot();
+	plot.setRangeX(betaMin, betaMax);
+	plot.setRangeY(0, 1);
+
+	std::vector<double> xs, ys;
+
 	for (int i = 0; i < 50; ++i)
 	{
 		double beta = betaMin + i * (betaMax - betaMin) / 49;
@@ -53,6 +60,10 @@ int main(int argc, char **argv)
 		}
 		loop4 /= nMeas;
 
+		xs.push_back(beta);
+		ys.push_back(loop4);
+		plot.clear();
+		plot.plotData(xs, ys);
 		std::cout << "beta = " << beta << ", <loop4> = " << loop4 << std::endl;
 	}
 }
