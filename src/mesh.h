@@ -53,9 +53,10 @@ template <typename G> inline void Mesh<G>::thermalize(double beta)
 		G s = stapleSum4(i);
 		double kappa = s.norm();
 
-		// TODO: special case for kappa near zero
-
-		u(i) = s.normalize().adjoint() * G::random(rng, beta * kappa);
+		if (kappa < 1.0e-8)
+			u(i) = G::random(rng);
+		else
+			u(i) = s.normalize().adjoint() * G::random(rng, beta * kappa);
 	}
 }
 

@@ -5,6 +5,7 @@
 
 #include "gnuplot.h"
 #include "mesh.h"
+#include "su2.h"
 #include "z2.h"
 
 #include "boost/program_options.hpp"
@@ -48,7 +49,8 @@ int main(int argc, char **argv)
 	{
 		double beta = betaMin + i * (betaMax - betaMin) / 49;
 
-		auto m = Mesh<Z2>(Topology::lattice4D(n));
+		auto m = Mesh<SU2>(Topology::lattice4D(n));
+		// auto m = Mesh<Z2>(Topology::lattice4D(n));
 		for (int i = 0; i < nWarm; ++i)
 			m.thermalize(beta);
 
