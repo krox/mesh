@@ -73,6 +73,9 @@ struct SU2
 	SU2 normalize() const { return *this / norm(); }
 
 	double action() const { return v[0]; }
+
+	/** NOTE: this has the wrong phase factor */
+	SU2 algebra() const { return SU2(0, v[1], v[2], v[3]); }
 };
 
 template <typename Rng> SU2 SU2::random(Rng &rng)
