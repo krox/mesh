@@ -3,8 +3,10 @@
 #include <iostream>
 #include <random>
 
+#include "gauge_action.h"
 #include "gnuplot.h"
 #include "mesh.h"
+#include "random.h"
 #include "su2.h"
 #include "z2.h"
 
@@ -45,20 +47,23 @@ int main(int argc, char **argv)
 
 	std::vector<double> xs, ys;
 
+	xoroshiro128plus rng{std::random_device()()};
+
 	for (int i = 0; i < 50; ++i)
 	{
 		double beta = betaMin + i * (betaMax - betaMin) / 49;
 
 		auto m = Mesh<SU2>(Topology::lattice4D(n));
-		// auto m = Mesh<Z2>(Topology::lattice4D(n));
+		auto ga = GaugeAction(m);
+
 		for (int i = 0; i < nWarm; ++i)
-			m.thermalize(beta);
+			ga.thermalize(rng, beta);
 
 		double loop4 = 0;
 		for (int i = 0; i < nMeas; ++i)
 		{
-			m.thermalize(beta);
-			loop4 += m.loop4();
+			ga.thermalize(rng, beta);
+			loop4 += ga.loop4();
 		}
 		loop4 /= nMeas;
 
