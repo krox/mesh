@@ -1,7 +1,9 @@
 #include "gnuplot.h"
 #include <fstream>
 
-Gnuplot::Gnuplot(bool persist)
+int Gnuplot::nplotsGlobal = 0;
+
+Gnuplot::Gnuplot(bool persist) : plotID(nplotsGlobal++)
 {
 	if (persist)
 		pipe = popen("gnuplot -p", "w");
@@ -33,7 +35,8 @@ void Gnuplot::plotFunction(const std::string &fun, const std::string &title)
 void Gnuplot::plotData(const std::vector<double> &xs,
                        const std::vector<double> &ys, const std::string &title)
 {
-	std::string filename = (format("gnuplot_%s.txt") % nplots).str();
+	std::string filename =
+	    (format("gnuplot_%s_%s.txt") % plotID % nplots).str();
 	std::ofstream file(filename);
 	assert(xs.size() == ys.size());
 	for (size_t i = 0; i < xs.size(); ++i)
@@ -47,7 +50,8 @@ void Gnuplot::plotData(const std::vector<double> &xs,
 
 void Gnuplot::plotHistogram(const histogram &hist, const std::string &title)
 {
-	std::string filename = (format("gnuplot_%s.txt") % nplots).str();
+	std::string filename =
+	    (format("gnuplot_%s_%s.txt") % plotID % nplots).str();
 	std::ofstream file(filename);
 
 	for (size_t i = 0; i < hist.bins.size(); ++i)

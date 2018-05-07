@@ -7,7 +7,9 @@
 class Gnuplot
 {
 	FILE *pipe = nullptr;
+	static int nplotsGlobal;
 	int nplots = 0;
+	const int plotID;
 	using format = boost::format;
 
   public:
@@ -22,6 +24,11 @@ class Gnuplot
 
 	/** plot a function given by a string that gnuplot can understand */
 	void plotFunction(const std::string &fun, const std::string &title = "");
+
+	/** plot a function given as Functor */
+	template <typename F>
+	void plotFunction(F f, double min, double max,
+	                  const std::string &title = "");
 
 	/** plot raw data points (xs[i], ys[i]) */
 	void plotData(const std::vector<double> &xs, const std::vector<double> &ys,
@@ -44,5 +51,21 @@ class Gnuplot
 	/** remove all plots (but keep settings) */
 	void clear();
 };
+
+template <typename F>
+inline void Gnuplot::plotFunction(F f, double a, double b,
+                                  const std::string &title)
+{
+	auto oldStyle = style;
+	style = "lines";
+	std::vector<double> xs, ys;
+	for (int i = 0; i <= 100; ++i)
+	{
+		xs.push_back(a + (b - a) * i / 100);
+		ys.push_back(f(xs.back()));
+	}
+	plotData(xs, ys, title);
+	style = oldStyle;
+}
 
 #endif
