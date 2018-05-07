@@ -3,7 +3,10 @@
 #include <iostream>
 #include <random>
 
+#include <fmt/format.h>
+
 #include "gauge_action.h"
+#include "gauge_fixing.h"
 #include "gnuplot.h"
 #include "mesh.h"
 #include "random.h"
@@ -29,8 +32,10 @@ int main(int argc, char **argv)
 	("betaMin", po::value<double>()->default_value(0.0), "inverse temperature")
 	("betaMax", po::value<double>()->default_value(1.0), "")
 	("beta2", po::value<std::vector<double>>()->multitoken(), "secondary (usually adjoint) coupling")
-	("warm", po::value<int>()->default_value(20), "number of warmup sweeps")
-	("meas", po::value<int>()->default_value(20), "number of measurment sweeps");
+	("sweeps", po::value<int>()->default_value(20), "number of sweeps between measurements")
+	("steps", po::value<int>()->default_value(50), "number of steps of beta")
+	("gaugefix", po::value<bool>()->default_value(false), "do gauge-fixing and measure average link")
+	;
 	// clang-format on
 
 	po::variables_map vm;
@@ -49,50 +54,69 @@ int main(int argc, char **argv)
 	auto beta2s = vm["beta2"].as<std::vector<double>>();
 	if (beta2s.empty())
 		beta2s.push_back(0.0);
-	auto nWarm = vm["warm"].as<int>();
-	auto nMeas = vm["meas"].as<int>();
+	auto nSweeps = vm["sweeps"].as<int>();
+	auto nSteps = vm["steps"].as<int>();
+	auto doGF = vm["gaugefix"].as<bool>();
 
-	auto plot = Gnuplot();
-	plot.setRangeX(betaMin, betaMax);
-	plot.setRangeY(0, 1);
+	Gnuplot plotAction, plotLink;
+	plotAction.setRangeX(betaMin, betaMax);
+	plotAction.setRangeY(0, 1);
+	plotLink.setRangeX(betaMin, betaMax);
+	plotLink.setRangeY(0, 1);
 
-	std::vector<std::vector<double>> xs, ys;
+	std::vector<std::vector<double>> pBeta;
+	std::vector<std::vector<double>> pAction, pLink;
 
 	xoroshiro128plus rng{std::random_device()()};
 
 	for (double beta2 : beta2s)
 	{
-		xs.emplace_back();
-		ys.emplace_back();
+		pBeta.emplace_back();
+		pAction.emplace_back();
+		pLink.emplace_back();
 
-		for (int i = 0; i < 50; ++i)
+		for (int i = 0; i < nSteps; ++i)
 		{
-			double beta = betaMin + i * (betaMax - betaMin) / 49;
+			double beta = betaMin + i * (betaMax - betaMin) / (nSteps - 1);
 
 			auto m = Mesh<U1>(Topology::lattice4D(n));
 			auto ga = GaugeAction(m);
 
-			for (int i = 0; i < nWarm; ++i)
+			for (int i = 0; i < nSweeps; ++i)
 				ga.thermalize(rng, beta, beta2);
 
-			double loop4 = 0;
-			for (int i = 0; i < nMeas; ++i)
+			// measure average action
+			double loop4 = ga.loop4();
+
+			// measure average link (requires gauge fixing)
+			double link = 0.0 / 0.0;
+			if (doGF)
 			{
-				ga.thermalize(rng, beta, beta2);
-				loop4 += ga.loop4();
+				auto rot = gaugeFix(m, 1.0e-11, 10000);
+				link = avgLink(m, rot);
 			}
-			loop4 /= nMeas;
 
-			xs.back().push_back(beta);
-			ys.back().push_back(loop4);
+			fmt::print("beta = {} / {}, <loop4> = {}, <link> = {}\n", beta,
+			           beta2, loop4, link);
 
-			std::cout << "beta = " << beta << ", <loop4> = " << loop4
-			          << std::endl;
+			// plot measurements
+			pBeta.back().push_back(beta);
+			pAction.back().push_back(loop4);
+			pLink.back().push_back(link);
 
-			plot.clear();
-			for (size_t i = 0; i < xs.size(); ++i)
+			plotAction.clear();
+			for (size_t i = 0; i < pBeta.size(); ++i)
+				plotAction.plotData(
+				    pBeta[i], pAction[i],
+				    fmt::format("<action> (b2 = {})", beta2s[i]));
+
+			if (doGF)
 			{
-				plot.plotData(xs[i], ys[i]);
+				plotLink.clear();
+				for (size_t i = 0; i < pBeta.size(); ++i)
+					plotLink.plotData(
+					    pBeta[i], pLink[i],
+					    fmt::format("<link> (b2 = {})", beta2s[i]));
 			}
 		}
 	}

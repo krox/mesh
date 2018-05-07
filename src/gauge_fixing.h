@@ -76,10 +76,12 @@ inline std::vector<G> gaugeFix(const Mesh<G> &m, double eps, int maxIter)
 
 	// measure the non-fixed field
 	double gaugeCond = gaugeCondition(m, g);
-	double gaugeTerm = avgLink(m, g);
 
+#ifdef LOG_GAUGEFIXING
+	double gaugeTerm = avgLink(m, g);
 	std::cout << "iter = 0, gaugeCond = " << gaugeCond
 	          << ", link = " << gaugeTerm << std::endl;
+#endif
 
 	for (int iter = 5; iter <= maxIter; iter += 5)
 	{
@@ -87,12 +89,14 @@ inline std::vector<G> gaugeFix(const Mesh<G> &m, double eps, int maxIter)
 			gaugeRelax(m, g);
 
 		gaugeCond = gaugeCondition(m, g);
-		gaugeTerm = avgLink(m, g);
 
+#ifdef LOG_GAUGEFIXING
+		gaugeTerm = avgLink(m, g);
 		std::cout << "iter = " << iter << ", gaugeCond = " << gaugeCond
 		          << ", link = " << gaugeTerm << std::endl;
+#endif
 
-		if (gaugeCondition(m, g) <= eps)
+		if (gaugeCond <= eps)
 			return g;
 	}
 
