@@ -21,7 +21,8 @@ template <typename G> struct GaugeAction
 	GaugeAction(Mesh<G> &m);
 
 	/** one sweep of thermalization */
-	template <typename Rng> void thermalize(Rng &rng, double beta);
+	template <typename Rng>
+	void thermalize(Rng &rng, double beta, double beta2);
 
 	/** measure average loop */
 	double loop4() const;
@@ -37,7 +38,7 @@ inline GaugeAction<G>::GaugeAction(Mesh<G> &m) : m(m), loops4(m.top.loops4())
 
 template <typename G>
 template <typename Rng>
-inline void GaugeAction<G>::thermalize(Rng &rng, double beta)
+inline void GaugeAction<G>::thermalize(Rng &rng, double beta, double beta2)
 {
 	// TODO: randomize order
 	for (int i = 0; i < m.top.nLinks(); ++i)
@@ -50,7 +51,8 @@ inline void GaugeAction<G>::thermalize(Rng &rng, double beta)
 		if (kappa < 1.0e-8)
 			m.u(i) = G::random(rng);
 		else
-			m.u(i) = s.normalize().adjoint() * G::random(rng, beta * kappa);
+			m.u(i) = s.normalize().adjoint() *
+			         G::random(rng, beta * kappa, beta2 * kappa);
 	}
 }
 

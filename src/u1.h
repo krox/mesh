@@ -20,6 +20,8 @@ struct U1
 	/** random group element */
 	template <typename Rng> static U1 random(Rng &rng);
 	template <typename Rng> static U1 random(Rng &rng, double alpha);
+	template <typename Rng>
+	static U1 random(Rng &rng, double alpha, double alpha2);
 
 	/** special elements */
 	static U1 zero() { return U1(0, 0); }
@@ -100,6 +102,52 @@ template <typename Rng> U1 U1::random(Rng &rng, double alpha)
 			double r = cos(phi) + (2 / M_PI / M_PI) * phi * phi - 1;
 			// assert(r <= 0);
 			if (!std::bernoulli_distribution(exp(alpha * r))(rng))
+				continue;
+			return U1(cos(phi), sin(phi));
+		}
+	}
+}
+
+template <typename Rng> U1 U1::random(Rng &rng, double alpha, double alpha2)
+{
+	assert(alpha >= 0 && alpha2 >= 0);
+
+	// NOTE: this algorithm is only efficient for alpha2 << alpha
+
+	// moderate alpha -> rejection algorithm based on uniform distribution
+	if (alpha < 1)
+	{
+		// approximate distribution of phi (for small alpha)
+		std::uniform_real_distribution<double> uni_dist(-M_PI, M_PI);
+
+		while (true)
+		{
+			double phi = uni_dist(rng);
+			double tr = cos(phi);
+			double r = alpha * (tr - 1) + alpha2 * (tr * tr - 1);
+			assert(r <= 0);
+			if (!std::bernoulli_distribution(exp(r))(rng))
+				continue;
+			return U1(cos(phi), sin(phi));
+		}
+	}
+
+	// large alpha -> rejection algorithm based on normal distribution
+	else
+	{
+		// approximate distribution of phi (for larger alpha)
+		std::normal_distribution<double> norm_dist(0, 0.5 * M_PI / sqrt(alpha));
+
+		while (true)
+		{
+			auto phi = norm_dist(rng);
+			if (phi > M_PI || phi < -M_PI)
+				continue;
+			double tr = cos(phi);
+			double r = alpha * tr + alpha2 * tr * tr +
+			           alpha * (2 / M_PI / M_PI) * phi * phi - alpha - alpha2;
+			assert(r <= 1.0e-8);
+			if (!std::bernoulli_distribution(exp(r))(rng))
 				continue;
 			return U1(cos(phi), sin(phi));
 		}

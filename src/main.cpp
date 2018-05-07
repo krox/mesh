@@ -8,6 +8,7 @@
 #include "mesh.h"
 #include "random.h"
 #include "su2.h"
+#include "u1.h"
 #include "z2.h"
 
 #include "boost/program_options.hpp"
@@ -21,9 +22,11 @@ int main(int argc, char **argv)
 	    "betaMin", po::value<double>()->default_value(0.0),
 	    "inverse temperature")("betaMax",
 	                           po::value<double>()->default_value(1.0), "")(
-	    "warm", po::value<int>()->default_value(20),
-	    "number of warmup sweeps")("meas", po::value<int>()->default_value(20),
-	                               "number of measurment sweeps");
+	    "warm", po::value<int>()->default_value(20), "number of warmup sweeps")(
+	    "meas", po::value<int>()->default_value(20),
+	    "number of measurment sweeps")("beta2",
+	                                   po::value<double>()->default_value(0.0),
+	                                   "secondary (usually adjoint) coupling");
 
 	po::variables_map vm;
 	po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -38,6 +41,7 @@ int main(int argc, char **argv)
 	auto n = vm["n"].as<int>();
 	auto betaMin = vm["betaMin"].as<double>();
 	auto betaMax = vm["betaMax"].as<double>();
+	auto beta2 = vm["beta2"].as<double>();
 	auto nWarm = vm["warm"].as<int>();
 	auto nMeas = vm["meas"].as<int>();
 
@@ -53,16 +57,16 @@ int main(int argc, char **argv)
 	{
 		double beta = betaMin + i * (betaMax - betaMin) / 49;
 
-		auto m = Mesh<SU2>(Topology::lattice4D(n));
+		auto m = Mesh<U1>(Topology::lattice4D(n));
 		auto ga = GaugeAction(m);
 
 		for (int i = 0; i < nWarm; ++i)
-			ga.thermalize(rng, beta);
+			ga.thermalize(rng, beta, beta2);
 
 		double loop4 = 0;
 		for (int i = 0; i < nMeas; ++i)
 		{
-			ga.thermalize(rng, beta);
+			ga.thermalize(rng, beta, beta2);
 			loop4 += ga.loop4();
 		}
 		loop4 /= nMeas;
