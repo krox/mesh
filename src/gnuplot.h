@@ -2,6 +2,7 @@
 #define MESH_GNUPLOT_H
 
 #include "boost/format.hpp"
+#include "stats.h"
 
 class Gnuplot
 {
@@ -25,6 +26,10 @@ class Gnuplot
 	/** plot raw data points (xs[i], ys[i]) */
 	void plotData(const std::vector<double> &xs, const std::vector<double> &ys,
 	              const std::string &title = "data");
+
+	/** plot a histogram */
+	void plotHistogram(const histogram &hist,
+	                   const std::string &title = "hist");
 
 	/** set range of plot */
 	void setRangeX(double min, double max);

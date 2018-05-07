@@ -14,6 +14,11 @@
 #include "boost/program_options.hpp"
 namespace po = boost::program_options;
 
+#include <boost/accumulators/accumulators.hpp>
+#include <boost/accumulators/statistics/density.hpp>
+#include <boost/accumulators/statistics/stats.hpp>
+using namespace boost::accumulators;
+
 int main(int argc, char **argv)
 {
 	// clang-format off
@@ -23,7 +28,7 @@ int main(int argc, char **argv)
 	("n", po::value<int>()->default_value(8), "lattice size")
 	("betaMin", po::value<double>()->default_value(0.0), "inverse temperature")
 	("betaMax", po::value<double>()->default_value(1.0), "")
-	("beta2", po::value<std::vector<double>>()->multitoken(), "secondary (usually adjoint) coupling");
+	("beta2", po::value<std::vector<double>>()->multitoken(), "secondary (usually adjoint) coupling")
 	("warm", po::value<int>()->default_value(20), "number of warmup sweeps")
 	("meas", po::value<int>()->default_value(20), "number of measurment sweeps");
 	// clang-format on

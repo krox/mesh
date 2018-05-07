@@ -45,6 +45,21 @@ void Gnuplot::plotData(const std::vector<double> &xs,
 	++nplots;
 }
 
+void Gnuplot::plotHistogram(const histogram &hist, const std::string &title)
+{
+	std::string filename = (format("gnuplot_%s.txt") % nplots).str();
+	std::ofstream file(filename);
+
+	for (size_t i = 0; i < hist.bins.size(); ++i)
+		file << 0.5 * (hist.mins[i] + hist.maxs[i]) << " " << hist.bins[i]
+		     << "\n";
+	file.flush();
+	file.close();
+	cmd(format("%s '%s' using 1:2 with points title \"%s\"\n") %
+	    (nplots ? "replot" : "plot") % filename % title);
+	nplots++;
+}
+
 void Gnuplot::setRangeX(double min, double max)
 {
 	cmd(format("set xrange[%s : %s]\n") % min % max);
