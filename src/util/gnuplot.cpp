@@ -1,4 +1,4 @@
-#include "gnuplot.h"
+#include "util/gnuplot.h"
 #include <fstream>
 
 int Gnuplot::nplotsGlobal = 0;

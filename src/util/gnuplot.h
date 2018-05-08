@@ -2,7 +2,7 @@
 #define MESH_GNUPLOT_H
 
 #include "boost/format.hpp"
-#include "stats.h"
+#include "util/stats.h"
 
 class Gnuplot
 {

@@ -10,8 +10,8 @@ using boost::math::tools::eps_tolerance;
 using boost::math::tools::toms748_solve;
 
 #ifdef TEST_SAMPLER
-#include "gnuplot.h"
-#include "random.h"
+#include "util/gnuplot.h"
+#include "util/random.h"
 #include <iostream>
 #endif
 

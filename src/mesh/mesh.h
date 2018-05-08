@@ -5,7 +5,7 @@
 #include <cassert>
 #include <vector>
 
-#include "topology.h"
+#include "mesh/topology.h"
 
 template <typename G> class Mesh
 {

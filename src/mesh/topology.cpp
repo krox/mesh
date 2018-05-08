@@ -1,4 +1,4 @@
-#include "topology.h"
+#include "mesh/topology.h"
 
 Topology Topology::lattice1D(int N)
 {

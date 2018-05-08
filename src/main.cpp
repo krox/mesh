@@ -5,14 +5,15 @@
 
 #include <fmt/format.h>
 
-#include "gauge_action.h"
-#include "gauge_fixing.h"
-#include "gnuplot.h"
-#include "mesh.h"
-#include "random.h"
-#include "su2.h"
-#include "u1.h"
-#include "z2.h"
+#include "mesh/gauge_action.h"
+#include "mesh/gauge_fixing.h"
+#include "mesh/mesh.h"
+#include "mesh/su2.h"
+#include "mesh/u1.h"
+#include "mesh/z2.h"
+
+#include "util/gnuplot.h"
+#include "util/random.h"
 
 #include "boost/program_options.hpp"
 namespace po = boost::program_options;
@@ -51,8 +52,10 @@ int main(int argc, char **argv)
 	auto n = vm["n"].as<int>();
 	auto betaMin = vm["betaMin"].as<double>();
 	auto betaMax = vm["betaMax"].as<double>();
-	auto beta2s = vm["beta2"].as<std::vector<double>>();
-	if (beta2s.empty())
+	std::vector<double> beta2s;
+	if (vm.count("beta2"))
+		beta2s = vm["beta2"].as<std::vector<double>>();
+	else
 		beta2s.push_back(0.0);
 	auto nSweeps = vm["sweeps"].as<int>();
 	auto nSteps = vm["steps"].as<int>();

@@ -7,7 +7,7 @@
 
 #include <random>
 
-#include "mesh.h"
+#include "mesh/mesh.h"
 
 template <typename G> struct GaugeAction
 {
