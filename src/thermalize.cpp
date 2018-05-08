@@ -72,6 +72,7 @@ int main(int argc, char **argv)
 		pLink.emplace_back();
 
 		auto m = Mesh<Z2>(Topology::lattice4D(n));
+		m.initMixed(rng);
 		auto ga = GaugeAction(m);
 
 		for (int iter = 0; iter < nSweeps; ++iter)
