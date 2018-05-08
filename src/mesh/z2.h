@@ -14,6 +14,8 @@ struct Z2
 	/** random group element */
 	template <typename Rng> static Z2 random(Rng &rng);
 	template <typename Rng> static Z2 random(Rng &rng, double alpha);
+	template <typename Rng>
+	static Z2 random(Rng &rng, double alpha, double alpha2);
 
 	/** special elements */
 	static Z2 zero() { return Z2(0); }
@@ -38,6 +40,7 @@ struct Z2
 	double norm() const { return fabs(a); }
 	Z2 normalize() const { return a < 0 ? Z2(-1) : Z2(1); }
 	double action() const { return a; }
+	Z2 algebra() const { return Z2(0); }
 };
 
 template <typename Rng> inline Z2 Z2::random(Rng &rng)
@@ -50,6 +53,13 @@ template <typename Rng> inline Z2 Z2::random(Rng &rng, double alpha)
 	double p = exp(alpha);
 	double q = exp(-alpha);
 	return std::bernoulli_distribution(p / (p + q))(rng) ? Z2(1) : Z2(-1);
+}
+
+template <typename Rng>
+inline Z2 Z2::random(Rng &rng, double alpha, [[maybe_unused]] double alpha2)
+{
+	// there is no secondary action in Z2, so ignoring alpha2 is correct
+	return random(rng, alpha);
 }
 
 #endif

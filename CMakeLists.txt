@@ -11,7 +11,7 @@ find_package(Boost 1.62.0 COMPONENTS program_options REQUIRED)
 
 file(GLOB modules "src/mesh/*.cpp" "src/util/*.cpp")
 
-set(binaries "main")
+set(binaries "main" "thermalize")
 
 foreach(bin ${binaries})
 	add_executable(${bin} src/${bin}.cpp ${modules})
