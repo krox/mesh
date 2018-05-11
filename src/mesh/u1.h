@@ -27,6 +27,12 @@ struct U1
 	static U1 zero() { return U1(0, 0); }
 	static U1 one() { return U1(1, 0); }
 
+	/** (unnormalized) probability distribution */
+	static double dist(double alpha, double alpha2, double tr)
+	{
+		return exp(alpha * tr + alpha2 * tr * tr) * pow(1 - tr * tr, -0.5);
+	}
+
 	/** scalar operators */
 	U1 operator*(double b) const { return U1(v[0] * b, v[1] * b); }
 	U1 operator/(double b) const { return U1(v[0] / b, v[1] / b); }
