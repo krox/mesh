@@ -63,7 +63,7 @@ int main(int argc, char **argv)
 
 	std::vector<std::vector<double>> pSweep, pAction, pLink;
 
-	xoroshiro128plus rng{std::random_device()()};
+	rng_t rng{std::random_device()()};
 
 	for (double beta : betas)
 	{

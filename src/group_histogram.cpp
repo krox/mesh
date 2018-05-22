@@ -25,7 +25,7 @@ template <typename G> void run(double a, double a2, int n)
 	const int intCount = 100 * binCount;
 
 	// generate the histogram
-	xoroshiro128plus rng{std::random_device()()};
+	rng_t rng{std::random_device()()};
 	histogram hist(-1, 1, binCount);
 	for (int i = 0; i < n; ++i)
 		hist.add(G::random(rng, a, a2).action());

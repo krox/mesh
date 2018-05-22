@@ -23,8 +23,6 @@ namespace po = boost::program_options;
 #include <boost/accumulators/statistics/stats.hpp>
 using namespace boost::accumulators;
 
-typedef xoroshiro128plus rng_t;
-
 struct Result
 {
 	double loop4 = 0.0 / 0.0;

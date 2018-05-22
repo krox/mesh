@@ -20,10 +20,9 @@ struct SU2
 	explicit SU2(double a, double b, double c, double d) : v{a, b, c, d} {}
 
 	/** random group element */
-	template <typename Rng> static SU2 random(Rng &rng);
-	template <typename Rng> static SU2 random(Rng &rng, double alpha);
-	template <typename Rng>
-	static SU2 random(Rng &rng, double alpha, double alpha2);
+	static SU2 random(rng_t &rng);
+	static SU2 random(rng_t &rng, double alpha);
+	static SU2 random(rng_t &rng, double alpha, double alpha2);
 
 	/** special elements */
 	static SU2 zero() { return SU2(0, 0, 0, 0); }
@@ -89,13 +88,13 @@ struct SU2
 	static double accProb() { return (double)nAccepts / nTries; }
 };
 
-template <typename Rng> SU2 SU2::random(Rng &rng)
+SU2 SU2::random(rng_t &rng)
 {
 	std::normal_distribution d;
 	return SU2(d(rng), d(rng), d(rng), d(rng)).normalize();
 }
 
-template <typename Rng> SU2 SU2::random(Rng &rng, double alpha)
+SU2 SU2::random(rng_t &rng, double alpha)
 {
 	assert(alpha >= 0);
 
@@ -152,7 +151,7 @@ template <typename Rng> SU2 SU2::random(Rng &rng, double alpha)
 	}
 }
 
-template <typename Rng> SU2 SU2::random(Rng &rng, double alpha, double alpha2)
+SU2 SU2::random(rng_t &rng, double alpha, double alpha2)
 {
 	assert(alpha >= 0 && alpha2 >= 0);
 

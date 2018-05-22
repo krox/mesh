@@ -18,10 +18,9 @@ struct U1
 	explicit U1(double a, double b) : v{a, b} {}
 
 	/** random group element */
-	template <typename Rng> static U1 random(Rng &rng);
-	template <typename Rng> static U1 random(Rng &rng, double alpha);
-	template <typename Rng>
-	static U1 random(Rng &rng, double alpha, double alpha2);
+	static U1 random(rng_t &rng);
+	static U1 random(rng_t &rng, double alpha);
+	static U1 random(rng_t &rng, double alpha, double alpha2);
 
 	/** special elements */
 	static U1 zero() { return U1(0, 0); }
@@ -76,13 +75,13 @@ struct U1
 	static double accProb() { return (double)nAccepts / nTries; }
 };
 
-template <typename Rng> U1 U1::random(Rng &rng)
+U1 U1::random(rng_t &rng)
 {
 	double phi = std::uniform_real_distribution<double>(-M_PI, M_PI)(rng);
 	return U1(cos(phi), sin(phi));
 }
 
-template <typename Rng> U1 U1::random(Rng &rng, double alpha)
+U1 U1::random(rng_t &rng, double alpha)
 {
 	assert(alpha >= 0);
 
@@ -127,7 +126,7 @@ template <typename Rng> U1 U1::random(Rng &rng, double alpha)
 	}
 }
 
-template <typename Rng> U1 U1::random(Rng &rng, double alpha, double alpha2)
+U1 U1::random(rng_t &rng, double alpha, double alpha2)
 {
 	assert(alpha >= 0 && alpha2 >= 0);
 

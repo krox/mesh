@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "mesh/topology.h"
+#include "util/random.h"
 
 template <typename G> class Mesh
 {
@@ -19,8 +20,8 @@ template <typename G> class Mesh
 	{}
 
 	void initOrdered();
-	template <typename Rng> void initRandom(Rng &rng);
-	template <typename Rng> void initMixed(Rng &rng);
+	void initRandom(rng_t &rng);
+	void initMixed(rng_t &rng);
 
 	/** access to the gauge field */
 	G &u(int i) { return u_[i]; }
@@ -34,17 +35,13 @@ template <typename G> inline void Mesh<G>::initOrdered()
 		g = G::one();
 }
 
-template <typename G>
-template <typename Rng>
-inline void Mesh<G>::initRandom(Rng &rng)
+template <typename G> inline void Mesh<G>::initRandom(rng_t &rng)
 {
 	for (G &g : u_)
 		g = G::random(rng);
 }
 
-template <typename G>
-template <typename Rng>
-inline void Mesh<G>::initMixed(Rng &rng)
+template <typename G> inline void Mesh<G>::initMixed(rng_t &rng)
 {
 	for (size_t i = 0; i < u_.size() / 2; ++i)
 		u(i) = G::one();

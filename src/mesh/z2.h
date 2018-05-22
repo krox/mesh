@@ -12,10 +12,9 @@ struct Z2
 	explicit Z2(double a) : a(a) {}
 
 	/** random group element */
-	template <typename Rng> static Z2 random(Rng &rng);
-	template <typename Rng> static Z2 random(Rng &rng, double alpha);
-	template <typename Rng>
-	static Z2 random(Rng &rng, double alpha, double alpha2);
+	static Z2 random(rng_t &rng);
+	static Z2 random(rng_t &rng, double alpha);
+	static Z2 random(rng_t &rng, double alpha, double alpha2);
 
 	/** special elements */
 	static Z2 zero() { return Z2(0); }
@@ -47,20 +46,19 @@ struct Z2
 	static double accProb() { return 1.0; }
 };
 
-template <typename Rng> inline Z2 Z2::random(Rng &rng)
+inline Z2 Z2::random(rng_t &rng)
 {
 	return std::bernoulli_distribution(0.5)(rng) ? Z2(1) : Z2(-1);
 }
 
-template <typename Rng> inline Z2 Z2::random(Rng &rng, double alpha)
+inline Z2 Z2::random(rng_t &rng, double alpha)
 {
 	double p = exp(alpha);
 	double q = exp(-alpha);
 	return std::bernoulli_distribution(p / (p + q))(rng) ? Z2(1) : Z2(-1);
 }
 
-template <typename Rng>
-inline Z2 Z2::random(Rng &rng, double alpha, [[maybe_unused]] double alpha2)
+inline Z2 Z2::random(rng_t &rng, double alpha, [[maybe_unused]] double alpha2)
 {
 	// there is no secondary action in Z2, so ignoring alpha2 is correct
 	return random(rng, alpha);
