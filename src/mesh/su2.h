@@ -22,6 +22,8 @@ struct SU2
 	/** random group element */
 	template <typename Rng> static SU2 random(Rng &rng);
 	template <typename Rng> static SU2 random(Rng &rng, double alpha);
+	template <typename Rng>
+	static SU2 random(Rng &rng, double alpha, double alpha2);
 
 	/** special elements */
 	static SU2 zero() { return SU2(0, 0, 0, 0); }
@@ -76,6 +78,15 @@ struct SU2
 
 	/** NOTE: this has the wrong phase factor */
 	SU2 algebra() const { return SU2(0, v[1], v[2], v[3]); }
+
+	/** statistics on random element generation */
+	static inline uint64_t nAccepts = 0, nTries = 0;
+	static void clearStats()
+	{
+		nAccepts = 0;
+		nTries = 0;
+	}
+	static double accProb() { return (double)nAccepts / nTries; }
 };
 
 template <typename Rng> SU2 SU2::random(Rng &rng)
@@ -98,10 +109,12 @@ template <typename Rng> SU2 SU2::random(Rng &rng, double alpha)
 		// naive rejection algorithm
 		while (true)
 		{
+			++nTries;
 			auto r = random(rng);
 			double p = std::min(exp(alpha * (r[0] - 1)), 1.0);
 			if (!std::bernoulli_distribution(p)(rng))
 				continue;
+			++nAccepts;
 			return r;
 		}
 	}
@@ -114,7 +127,7 @@ template <typename Rng> SU2 SU2::random(Rng &rng, double alpha)
 		std::uniform_real_distribution<double> uni_dist;
 		while (true)
 		{
-
+			++nTries;
 			double x = exp_dist(rng);
 			double x2 = exp_dist(rng);
 			double c = pow(cos(uni_dist(rng) * 2 * M_PI), 2);
@@ -133,9 +146,18 @@ template <typename Rng> SU2 SU2::random(Rng &rng, double alpha)
 			r[1] *= f;
 			r[2] *= f;
 			r[3] *= f;
+			++nAccepts;
 			return r;
 		}
 	}
+}
+
+template <typename Rng> SU2 SU2::random(Rng &rng, double alpha, double alpha2)
+{
+	assert(alpha >= 0 && alpha2 >= 0);
+
+	assert(alpha2 == 0);
+	return random(rng, alpha);
 }
 
 #endif

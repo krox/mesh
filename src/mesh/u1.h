@@ -65,6 +65,15 @@ struct U1
 
 	/** NOTE: this has the wrong phase factor */
 	U1 algebra() const { return U1(0, v[1]); }
+
+	/** statistics on random element generation */
+	static inline uint64_t nAccepts = 0, nTries = 0;
+	static void clearStats()
+	{
+		nAccepts = 0;
+		nTries = 0;
+	}
+	static double accProb() { return (double)nAccepts / nTries; }
 };
 
 template <typename Rng> U1 U1::random(Rng &rng)
@@ -85,11 +94,13 @@ template <typename Rng> U1 U1::random(Rng &rng, double alpha)
 
 		while (true)
 		{
+			++nTries;
 			double phi = uni_dist(rng);
 			double r = cos(phi) - 1;
 			// assert(r <= 0);
 			if (!std::bernoulli_distribution(exp(alpha * r))(rng))
 				continue;
+			++nAccepts;
 			return U1(cos(phi), sin(phi));
 		}
 	}
@@ -102,6 +113,7 @@ template <typename Rng> U1 U1::random(Rng &rng, double alpha)
 
 		while (true)
 		{
+			++nTries;
 			auto phi = norm_dist(rng);
 			if (phi > M_PI || phi < -M_PI)
 				continue;
@@ -109,6 +121,7 @@ template <typename Rng> U1 U1::random(Rng &rng, double alpha)
 			// assert(r <= 0);
 			if (!std::bernoulli_distribution(exp(alpha * r))(rng))
 				continue;
+			++nAccepts;
 			return U1(cos(phi), sin(phi));
 		}
 	}
@@ -128,12 +141,14 @@ template <typename Rng> U1 U1::random(Rng &rng, double alpha, double alpha2)
 
 		while (true)
 		{
+			++nTries;
 			double phi = uni_dist(rng);
 			double tr = cos(phi);
 			double r = alpha * (tr - 1) + alpha2 * (tr * tr - 1);
 			assert(r <= 0);
 			if (!std::bernoulli_distribution(exp(r))(rng))
 				continue;
+			++nAccepts;
 			return U1(cos(phi), sin(phi));
 		}
 	}
@@ -146,6 +161,7 @@ template <typename Rng> U1 U1::random(Rng &rng, double alpha, double alpha2)
 
 		while (true)
 		{
+			++nTries;
 			auto phi = norm_dist(rng);
 			if (phi > M_PI || phi < -M_PI)
 				continue;
@@ -155,6 +171,7 @@ template <typename Rng> U1 U1::random(Rng &rng, double alpha, double alpha2)
 			assert(r <= 1.0e-8);
 			if (!std::bernoulli_distribution(exp(r))(rng))
 				continue;
+			++nAccepts;
 			return U1(cos(phi), sin(phi));
 		}
 	}

@@ -41,6 +41,10 @@ struct Z2
 	Z2 normalize() const { return a < 0 ? Z2(-1) : Z2(1); }
 	double action() const { return a; }
 	Z2 algebra() const { return Z2(0); }
+
+	/** statistics on random element generation */
+	static void clearStats() {}
+	static double accProb() { return 1.0; }
 };
 
 template <typename Rng> inline Z2 Z2::random(Rng &rng)
