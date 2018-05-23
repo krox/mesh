@@ -32,6 +32,20 @@ void Gnuplot::plotFunction(const std::string &fun, const std::string &title)
 	++nplots;
 }
 
+void Gnuplot::plotData(const std::vector<double> &ys, const std::string &title)
+{
+	std::string filename =
+	    (format("gnuplot_%s_%s.txt") % plotID % nplots).str();
+	std::ofstream file(filename);
+	for (size_t i = 0; i < ys.size(); ++i)
+		file << i << " " << ys[i] << "\n";
+	file.flush();
+	file.close();
+	cmd(format("%s '%s' using 1:2 with %s title \"%s\"\n") %
+	    (nplots ? "replot" : "plot") % filename % style % title);
+	++nplots;
+}
+
 void Gnuplot::plotData(const std::vector<double> &xs,
                        const std::vector<double> &ys, const std::string &title)
 {

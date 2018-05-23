@@ -30,6 +30,10 @@ class Gnuplot
 	void plotFunction(F f, double min, double max,
 	                  const std::string &title = "");
 
+	/** plot raw data points (i, ys[i]) */
+	void plotData(const std::vector<double> &ys,
+	              const std::string &title = "data");
+
 	/** plot raw data points (xs[i], ys[i]) */
 	void plotData(const std::vector<double> &xs, const std::vector<double> &ys,
 	              const std::string &title = "data");
