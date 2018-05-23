@@ -27,6 +27,7 @@ struct Result
 {
 	double loop4 = 0.0 / 0.0;
 	double accProb = 0.0 / 0.0;
+	Autocorrelation ac;
 };
 
 template <typename G>
@@ -39,11 +40,16 @@ Result run(int n, double beta, double beta2, double nSweeps, rng_t &rng)
 	G::clearStats();
 
 	// thermalization
+	Result r;
 	for (int i = 0; i < nSweeps; ++i)
+	{
 		ga.thermalize(rng, beta, beta2);
+		if (i >= nSweeps / 2)
+			r.ac.add(ga.loop4());
+	}
 
 	// measurements
-	Result r;
+
 	r.loop4 = ga.loop4();
 	r.accProb = G::accProb();
 	return r;
@@ -96,9 +102,9 @@ int main(int argc, char **argv)
 
 	rng_t rng{std::random_device()()};
 
-	fmt::print("╔═════════════╤═══════════╤══════╗\n");
-	fmt::print("║  coupling   │   plaq    │ acc  ║\n");
-	fmt::print("╟─────────────┼───────────┼──────╢\n");
+	fmt::print("╔═════════════╤═══════════╤══════╤═══════╗\n");
+	fmt::print("║  coupling   │   plaq    │  acc │   ac  ║\n");
+	fmt::print("╟─────────────┼───────────┼──────┼───────╢\n");
 
 	for (double beta2 : beta2s)
 	{
@@ -119,8 +125,8 @@ int main(int argc, char **argv)
 			else
 				assert(false);
 
-			fmt::print("║ {:5.3f} {:5.3f} │ {:9.7f} │ {:4.2f} ║\n", beta, beta2,
-			           res.loop4, res.accProb);
+			fmt::print("║ {:5.3f} {:5.3f} │ {:9.7f} │ {:4.2f} │ {:5.2f} ║\n",
+			           beta, beta2, res.loop4, res.accProb, res.ac.corr(1));
 
 			// plot measurements
 			pBeta.back().push_back(beta);
@@ -134,5 +140,5 @@ int main(int argc, char **argv)
 		}
 	}
 
-	fmt::print("╚═════════════╧═══════════╧══════╝\n");
+	fmt::print("╚═════════════╧═══════════╧══════╧═══════╝\n");
 }
