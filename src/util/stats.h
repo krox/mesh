@@ -6,6 +6,41 @@
 #include <array>
 #include <vector>
 
+/** fit constant function f(x) = a */
+struct ConstantFit
+{
+	/** constructors */
+	ConstantFit() = default;
+	ConstantFit(const std::vector<double> &ys);
+	ConstantFit(const std::vector<double> &ys,
+	            const std::vector<double> &ys_err);
+
+	/** fit result */
+	double a = 0.0 / 0.0;
+	double a_err = 0.0 / 0.0;
+
+	/** evaluate the fitted function */
+	double operator()() const;
+	double operator()(double x) const;
+};
+
+/** fit linear function f(x) = a + b*x */
+struct LinearFit
+{
+	/** constructors */
+	LinearFit() = default;
+	LinearFit(const std::vector<double> &xs, const std::vector<double> &ys);
+	LinearFit(const std::vector<double> &xs, const std::vector<double> &ys,
+	          const std::vector<double> &ys_err);
+
+	/** fit result */
+	double a = 0.0 / 0.0;
+	double b = 0.0 / 0.0;
+
+	/** evaluate the fitted function */
+	double operator()(double x) const;
+};
+
 struct histogram
 {
 	std::vector<double> mins;
@@ -25,7 +60,7 @@ struct histogram
  */
 template <size_t dim> struct Estimator
 {
-	size_t n = 0;
+	double n = 0;
 	double avg[dim];       // = 1/n ∑ x_i
 	double sum2[dim][dim]; //= ∑ (x_i - meanX)*(y_i - meanY)
 
@@ -35,6 +70,7 @@ template <size_t dim> struct Estimator
 
 	/** add a new data point */
 	void add(std::array<double, dim> x);
+	void add(std::array<double, dim> x, double w);
 
 	/** mean/variance in dimension i */
 	double mean(size_t i = 0) const;
@@ -51,7 +87,7 @@ template <size_t dim> struct Estimator
 /** analyze autocorrelation of a single stream of data */
 class Autocorrelation
 {
-	static constexpr size_t len = 20;
+	static constexpr size_t len = 50;
 
 	size_t count = 0;
 	double history[len]; // previously added values
@@ -71,6 +107,9 @@ class Autocorrelation
 	/** covariance/correlation between data[i] and data[i-lag] */
 	double cov(int lag = 1) const;
 	double corr(int lag = 1) const;
+
+	/** estimate auto-correlation length */
+	double corrTime() const;
 
 	/** print analysis to stdout */
 	void write(size_t maxLen = len) const;

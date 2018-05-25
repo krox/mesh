@@ -4,6 +4,59 @@
 #include <cmath>
 #include <fmt/format.h>
 
+ConstantFit::ConstantFit(const std::vector<double> &ys)
+{
+	a = 0;
+	for (double y : ys)
+		a += y;
+	a /= ys.size();
+	a_err = 0.0 / 0.0;
+}
+
+ConstantFit::ConstantFit(const std::vector<double> &ys,
+                         const std::vector<double> &ys_err)
+{
+	assert(ys.size() == ys_err.size());
+	a = 0;
+	a_err = 0;
+	for (size_t i = 0; i < ys.size(); ++i)
+	{
+		a += ys[i] / (ys_err[i] * ys_err[i]);
+		a_err += 1 / (ys_err[i] * ys_err[i]);
+	}
+	a /= a_err;
+	a_err = 1 / sqrt(a_err);
+}
+
+double ConstantFit::operator()() const { return a; }
+double ConstantFit::operator()([[maybe_unused]] double x) const { return a; }
+
+LinearFit::LinearFit(const std::vector<double> &xs,
+                     const std::vector<double> &ys)
+{
+	assert(xs.size() == ys.size());
+	Estimator<2> est;
+	for (size_t i = 0; i < xs.size(); ++i)
+		est.add({xs[i], ys[i]});
+	b = est.cov(0, 1) / est.var(0);
+	a = est.mean(1) - est.mean(0) * b;
+}
+
+LinearFit::LinearFit(const std::vector<double> &xs,
+                     const std::vector<double> &ys,
+                     const std::vector<double> &ys_err)
+{
+	assert(xs.size() == ys.size());
+	Estimator<2> est;
+	for (size_t i = 0; i < xs.size(); ++i)
+		est.add({xs[i], ys[i]}, 1.0 / (ys_err[i] * ys_err[i]));
+	b = est.cov(0, 1) / est.var(0);
+	a = est.mean(1) - est.mean(0) * b;
+}
+
+/** evaluate the fitted function */
+double LinearFit::operator()(double x) const { return a + b * x; }
+
 histogram::histogram(double min, double max, size_t n)
     : mins(n), maxs(n), bins(n, 0)
 {
@@ -26,17 +79,23 @@ template <size_t dim> Estimator<dim>::Estimator() { clear(); }
 
 template <size_t dim> void Estimator<dim>::add(std::array<double, dim> x)
 {
-	n += 1;
+	return add(x, 1.0);
+}
+
+template <size_t dim>
+void Estimator<dim>::add(std::array<double, dim> x, double w)
+{
+	n += w;
 	double dx[dim];
 	for (size_t i = 0; i < dim; ++i)
 	{
 		dx[i] = x[i] - avg[i];
-		avg[i] += dx[i] / n;
+		avg[i] += dx[i] * (w / n);
 	}
 
 	for (size_t i = 0; i < dim; ++i)
 		for (size_t j = 0; j < dim; ++j)
-			sum2[i][j] += dx[i] * (x[j] - avg[j]);
+			sum2[i][j] += w * dx[i] * (x[j] - avg[j]);
 }
 
 template <size_t dim> double Estimator<dim>::mean(size_t i) const
@@ -87,6 +146,21 @@ double Autocorrelation::var() const { return ac[0].var(); }
 
 double Autocorrelation::cov(int lag) const { return ac[lag].cov(); }
 double Autocorrelation::corr(int lag) const { return ac[lag].corr(); }
+
+double Autocorrelation::corrTime() const
+{
+	// IDEA: use data log(abs(corr(i))) and do a linear fit
+	double sumXY = 0, sumXX = 0, sumW = 0;
+	for (size_t i = 0; i < len; ++i)
+	{
+		double c = fabs(corr(i));
+		double w = 1.0 / (c * c);
+		sumW += w;
+		sumXX += w * i * i;
+		sumXY += w * i * log(c);
+	}
+	return -sumXX / sumXY;
+}
 
 void Autocorrelation::write(size_t maxLen) const
 {
