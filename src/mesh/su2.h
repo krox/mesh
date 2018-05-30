@@ -88,13 +88,13 @@ struct SU2
 	static double accProb() { return (double)nAccepts / nTries; }
 };
 
-SU2 SU2::random(rng_t &rng)
+inline SU2 SU2::random(rng_t &rng)
 {
 	std::normal_distribution d;
 	return SU2(d(rng), d(rng), d(rng), d(rng)).normalize();
 }
 
-SU2 SU2::random(rng_t &rng, double alpha)
+inline SU2 SU2::random(rng_t &rng, double alpha)
 {
 	assert(alpha >= 0);
 
@@ -151,7 +151,7 @@ SU2 SU2::random(rng_t &rng, double alpha)
 	}
 }
 
-SU2 SU2::random(rng_t &rng, double alpha, double alpha2)
+inline SU2 SU2::random(rng_t &rng, double alpha, double alpha2)
 {
 	assert(alpha >= 0 && alpha2 >= 0);
 

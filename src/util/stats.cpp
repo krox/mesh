@@ -151,7 +151,7 @@ double Autocorrelation::corrTime() const
 {
 	// IDEA: use data log(abs(corr(i))) and do a linear fit
 	double sumXY = 0, sumXX = 0, sumW = 0;
-	for (size_t i = 0; i < len; ++i)
+	for (size_t i = 0; i < len && ac[i].n >= 2; ++i)
 	{
 		double c = fabs(corr(i));
 		double w = 1.0 / (c * c);

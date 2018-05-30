@@ -75,13 +75,13 @@ struct U1
 	static double accProb() { return (double)nAccepts / nTries; }
 };
 
-U1 U1::random(rng_t &rng)
+inline U1 U1::random(rng_t &rng)
 {
 	double phi = std::uniform_real_distribution<double>(-M_PI, M_PI)(rng);
 	return U1(cos(phi), sin(phi));
 }
 
-U1 U1::random(rng_t &rng, double alpha)
+inline U1 U1::random(rng_t &rng, double alpha)
 {
 	assert(alpha >= 0);
 
@@ -126,7 +126,7 @@ U1 U1::random(rng_t &rng, double alpha)
 	}
 }
 
-U1 U1::random(rng_t &rng, double alpha, double alpha2)
+inline U1 U1::random(rng_t &rng, double alpha, double alpha2)
 {
 	assert(alpha >= 0 && alpha2 >= 0);
 
