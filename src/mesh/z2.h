@@ -7,6 +7,8 @@ struct Z2
 {
 	double a;
 
+	static constexpr size_t repSize() { return 1; }
+
 	/** constructors */
 	Z2() = default;
 	explicit Z2(double a) : a(a) {}

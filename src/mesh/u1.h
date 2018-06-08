@@ -10,6 +10,8 @@ struct U1
 	// represents v0 + i*v1
 	double v[2];
 
+	static constexpr size_t repSize() { return 2; }
+
 	double &operator[](size_t i) { return v[i]; }
 	const double &operator[](size_t i) const { return v[i]; }
 

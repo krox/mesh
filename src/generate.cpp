@@ -7,78 +7,16 @@
 
 #include "mesh/gauge_action.h"
 #include "mesh/gauge_fixing.h"
+#include "mesh/markov.h"
 #include "mesh/mesh.h"
 #include "mesh/su2.h"
 #include "mesh/u1.h"
 #include "mesh/z2.h"
-
 #include "util/gnuplot.h"
 #include "util/random.h"
 
 #include "boost/program_options.hpp"
 namespace po = boost::program_options;
-
-#include <boost/accumulators/accumulators.hpp>
-#include <boost/accumulators/statistics/density.hpp>
-#include <boost/accumulators/statistics/stats.hpp>
-using namespace boost::accumulators;
-
-struct Config
-{
-	std::string group;    // gauge group;
-	int n;                // lattice size
-	double beta, beta2;   // inverse coupling
-	int count;            // number of configs to generate
-	int nTherms, nSweeps; // number of sweeps between measurements
-	uint64_t seed;        // seed for random number generator
-};
-
-struct Result
-{
-	std::vector<double> loop4;
-	double accProb = 0.0 / 0.0;
-};
-
-template <typename G> Result runGroup(const Config &cnf)
-{
-	rng_t rng(cnf.seed);
-
-	// initialize mesh
-	auto m = Mesh<G>(Topology::lattice4D(cnf.n));
-	m.initMixed(rng);
-	auto ga = GaugeAction(m);
-	G::clearStats();
-
-	// thermalization
-	for (int i = 0; i < cnf.nTherms; ++i)
-		ga.thermalize(rng, cnf.beta, cnf.beta2);
-
-	// measurements
-	Result r;
-	for (int i = 0; i < cnf.count; ++i)
-	{
-		for (int j = 0; j < cnf.nSweeps; ++j)
-			ga.thermalize(rng, cnf.beta, cnf.beta2);
-		r.loop4.push_back(ga.loop4());
-	}
-	r.accProb = G::accProb();
-	return r;
-}
-
-Result run(const Config &cnf)
-{
-	if (cnf.group == "z2")
-		return runGroup<Z2>(cnf);
-	else if (cnf.group == "u1")
-		return runGroup<U1>(cnf);
-	else if (cnf.group == "su2")
-		return runGroup<SU2>(cnf);
-	else
-	{
-		fmt::print("ERROR: unknown gauge group '{}'\n", cnf.group);
-		exit(-1);
-	}
-}
 
 int main(int argc, char **argv)
 {
@@ -94,6 +32,7 @@ int main(int argc, char **argv)
 	("therms", po::value<int>()->default_value(0), "number of sweeps for thermalization")
 	("sweeps", po::value<int>()->default_value(20), "number of sweeps between configs")
 	("seed", po::value<uint64_t>()->default_value(std::random_device()()), "seed for random number generator (same for all betas)")
+	("path", po::value<std::string>()->default_value(""), "path for file output (HDF5 format)")
 	("plot", "show plot of generated ensemble")
 	;
 	// clang-format on
@@ -108,13 +47,13 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	Config cnf;
-	cnf.group = vm["group"].as<std::string>();
-	cnf.n = vm["n"].as<int>();
-	cnf.count = vm["count"].as<int>();
-	cnf.nTherms = vm["therms"].as<int>();
-	cnf.nSweeps = vm["sweeps"].as<int>();
-	cnf.seed = vm["seed"].as<uint64_t>();
+	ChainParams params;
+	params.group = vm["group"].as<std::string>();
+	params.n = vm["n"].as<int>();
+	params.count = vm["count"].as<int>();
+	params.nWarms = vm["therms"].as<int>();
+	params.nSweeps = vm["sweeps"].as<int>();
+	params.seed = vm["seed"].as<uint64_t>();
 
 	assert(vm.count("beta"));
 	assert(vm.count("beta2"));
@@ -122,36 +61,43 @@ int main(int argc, char **argv)
 	auto beta2s = vm["beta2"].as<std::vector<double>>();
 
 	bool doPlot = vm.count("plot");
+	auto path = vm["path"].as<std::string>();
 
 	fmt::print("╔═════════════╤═══════════╤══════╤═══════╗\n");
-	fmt::print("║  coupling   │   plaq    │  acc │   ac  ║\n");
+	fmt::print("║  coupling   │   plaq    │  acc │  corr ║\n");
 	fmt::print("╟─────────────┼───────────┼──────┼───────╢\n");
 
 	for (double beta2 : beta2s)
 	{
 		for (double beta : betas)
 		{
-			cnf.beta = beta;
-			cnf.beta2 = beta2;
+			params.beta = beta;
+			params.beta2 = beta2;
 
-			auto res = run(cnf);
+			if (path != "")
+			{
+				if (beta2 == 0)
+					params.filename =
+					    fmt::format("{}/{}.p{}.b{}.h5", path, params.group,
+					                params.n, (int)(beta * 1000));
+				else
+					params.filename = fmt::format(
+					    "{}/{}.p{}.b{}.b{}.h5", path, params.group, params.n,
+					    (int)(beta * 1000), (int)(beta2 * 1000));
+			}
 
-			Autocorrelation ac;
-			for (double x : res.loop4)
-				ac.add(x);
+			auto res = runChain(params);
+
 			fmt::print("║ {:5.3f} {:5.3f} │ {:9.7f} │ {:4.2f} │ {:5.2f} ║\n",
-			           beta, beta2, ac.mean(), res.accProb, ac.corr(1));
+			           beta, beta2, res.action, 0.0 / 0.0, res.corrTime);
 
 			if (doPlot)
 			{
-				Gnuplot().plotData(
-				    res.loop4,
-				    fmt::format("<action> (b={}, b2={})", beta, beta2));
-				std::vector<double> acs;
-				for (size_t i = 0; i < 20; ++i)
-					acs.push_back(ac.corr(i));
-				Gnuplot().plotData(
-				    acs, fmt::format("auto-corr (b={}, b2={})", beta, beta2));
+				Gnuplot()
+				    .setRangeX(params.nWarms, res.actionHistory.size())
+				    .plotData(
+				        res.actionHistory,
+				        fmt::format("<action> (b={}, b2={})", beta, beta2));
 			}
 		}
 	}

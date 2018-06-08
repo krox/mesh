@@ -12,6 +12,8 @@ struct SU2
 	//                   -v2 + i v1   v0 - i v3
 	double v[4];
 
+	static constexpr size_t repSize() { return 4; }
+
 	double &operator[](size_t i) { return v[i]; }
 	const double &operator[](size_t i) const { return v[i]; }
 

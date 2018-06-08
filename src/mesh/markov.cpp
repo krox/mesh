@@ -7,6 +7,7 @@
 #include "mesh/su2.h"
 #include "mesh/u1.h"
 #include "mesh/z2.h"
+#include "util/io.h"
 #include "util/stats.h"
 
 template <typename G> ChainResult runChainImpl(const ChainParams &params)
@@ -25,6 +26,29 @@ template <typename G> ChainResult runChainImpl(const ChainParams &params)
 		throw std::runtime_error("unknown initialization");
 	auto ga = GaugeAction(m);
 
+	DataFile file;
+	if (params.filename != "")
+	{
+		file = DataFile::create(params.filename);
+
+		// physical parameters
+		file.setAttribute("group", params.group);
+		file.setAttribute("beta", params.beta);
+		file.setAttribute("beta2", params.beta2);
+
+		// topological parameters
+		file.setAttribute("topology", "periodic4");
+		std::vector<int> geom = {params.n, params.n, params.n, params.n};
+		file.setAttribute("geometry", geom);
+
+		// simulation parameters
+		file.setAttribute("markov_warms", params.nWarms);
+		file.setAttribute("markov_sweeps", params.nSweeps);
+		file.setAttribute("markov_count", params.count);
+
+		file.makeGroup("/configs");
+	}
+
 	/** run the Markov chain */
 	ChainResult res;
 	for (int i = -params.nWarms; i < params.count * params.nSweeps; ++i)
@@ -33,9 +57,12 @@ template <typename G> ChainResult runChainImpl(const ChainParams &params)
 		ga.thermalize(rng, params.beta, params.beta2);
 		res.actionHistory.push_back(ga.loop4());
 
-		if (i >= 0 && i % params.nSweeps == 0)
+		if (params.filename != "" && i >= 0 && i % params.nSweeps == 0)
 		{
-			/** TODO: write config to HDF5 file */
+			std::string name =
+			    fmt::format("/configs/{}", i / params.nSweeps + 1);
+			file.createData(name, {(unsigned)m.top.nLinks(), G::repSize()})
+			    .write(m.rawLinksConst());
 		}
 	}
 
@@ -45,6 +72,11 @@ template <typename G> ChainResult runChainImpl(const ChainParams &params)
 		ac.add(res.actionHistory.at(params.nWarms + i));
 	res.corrTime = ac.corrTime() / params.nSweeps;
 	res.action = ac.mean();
+
+	if (params.filename != "")
+	{
+		file.setAttribute("action_history", res.actionHistory);
+	}
 
 	return res;
 }
