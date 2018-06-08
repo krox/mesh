@@ -42,25 +42,27 @@ template <typename G> ChainResult runChainImpl(const ChainParams &params)
 		file.setAttribute("geometry", geom);
 
 		// simulation parameters
-		file.setAttribute("markov_warms", params.nWarms);
-		file.setAttribute("markov_sweeps", params.nSweeps);
 		file.setAttribute("markov_count", params.count);
+		file.setAttribute("markov_discard", params.discard);
+		file.setAttribute("markov_sweeps", params.sweeps);
 
 		file.makeGroup("/configs");
 	}
 
 	/** run the Markov chain */
 	ChainResult res;
-	for (int i = -params.nWarms; i < params.count * params.nSweeps; ++i)
+	for (int i = -params.discard; i < params.count; ++i)
 	{
-		// do a thermalization sweep and basic measurements
-		ga.thermalize(rng, params.beta, params.beta2);
-		res.actionHistory.push_back(ga.loop4());
-
-		if (params.filename != "" && i >= 0 && i % params.nSweeps == 0)
+		// do some thermalization sweeps and basic measurements
+		for (int j = 0; j < params.sweeps; ++j)
 		{
-			std::string name =
-			    fmt::format("/configs/{}", i / params.nSweeps + 1);
+			ga.thermalize(rng, params.beta, params.beta2);
+			res.actionHistory.push_back(ga.loop4());
+		}
+
+		if (params.filename != "" && i >= 0)
+		{
+			std::string name = fmt::format("/configs/{}", i + 1);
 			file.createData(name, {(unsigned)m.top.nLinks(), G::repSize()})
 			    .write(m.rawLinksConst());
 		}
@@ -68,9 +70,9 @@ template <typename G> ChainResult runChainImpl(const ChainParams &params)
 
 	/** analyze measurements */
 	Autocorrelation ac;
-	for (int i = 0; i < params.count * params.nSweeps; ++i)
-		ac.add(res.actionHistory.at(params.nWarms + i));
-	res.corrTime = ac.corrTime() / params.nSweeps;
+	for (int i = 0; i < params.sweeps * params.count; ++i)
+		ac.add(res.actionHistory.at(params.sweeps * params.discard + i));
+	res.corrTime = ac.corrTime() / params.sweeps;
 	res.action = ac.mean();
 
 	if (params.filename != "")

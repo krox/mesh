@@ -29,7 +29,7 @@ int main(int argc, char **argv)
 	("beta", po::value<std::vector<double>>()->multitoken(), "inverse coupling (linear term)")
 	("beta2", po::value<std::vector<double>>()->multitoken(), "inverse coupling (quadratric term)")
 	("count", po::value<int>()->default_value(100), "number of gauge-configs to generate")
-	("therms", po::value<int>()->default_value(0), "number of sweeps for thermalization")
+	("discard", po::value<int>()->default_value(0), "number of gauge-configs to discard (thermalization)")
 	("sweeps", po::value<int>()->default_value(20), "number of sweeps between configs")
 	("seed", po::value<uint64_t>()->default_value(std::random_device()()), "seed for random number generator (same for all betas)")
 	("path", po::value<std::string>()->default_value(""), "path for file output (HDF5 format)")
@@ -51,8 +51,8 @@ int main(int argc, char **argv)
 	params.group = vm["group"].as<std::string>();
 	params.n = vm["n"].as<int>();
 	params.count = vm["count"].as<int>();
-	params.nWarms = vm["therms"].as<int>();
-	params.nSweeps = vm["sweeps"].as<int>();
+	params.discard = vm["discard"].as<int>();
+	params.sweeps = vm["sweeps"].as<int>();
 	params.seed = vm["seed"].as<uint64_t>();
 
 	assert(vm.count("beta"));
@@ -94,7 +94,8 @@ int main(int argc, char **argv)
 			if (doPlot)
 			{
 				Gnuplot()
-				    .setRangeX(params.nWarms, res.actionHistory.size())
+				    .setRangeX(params.sweeps * params.discard,
+				               res.actionHistory.size())
 				    .plotData(
 				        res.actionHistory,
 				        fmt::format("<action> (b={}, b2={})", beta, beta2));

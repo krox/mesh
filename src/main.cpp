@@ -41,8 +41,8 @@ int main(int argc, char **argv)
 	ChainParams params;
 	params.group = vm["group"].as<std::string>();
 	params.n = vm["n"].as<int>();
-	params.count = params.nWarms = vm["sweeps"].as<int>();
-	params.nSweeps = 1;
+	params.count = params.discard = vm["sweeps"].as<int>() / 2;
+	params.sweeps = 1;
 
 	auto betaMin = vm["betaMin"].as<double>();
 	auto betaMax = vm["betaMax"].as<double>();

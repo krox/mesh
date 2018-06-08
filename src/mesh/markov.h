@@ -17,9 +17,10 @@ struct ChainParams
 
 	/** additional simulation parameters */
 	int init = 3; // initial condition of lattice (1=ordered, 2=random, 3=mixed)
-	int nWarms = 0;            // number of warmup sweeps
-	int nSweeps = 1;           // number of sweeps between measurements
-	int count = 100;           // number of configs to generate
+	int count = 100; // number of configs to generate
+	int discard = 0; // number of discarded configs
+	int sweeps = 1;  // number of sweeps between measurements
+
 	uint64_t seed = 0;         // seed for random number generator
 	std::string filename = ""; // empty if no output is required
 };
