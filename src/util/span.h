@@ -13,7 +13,8 @@ template <typename T> class span
 	span() = default;
 	span(T *data, size_t size) : data_(data), size_(size) {}
 	span(T *begin, T *end) : data_(begin), size_(end - begin) {}
-	span(std::vector<T> &v) : data_(v.data()), size_(v.size()) {}
+	// span(std::vector<T> &v) : data_(v.data()), size_(v.size()) {}
+	template <typename C> span(C &c) : span(&*c.begin(), &*c.end()) {}
 
 	/** field access */
 	T *data() { return data_; }

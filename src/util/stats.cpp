@@ -4,6 +4,23 @@
 #include <cmath>
 #include <fmt/format.h>
 
+double mean(const std::vector<double> &xs)
+{
+	double sum = 0;
+	for (double x : xs)
+		sum += x;
+	return sum / xs.size();
+}
+
+double variance(const std::vector<double> &xs)
+{
+	double m = mean(xs);
+	double sum = 0;
+	for (double x : xs)
+		sum += (x - m) * (x - m);
+	return sum / xs.size();
+}
+
 ConstantFit::ConstantFit(const std::vector<double> &ys)
 {
 	a = 0;
@@ -133,44 +150,35 @@ template class Estimator<2>;
 template class Estimator<3>;
 template class Estimator<4>;
 
-void Autocorrelation::add(double x)
+std::vector<double> autocorrelation(const std::vector<double> &xs, size_t m)
 {
-	history[count % len] = x;
-	for (size_t i = 0; i < std::min(count + 1, len); ++i)
-		ac[i].add({x, history[(count - i) % len]});
-	count += 1;
-}
-
-double Autocorrelation::mean() const { return ac[0].mean(); }
-double Autocorrelation::var() const { return ac[0].var(); }
-
-double Autocorrelation::cov(int lag) const { return ac[lag].cov(); }
-double Autocorrelation::corr(int lag) const { return ac[lag].corr(); }
-
-double Autocorrelation::corrTime() const
-{
-	// IDEA: use data log(abs(corr(i))) and do a linear fit
-	double sumXY = 0, sumXX = 0, sumW = 0;
-	for (size_t i = 0; i < len && ac[i].n >= 2; ++i)
+	m = std::min(m, xs.size() - 1);
+	std::vector<double> r(m, 0.0 / 0.0);
+	r[0] = 1.0;
+	for (size_t k = 1; k < m; ++k)
 	{
-		double c = fabs(corr(i));
-		double w = 1.0 / (c * c);
-		sumW += w;
-		sumXX += w * i * i;
-		sumXY += w * i * log(c);
+		Estimator<2> est;
+		for (size_t i = 0; i < xs.size() - k; ++i)
+			est.add({xs[i], xs[i + k]});
+		r[k] = est.corr();
 	}
-	return -sumXX / sumXY;
+	return r;
 }
 
-void Autocorrelation::write(size_t maxLen) const
+double correlationTime(const std::vector<double> &xs)
 {
-	for (size_t i = 0; i < maxLen; ++i)
-		fmt::print("{:>2}: {:.2f}", i, corr(i));
-}
+	auto mx = mean(xs);
+	auto vx = variance(xs);
 
-void Autocorrelation::clear()
-{
-	count = 0;
-	for (size_t i = 0; i < len; ++i)
-		ac[i].clear();
+	double time = 0.5;
+	for (size_t lag = 1; lag < xs.size() / 20; ++lag)
+	{
+		double sum = 0;
+		for (size_t i = 0; i < xs.size() - lag; ++i)
+			sum += (xs[i] - mx) * (xs[i + lag] - mx);
+		time += sum / (xs.size() - lag) / vx;
+		if (lag >= 5 * time)
+			return time;
+	}
+	return 1.0 / 0.0; // no reliable estimation -> infinity
 }

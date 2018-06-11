@@ -6,6 +6,9 @@
 #include <array>
 #include <vector>
 
+double mean(const std::vector<double> &xs);
+double variance(const std::vector<double> &xs);
+
 /** fit constant function f(x) = a */
 struct ConstantFit
 {
@@ -84,38 +87,10 @@ template <size_t dim> struct Estimator
 	void clear();
 };
 
-/** analyze autocorrelation of a single stream of data */
-class Autocorrelation
-{
-	static constexpr size_t len = 50;
+/** autocorrelation coefficients */
+std::vector<double> autocorrelation(const std::vector<double> &xs, size_t m);
 
-	size_t count = 0;
-	double history[len]; // previously added values
-	Estimator<2> ac[len];
-
-  public:
-	/** default constructor */
-	Autocorrelation() = default;
-
-	/** add a new data point */
-	void add(double x);
-
-	/** mean/variance of data points */
-	double mean() const;
-	double var() const;
-
-	/** covariance/correlation between data[i] and data[i-lag] */
-	double cov(int lag = 1) const;
-	double corr(int lag = 1) const;
-
-	/** estimate auto-correlation length */
-	double corrTime() const;
-
-	/** print analysis to stdout */
-	void write(size_t maxLen = len) const;
-
-	/** reset everything */
-	void clear();
-};
+/** estimate auto-correlation time */
+double correlationTime(const std::vector<double> &xs);
 
 #endif

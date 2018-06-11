@@ -94,11 +94,16 @@ int main(int argc, char **argv)
 			if (doPlot)
 			{
 				Gnuplot()
-				    .setRangeX(params.sweeps * params.discard,
-				               res.actionHistory.size())
+				    .setRangeX(0, res.actionHistory.size())
 				    .plotData(
 				        res.actionHistory,
 				        fmt::format("<action> (b={}, b2={})", beta, beta2));
+
+				auto tau = correlationTime(res.actionHistory);
+				Gnuplot()
+				    .plotData(autocorrelation(res.actionHistory, 50))
+				    .plotFunction([=](double x) { return exp(-x / tau); }, 0,
+				                  50);
 			}
 		}
 	}

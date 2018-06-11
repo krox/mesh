@@ -55,12 +55,13 @@ template <typename G> ChainResult runChainImpl(const ChainParams &params)
 	{
 		// do some thermalization sweeps and basic measurements
 		for (int j = 0; j < params.sweeps; ++j)
-		{
 			ga.thermalize(rng, params.beta, params.beta2);
-			res.actionHistory.push_back(ga.loop4());
-		}
+		if (i < 0)
+			continue;
 
-		if (params.filename != "" && i >= 0)
+		res.actionHistory.push_back(ga.loop4());
+
+		if (params.filename != "")
 		{
 			std::string name = fmt::format("/configs/{}", i + 1);
 			file.createData(name, {(unsigned)m.top.nLinks(), G::repSize()})
@@ -69,15 +70,13 @@ template <typename G> ChainResult runChainImpl(const ChainParams &params)
 	}
 
 	/** analyze measurements */
-	Autocorrelation ac;
-	for (int i = 0; i < params.sweeps * params.count; ++i)
-		ac.add(res.actionHistory.at(params.sweeps * params.discard + i));
-	res.corrTime = ac.corrTime() / params.sweeps;
-	res.action = ac.mean();
+	res.action = mean(res.actionHistory);
+	res.corrTime = correlationTime(res.actionHistory) / params.sweeps;
 
 	if (params.filename != "")
 	{
-		file.setAttribute("action_history", res.actionHistory);
+		file.createData("action_history", {res.actionHistory.size()})
+		    .write(res.actionHistory);
 	}
 
 	return res;

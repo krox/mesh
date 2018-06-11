@@ -32,7 +32,7 @@ struct ChainResult
 	double corrTime = 0.0 / 0.0; // correlation time in the resulting ensemble
 	double action;               // normalized action (i.e. average plaquette)
 
-	/** these include thermalization and in-between configs */
+	/** these include in-between configs but no thermalization */
 	std::vector<double> actionHistory;
 };
 
