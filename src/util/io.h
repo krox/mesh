@@ -16,16 +16,19 @@ class DataSet
 	hid_t id = 0;
 
   public:
+	size_t size;
+
 	/** non-copyable */
 	DataSet(const DataSet &) = delete;
 	DataSet &operator=(const DataSet &) = delete;
 
 	DataSet() = default;
-	explicit DataSet(hid_t id) : id(id) {}
+	explicit DataSet(hid_t id);
 	~DataSet();
 
-	void read(span<double> data);
 	void write(span<const double> data);
+	void read(span<double> data);
+	template <typename T> std::vector<T> read();
 };
 
 class DataFile
@@ -36,6 +39,8 @@ class DataFile
 
 	void setAttribute(const std::string &, hid_t, const void *);
 	void setAttribute(const std::string &, hid_t, hsize_t, const void *);
+
+	void getAttribute(const std::string &name, hid_t type, void *data);
 
   public:
 	/** non copyable but movable */
@@ -71,6 +76,8 @@ class DataFile
 	void setAttribute(const std::string &name, const std::string &v);
 	void setAttribute(const std::string &name, const std::vector<double> &v);
 	void setAttribute(const std::string &name, const std::vector<int> &v);
+
+	template <typename T> T getAttribute(const std::string &name);
 };
 
 #endif

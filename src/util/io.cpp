@@ -13,6 +13,15 @@ hid_t enforce(hid_t id)
 }
 } // namespace
 
+DataSet::DataSet(hid_t id) : id(id)
+{
+	if (id <= 0)
+		return;
+	auto space = enforce(H5Dget_space(id));
+	size = H5Sget_simple_extent_npoints(space);
+	H5Sclose(space);
+}
+
 DataSet::~DataSet()
 {
 	if (id > 0)
@@ -21,11 +30,20 @@ DataSet::~DataSet()
 
 void DataSet::read(span<double> data)
 {
+	assert(data.size() == size);
 	enforce(H5Dread(id, H5T_NATIVE_DOUBLE, 0, 0, 0, data.data()));
+}
+
+template <> std::vector<double> DataSet::read<double>()
+{
+	auto r = std::vector<double>(size);
+	read(r);
+	return r;
 }
 
 void DataSet::write(span<const double> data)
 {
+	assert(data.size() == size);
 	enforce(H5Dwrite(id, H5T_NATIVE_DOUBLE, 0, 0, 0, data.data()));
 }
 
@@ -124,4 +142,71 @@ void DataFile::setAttribute(const std::string &name,
 void DataFile::setAttribute(const std::string &name, const std::vector<int> &v)
 {
 	setAttribute(name, H5T_NATIVE_INT, v.size(), v.data());
+}
+
+void DataFile::getAttribute(const std::string &name, hid_t type, void *data)
+{
+	// open attribute
+	auto attr = enforce(H5Aopen(id, name.c_str(), 0));
+
+	// check size
+	auto space = enforce(H5Aget_space(attr));
+	auto size = H5Sget_simple_extent_npoints(space);
+	H5Sclose(space);
+	if (size != 1)
+		throw std::runtime_error("HDF5 error: wrong attribute size");
+
+	// read attribute
+	enforce(H5Aread(attr, type, data));
+
+	H5Aclose(attr);
+}
+
+template <> int DataFile::getAttribute<int>(const std::string &name)
+{
+	int r;
+	getAttribute(name, H5T_NATIVE_INT, &r);
+	return r;
+}
+
+template <> double DataFile::getAttribute<double>(const std::string &name)
+{
+	double r;
+	getAttribute(name, H5T_NATIVE_DOUBLE, &r);
+	return r;
+}
+
+template <>
+std::string DataFile::getAttribute<std::string>(const std::string &name)
+{
+	auto type = enforce(H5Tcopy(H5T_C_S1));
+	enforce(H5Tset_size(type, H5T_VARIABLE));
+
+	char *ptr;
+	getAttribute(name, type, &ptr);
+	auto r = std::string(ptr);
+	free(ptr);
+
+	H5Tclose(type);
+	return r;
+}
+
+template <>
+std::vector<int>
+DataFile::getAttribute<std::vector<int>>(const std::string &name)
+{
+	// open attribute
+	auto attr = enforce(H5Aopen(id, name.c_str(), 0));
+
+	// check size
+	auto space = enforce(H5Aget_space(attr));
+	auto size = H5Sget_simple_extent_npoints(space);
+	auto r = std::vector<int>(size);
+	H5Sclose(space);
+
+	// read attribute
+	enforce(H5Aread(attr, H5T_NATIVE_INT, r.data()));
+
+	H5Aclose(attr);
+	return r;
 }
