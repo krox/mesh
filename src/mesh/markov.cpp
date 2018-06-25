@@ -55,11 +55,13 @@ template <typename G> ChainResult runChainImpl(const ChainParams &params)
 	{
 		// do some thermalization sweeps and basic measurements
 		for (int j = 0; j < params.sweeps; ++j)
+		{
 			ga.thermalize(rng, params.beta, params.beta2);
+			if (i >= 0)
+				res.actionHistory.push_back(ga.loop4());
+		}
 		if (i < 0)
 			continue;
-
-		res.actionHistory.push_back(ga.loop4());
 
 		if (params.filename != "")
 		{
