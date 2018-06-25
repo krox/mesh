@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "mesh/topology.h"
+#include "util/lattice.h"
 #include "util/random.h"
 #include "util/span.h"
 
@@ -32,6 +33,8 @@ template <typename G> class Mesh
 	span<double> rawLinks();
 	span<const double> rawLinks() const;
 	span<const double> rawLinksConst() const;
+
+	std::array<Lattice<const G, 4>, 4> asLattice4() const;
 };
 
 template <typename G> inline void Mesh<G>::initOrdered()
@@ -70,6 +73,18 @@ template <typename G> inline span<const double> Mesh<G>::rawLinksConst() const
 {
 	static_assert(G::repSize() * sizeof(double) == sizeof(G));
 	return span((const double *)u_.data(), G::repSize() * u_.size());
+}
+
+template <typename G>
+inline std::array<Lattice<const G, 4>, 4> Mesh<G>::asLattice4() const
+{
+	auto g = top.geom;
+	assert(g.size() == 4);
+	auto all = Lattice<const G, 5>(u_, {g[0], g[1], g[2], g[3], 4});
+	std::array<Lattice<const G, 4>, 4> u;
+	for (int i = 0; i < 4; ++i)
+		u[i] = all.slice(4, i);
+	return u;
 }
 
 #endif

@@ -12,7 +12,7 @@ find_package(HDF5 REQUIRED)
 
 file(GLOB modules "src/mesh/*.cpp" "src/util/*.cpp")
 
-set(binaries "main" "thermalize" "group_histogram" "generate")
+set(binaries "main" "thermalize" "group_histogram" "generate" "wilson")
 
 foreach(bin ${binaries})
 	add_executable(${bin} src/${bin}.cpp ${modules})

@@ -38,6 +38,10 @@ class Topology
 	std::vector<Link> links;
 	std::vector<std::vector<HalfLink>> graph;
 
+	/** type of topology (for regular lattices) */
+	std::string top;
+	std::vector<int> geom;
+
 	/** constructors */
 	Topology() = default;
 	explicit Topology(int nSites) : graph(nSites) {}

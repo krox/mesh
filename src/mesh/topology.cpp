@@ -3,6 +3,8 @@
 Topology Topology::lattice1D(int N)
 {
 	Topology top(N);
+	top.top = "periodic1";
+	top.geom = {N};
 	top.links.reserve(top.nSites());
 
 	for (int x = 0; x < N; ++x)
@@ -15,6 +17,8 @@ Topology Topology::lattice1D(int N)
 Topology Topology::lattice2D(int N)
 {
 	Topology top(N * N);
+	top.top = "periodic2";
+	top.geom = {N, N};
 	top.links.reserve(2 * top.nSites());
 
 	auto f = [=](int x, int y) { return (x % N) * N + (y % N); };
@@ -33,6 +37,8 @@ Topology Topology::lattice2D(int N)
 Topology Topology::lattice3D(int N)
 {
 	Topology top(N * N * N);
+	top.top = "periodic3";
+	top.geom = {N, N, N};
 	top.links.reserve(3 * top.nSites());
 
 	auto f = [=](int x, int y, int z) {
@@ -55,6 +61,8 @@ Topology Topology::lattice3D(int N)
 Topology Topology::lattice4D(int N)
 {
 	Topology top(N * N * N * N);
+	top.top = "periodic4";
+	top.geom = {N, N, N, N};
 	top.links.reserve(4 * top.nSites());
 
 	auto f = [=](int x, int y, int z, int t) {
