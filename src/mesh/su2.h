@@ -153,7 +153,7 @@ inline SU2 SU2::random(rng_t &rng, double alpha)
 	}
 }
 
-inline SU2 SU2::random(rng_t &rng, double alpha, double alpha2)
+inline SU2 SU2::random(rng_t &rng, double alpha, [[maybe_unused]] double alpha2)
 {
 	assert(alpha >= 0 && alpha2 >= 0);
 
