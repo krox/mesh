@@ -71,7 +71,7 @@ int main(int argc, char **argv)
 		pAction.emplace_back();
 		pLink.emplace_back();
 
-		auto m = Mesh<Z2>(Topology::lattice4D(n));
+		auto m = Mesh<Z2>(Topology::lattice4D(n, n, n, n));
 		m.initMixed(rng);
 		auto ga = GaugeAction(m);
 

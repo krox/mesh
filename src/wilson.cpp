@@ -29,7 +29,7 @@ template <typename G> void computeWilson(DataFile &file, int maxN)
 	// assert(group == G::name());
 	assert(top == "periodic4");
 
-	auto m = Mesh<G>(Topology::lattice4D(geom[0]));
+	auto m = Mesh<G>(Topology::lattice(geom));
 	auto buf = std::vector<double>(count * (maxN + 1) * (maxN + 1), 1.0);
 	auto result = Lattice<double, 3>(buf, {count, maxN + 1, maxN + 1});
 	for (int i = 0; i < count; ++i)

@@ -25,14 +25,15 @@ int main(int argc, char **argv)
 	desc.add_options()
 	("help", "this help message")
 	("group,g", po::value<std::string>()->default_value("u1"), "gauge group")
-	("n", po::value<int>()->default_value(8), "lattice size")
-	("beta", po::value<std::vector<double>>()->multitoken(), "inverse coupling (linear term)")
-	("beta2", po::value<std::vector<double>>()->multitoken(), "inverse coupling (quadratric term)")
+	("geom", po::value<std::vector<int>>()->multitoken(), "lattice size")
+	("beta", po::value<double>()->default_value(1.0), "inverse coupling (linear term)")
+	("beta2", po::value<double>()->default_value(0.0), "inverse coupling (quadratric term)")
 	("count", po::value<int>()->default_value(100), "number of gauge-configs to generate")
 	("discard", po::value<int>()->default_value(0), "number of gauge-configs to discard (thermalization)")
 	("sweeps", po::value<int>()->default_value(20), "number of sweeps between configs")
+	("or", po::value<int>()->default_value(3), "number of OR steps per heat bath")
 	("seed", po::value<uint64_t>()->default_value(std::random_device()()), "seed for random number generator (same for all betas)")
-	("path", po::value<std::string>()->default_value(""), "path for file output (HDF5 format)")
+	("file", po::value<std::string>()->default_value(""), "file output (HDF5 format)")
 	("plot", "show plot of generated ensemble")
 	;
 	// clang-format on
@@ -49,64 +50,42 @@ int main(int argc, char **argv)
 
 	ChainParams params;
 	params.group = vm["group"].as<std::string>();
-	params.n = vm["n"].as<int>();
+	params.geom = vm["geom"].as<std::vector<int>>();
 	params.count = vm["count"].as<int>();
 	params.discard = vm["discard"].as<int>();
 	params.sweeps = vm["sweeps"].as<int>();
+	params.overrelax = vm["or"].as<int>();
 	params.seed = vm["seed"].as<uint64_t>();
-
-	assert(vm.count("beta"));
-	assert(vm.count("beta2"));
-	auto betas = vm["beta"].as<std::vector<double>>();
-	auto beta2s = vm["beta2"].as<std::vector<double>>();
-
+	params.beta = vm["beta"].as<double>();
+	params.beta2 = vm["beta2"].as<double>();
+	params.filename = vm["file"].as<std::string>();
 	bool doPlot = vm.count("plot");
-	auto path = vm["path"].as<std::string>();
 
-	fmt::print("╔═════════════╤═══════════╤══════╤═══════╗\n");
-	fmt::print("║  coupling   │   plaq    │  acc │  corr ║\n");
-	fmt::print("╟─────────────┼───────────┼──────┼───────╢\n");
+	auto res = runChain(params);
 
-	for (double beta2 : beta2s)
+	fmt::print("group = {}\n", params.group);
+	fmt::print("beta = {}\n", params.beta);
+	fmt::print("beta2 = {}\n", params.beta2);
+	fmt::print("geom =");
+	for (auto g : params.geom)
+		fmt::print(" {}", g);
+	fmt::print("\n");
+	fmt::print("action = {}\n", res.action);
+	fmt::print("corr-time = {}\n", res.corrTime);
+
+	if (doPlot)
 	{
-		for (double beta : betas)
-		{
-			params.beta = beta;
-			params.beta2 = beta2;
+		Gnuplot()
+		    .setRangeX(0, res.actionHistory.size())
+		    .plotData(res.actionHistory,
+		              fmt::format("<action> (b={}, b2={})", params.beta,
+		                          params.beta2));
 
-			if (path != "")
-			{
-				if (beta2 == 0)
-					params.filename =
-					    fmt::format("{}/{}.p{}.b{}.h5", path, params.group,
-					                params.n, (int)(beta * 1000));
-				else
-					params.filename = fmt::format(
-					    "{}/{}.p{}.b{}.b{}.h5", path, params.group, params.n,
-					    (int)(beta * 1000), (int)(beta2 * 1000));
-			}
-
-			auto res = runChain(params);
-
-			fmt::print("║ {:5.3f} {:5.3f} │ {:9.7f} │ {:4.2f} │ {:5.2f} ║\n",
-			           beta, beta2, res.action, 0.0 / 0.0, res.corrTime);
-
-			if (doPlot)
-			{
-				Gnuplot()
-				    .setRangeX(0, res.actionHistory.size())
-				    .plotData(
-				        res.actionHistory,
-				        fmt::format("<action> (b={}, b2={})", beta, beta2));
-
-				auto tau = correlationTime(res.actionHistory);
-				Gnuplot()
-				    .plotData(autocorrelation(res.actionHistory, 50))
-				    .plotFunction([=](double x) { return exp(-x / tau); }, 0,
-				                  50);
-			}
-		}
+		auto tau = res.corrTime * params.sweeps;
+		int T = std::min((int)(tau * 5), (int)res.actionHistory.size() / 10);
+		Gnuplot()
+		    .plotData(autocorrelation(res.actionHistory, T))
+		    .plotFunction([=](double x) { return exp(-x / tau); }, 0, T,
+		                  fmt::format("corr-time*{} = {}", params.sweeps, tau));
 	}
-
-	fmt::print("╚═════════════╧═══════════╧══════╧═══════╝\n");
 }

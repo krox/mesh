@@ -47,10 +47,11 @@ class Topology
 	explicit Topology(int nSites) : graph(nSites) {}
 
 	/** create periodic, rectangular lattice topology */
-	static Topology lattice1D(int N);
-	static Topology lattice2D(int N);
-	static Topology lattice3D(int N);
-	static Topology lattice4D(int N);
+	static Topology lattice1D(int nx);
+	static Topology lattice2D(int nx, int ny);
+	static Topology lattice3D(int nx, int ny, int nz);
+	static Topology lattice4D(int nx, int ny, int nz, int nt);
+	static Topology lattice(const std::vector<int> &n);
 
 	/** number of sites/links */
 	int nSites() const { return (int)graph.size(); }

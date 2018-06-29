@@ -15,7 +15,8 @@ template <typename G> ChainResult runChainImpl(const ChainParams &params)
 	rng_t rng(params.seed);
 
 	/** initialize mesh */
-	auto m = Mesh<G>(Topology::lattice4D(params.n));
+	assert(params.geom.size() == 4);
+	auto m = Mesh<G>(Topology::lattice(params.geom));
 	if (params.init == 1)
 		m.initOrdered();
 	else if (params.init == 2)
@@ -38,13 +39,13 @@ template <typename G> ChainResult runChainImpl(const ChainParams &params)
 
 		// topological parameters
 		file.setAttribute("topology", "periodic4");
-		std::vector<int> geom = {params.n, params.n, params.n, params.n};
-		file.setAttribute("geometry", geom);
+		file.setAttribute("geometry", params.geom);
 
 		// simulation parameters
 		file.setAttribute("markov_count", params.count);
 		file.setAttribute("markov_discard", params.discard);
 		file.setAttribute("markov_sweeps", params.sweeps);
+		file.setAttribute("markov_overrelax", params.overrelax);
 
 		file.makeGroup("/configs");
 	}
@@ -56,7 +57,13 @@ template <typename G> ChainResult runChainImpl(const ChainParams &params)
 		// do some thermalization sweeps and basic measurements
 		for (int j = 0; j < params.sweeps; ++j)
 		{
+			// one heat-bath sweep
 			ga.thermalize(rng, params.beta, params.beta2);
+
+			// multiple OR sweeps
+			for (int k = 0; k < params.overrelax; ++k)
+				ga.overrelax();
+
 			if (i >= 0)
 				res.actionHistory.push_back(ga.loop4());
 		}

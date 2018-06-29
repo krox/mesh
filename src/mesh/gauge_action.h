@@ -23,6 +23,9 @@ template <typename G> struct GaugeAction
 	/** one sweep of thermalization */
 	void thermalize(rng_t &rng, double beta, double beta2);
 
+	/** overrelaxation sweep */
+	void overrelax();
+
 	/** measure average loop */
 	double loop4() const;
 };
@@ -51,6 +54,21 @@ inline void GaugeAction<G>::thermalize(rng_t &rng, double beta, double beta2)
 		else
 			m.u(i) = s.normalize().adjoint() *
 			         G::random(rng, beta * kappa, beta2 * kappa);
+	}
+}
+
+template <typename G> inline void GaugeAction<G>::overrelax()
+{
+	// TODO: randomize order
+	for (int i = 0; i < m.top.nLinks(); ++i)
+	{
+		G s = G::zero();
+		for (auto [j, k, l] : staples4[i])
+			s += m.u(j) * m.u(k) * m.u(l);
+		double kappa = s.norm();
+
+		s = s.normalize().adjoint();
+		m.u(i) = s * m.u(i).adjoint() * s;
 	}
 }
 

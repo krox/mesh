@@ -19,7 +19,7 @@ int main(int argc, char **argv)
 	desc.add_options()
 	("help", "this help message")
 	("group,g", po::value<std::string>()->default_value("u1"), "gauge group")
-	("n", po::value<int>()->default_value(8), "lattice size")
+	("geom", po::value<std::vector<int>>()->multitoken(), "lattice size")
 	("betaMin", po::value<double>()->default_value(0.0), "inverse temperature")
 	("betaMax", po::value<double>()->default_value(1.0), "")
 	("beta2", po::value<std::vector<double>>()->multitoken(), "secondary (usually adjoint) coupling")
@@ -40,7 +40,7 @@ int main(int argc, char **argv)
 
 	ChainParams params;
 	params.group = vm["group"].as<std::string>();
-	params.n = vm["n"].as<int>();
+	params.geom = vm["geom"].as<std::vector<int>>();
 	params.count = params.discard = vm["sweeps"].as<int>() / 2;
 	params.sweeps = 1;
 
