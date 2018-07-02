@@ -1,5 +1,6 @@
 #include <cassert>
 #include <cmath>
+#include <experimental/filesystem>
 #include <iostream>
 #include <random>
 
@@ -67,6 +68,13 @@ int main(int argc, char **argv)
 		if (params.filename.size() < 3 ||
 		    0 != params.filename.compare(params.filename.size() - 3, 3, ".h5"))
 			params.filename += '/' + params.autoFilename();
+
+		// skip if file already exists
+		if (std::experimental::filesystem::exists(params.filename))
+		{
+			fmt::print("chain '{}' already exists\n", params.filename);
+			return 0;
+		}
 	}
 
 	fmt::print("starting chain '{}'\n", params.filename);
