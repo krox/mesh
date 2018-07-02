@@ -10,6 +10,27 @@
 #include "util/io.h"
 #include "util/stats.h"
 
+std::string ChainParams::autoFilename() const
+{
+	char g = 'x';
+	if (geom.size() == 4 && geom[0] == geom[1] && geom[1] == geom[2])
+	{
+		if (geom[3] == geom[0])
+			g = 'p';
+		if (geom[3] == 2 * geom[0])
+			g = 'q';
+		if (geom[3] == 3 * geom[0])
+			g = 'r';
+	}
+
+	if (beta2 == 0)
+		return fmt::format("{}.{}{}.b{}.h5", group, g, geom[0],
+		                   (int)(beta * 1000));
+	else
+		return fmt::format("{}.{}{}.b{}.b{}.h5", group, g, geom[0],
+		                   (int)(beta * 1000), (int)(beta2 * 1000));
+}
+
 template <typename G> ChainResult runChainImpl(const ChainParams &params)
 {
 	rng_t rng(params.seed);

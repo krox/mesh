@@ -61,6 +61,15 @@ int main(int argc, char **argv)
 	params.filename = vm["file"].as<std::string>();
 	bool doPlot = vm.count("plot");
 
+	if (!params.filename.empty())
+	{
+		// automatic filename if only path was given
+		if (params.filename.size() < 3 ||
+		    0 != params.filename.compare(params.filename.size() - 3, 3, ".h5"))
+			params.filename += '/' + params.autoFilename();
+	}
+
+	fmt::print("starting chain '{}'\n", params.filename);
 	auto res = runChain(params);
 
 	fmt::print("group = {}\n", params.group);

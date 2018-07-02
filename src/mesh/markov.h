@@ -24,6 +24,8 @@ struct ChainParams
 
 	uint64_t seed = 0;         // seed for random number generator
 	std::string filename = ""; // empty if no output is required
+
+	std::string autoFilename() const;
 };
 
 /** some measurements taken during the simulation. This may include measurements
