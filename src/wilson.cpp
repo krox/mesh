@@ -80,7 +80,7 @@ int main(int argc, char **argv)
 		computeWilson<Z2>(file, n);
 	else if (group == "u1")
 		computeWilson<U1>(file, n);
-	else if (group == "SU2")
+	else if (group == "su2")
 		computeWilson<SU2>(file, n);
 	else
 		throw std::runtime_error("unknown group");
