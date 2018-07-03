@@ -6,6 +6,37 @@
 #include "mesh/z2.h"
 #include "util/lattice.h"
 
+namespace {
+
+/** Element-wise multiplication of a and b. Result stored in buf */
+template <typename G>
+Lattice<G, 4> multiply(std::vector<G> &buf, Lattice<const G, 4> a,
+                       Lattice<const G, 4> b)
+{
+	assert(a.shape() == b.shape());
+	assert(buf.empty());
+	buf.resize(a.size());
+	auto r = Lattice<G, 4>(buf, a.shape());
+	for (auto i : a.range())
+		r(i) = a(i) * b(i);
+	return r;
+}
+
+/** sum(action(a * b * c.adj * d.adj)) */
+template <typename G>
+double plaqSum(Lattice<const G, 4> a, Lattice<const G, 4> b,
+               Lattice<const G, 4> c, Lattice<const G, 4> d)
+{
+	assert(a.shape() == b.shape() && b.shape() == c.shape() &&
+	       c.shape() == d.shape());
+	double s = 0;
+	for (auto i : a.range())
+		s += ((a(i) * b(i)) * (c(i).adjoint() * d(i).adjoint())).action();
+	return s;
+}
+
+} // namespace
+
 template <typename G>
 std::vector<std::tuple<int, int, double>> wilson(const Mesh<G> &m, int maxN)
 {
@@ -17,38 +48,29 @@ std::vector<std::tuple<int, int, double>> wilson(const Mesh<G> &m, int maxN)
 	std::vector<Lattice<const G, 4>> bb[4];
 	for (int mu = 0; mu < 4; ++mu)
 	{
-		bb[mu].resize(maxN + 1); // index 0 is unused
+		bb[mu].resize(u[mu].shape()[mu] + 1); // index 0 is unused
 		bb[mu][1] = u[mu];
-		for (int n = 2; n <= maxN; ++n)
+		for (int n = 2; n <= u[mu].shape()[mu]; ++n)
 		{
 			bufs.emplace_back();
-			bufs.back().resize(u[mu].size());
-			bb[mu][n] = (u[mu] * bb[mu][n - 1].shift(mu, +1)).eval(bufs.back());
+			bb[mu][n] =
+			    multiply(bufs.back(), u[mu], bb[mu][n - 1].shift(mu, +1));
 		}
 	}
 
 	/** compute loops itself */
 	std::vector<std::tuple<int, int, double>> r;
-	for (int na = 1; na <= maxN; ++na)
-		for (int nb = na; nb <= maxN; ++nb)
+	for (int n = 1; n <= maxN; ++n)
+		for (int t = 1; t <= m.top.geom[3]; ++t)
 		{
 			double s = 0;
-			for (int mu = 0; mu < 4; ++mu)
-				for (int nu = 0; nu < 4; ++nu)
-				{
-					if (mu == nu)
-						continue;
-					if (na == nb && mu > nu)
-						continue;
-
-					auto plaq = bb[mu][na] * bb[nu][nb].shift(mu, na) *
-					            bb[mu][na].shift(nu, nb).map(&G::adjoint) *
-					            bb[nu][nb].map(&G::adjoint);
-					s += plaq.map(&G::action).sum();
-				}
-			s /= u[0].size() * (na == nb ? 6 : 12);
-			r.push_back({na, nb, s});
+			for (int mu = 0; mu < 3; ++mu)
+				s += plaqSum(bb[mu][n], bb[3][t].shift(mu, n),
+				             bb[mu][n].shift(3, t), bb[3][t]);
+			s /= u[0].size() * 3;
+			r.push_back({n, t, s});
 		}
+
 	return r;
 }
 

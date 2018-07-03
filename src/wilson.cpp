@@ -30,19 +30,19 @@ template <typename G> void computeWilson(DataFile &file, int maxN)
 	assert(top == "periodic4");
 
 	auto m = Mesh<G>(Topology::lattice(geom));
-	auto buf = std::vector<double>(count * (maxN + 1) * (maxN + 1), 1.0);
-	auto result = Lattice<double, 3>(buf, {count, maxN + 1, maxN + 1});
+	auto buf = std::vector<double>(count * (maxN + 1) * (geom[3] + 1), 1.0);
+	auto result = Lattice<double, 3>(buf, {count, maxN + 1, geom[3] + 1});
 	for (int i = 0; i < count; ++i)
 	{
 		fmt::print("reading config {} / {} ...\n", i + 1, count);
 		file.openData(fmt::format("configs/{}", i + 1)).read(m.rawLinks());
-		for (auto [na, nb, s] : wilson(m, maxN))
-			result({i, na, nb}) = result({i, nb, na}) = s;
+		for (auto [n, t, s] : wilson(m, maxN))
+			result({i, n, t}) = s;
 	}
 
 	fmt::print("writing result...\n");
-	file.createData("wilson",
-	                {(unsigned)count, (unsigned)maxN + 1, (unsigned)maxN + 1})
+	file.createData("wilson", {(unsigned)count, (unsigned)maxN + 1,
+	                           (unsigned)geom[3] + 1})
 	    .write(buf);
 	fmt::print("done\n");
 }
