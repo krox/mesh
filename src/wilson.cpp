@@ -72,6 +72,13 @@ int main(int argc, char **argv)
 	auto n = vm["maxN"].as<int>();
 
 	auto file = DataFile::open(filename);
+
+	if (file.exists("wilson"))
+	{
+		fmt::print("file '{}' already done. skipping.", filename);
+		return 0;
+	}
+
 	auto group = file.getAttribute<std::string>("group");
 	if (n == -1)
 		n = file.getAttribute<std::vector<int>>("geometry")[0];

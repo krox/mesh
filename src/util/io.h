@@ -62,6 +62,10 @@ class DataFile
 	static DataFile open(const std::string &filename);
 	void close();
 
+	/** general object access */
+	bool exists(const std::string &name);
+	void remove(const std::string &name);
+
 	/** access to datasets */
 	DataSet createData(const std::string &name,
 	                   const std::vector<hsize_t> &size);

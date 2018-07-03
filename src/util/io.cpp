@@ -86,6 +86,18 @@ DataSet DataFile::openData(const std::string &name)
 	return DataSet(set);
 }
 
+bool DataFile::exists(const std::string &name)
+{
+	assert(id > 0);
+	return enforce(H5Lexists(id, name.c_str(), 0)) > 0;
+}
+
+void DataFile::remove(const std::string &name)
+{
+	assert(id > 0);
+	enforce(H5Ldelete(id, name.c_str(), 0));
+}
+
 void DataFile::makeGroup(const std::string &name)
 {
 	assert(id > 0);
