@@ -63,99 +63,33 @@ template <int rank> struct LatticeRange
 	}
 };
 
-template <typename T, int rank_> class Lattice;
-template <typename L, typename U> class LatticeUnary;
-template <typename La, typename Lb, typename U> class LatticeBinary;
-
-template <typename L, typename T, int N> class BasicLattice
+/** non-owning multi-dimensional periodic view on regular data */
+template <typename T, int N> class Lattice
 {
-	// this prevents some wrong usage of CRTP pattern
-	BasicLattice(){};
-	friend L;
-
-  public:
-	/** helper for crtp: static cast to concrete type */
-	typedef L Con;
-	L &con() { return static_cast<L &>(*this); }
-	const L &con() const { return static_cast<const L &>(*this); }
-
-	/** element type */
-	typedef T type;
-
-	/** number of dimensions */
-	static constexpr int rank() { return N; }
-
-	/** number of elements */
-	int size() const
-	{
-		int s = 1;
-		for (int i = 0; i < rank(); ++i)
-			s *= con().shape()[i];
-		return s;
-	}
-
-	/** range/iterator over indices (not values) */
-	LatticeRange<N> range() const { return LatticeRange<N>(con().shape()); }
-
-	/** element-wise function application */
-	template <typename F> auto map(F &&f) const
-	{
-		typedef std::invoke_result_t<F, const T &> U;
-		return LatticeUnary<L, U>(con(), f);
-	}
-
-	/* element-wise multiplication */
-	template <typename Lb> auto operator*(const Lb lattB) const
-	{
-		typedef typename Lb::type V;
-		auto fun = [](const T &x, const V &y) { return x * y; };
-		typedef std::invoke_result_t<decltype(fun), const T &, const V &> U;
-		return LatticeBinary<L, typename Lb::Con, U>(con(), lattB.con(), fun);
-	}
-
-	T sum()
-	{
-		T s = 0;
-		for (auto pos : range())
-			s += con()(pos);
-		return s;
-	}
-
-	Lattice<T, N> eval(span<T> buf) const
-	{
-		assert(buf.size() == (size_t)size());
-		auto r = Lattice<T, N>(buf, con().shape());
-		for (auto i : r.range())
-			r(i) = con()(i);
-		return r;
-	}
-};
-
-/** non-owning multi-dimensional view on a contiguous array */
-template <typename T, int rank_>
-class Lattice : public BasicLattice<Lattice<T, rank_>, T, rank_>
-{
-	template <typename U, int r> friend class Lattice;
+	template <typename U, int M> friend class Lattice;
 
 	T *data_;
-	std::array<int, rank_> shape_;
-	std::array<int, rank_> stride_;
-	std::array<int, rank_> offset_;
+	std::array<int, N> shape_;
+	std::array<int, N> stride_;
+	std::array<int, N> offset_;
 
-	int index(std::array<int, rank_> pos) const
+	int index(std::array<int, N> pos) const
 	{
 		int k = 0;
-		for (int i = 0; i < rank_; ++i)
+		for (int i = 0; i < N; ++i)
 		{
-			pos[i] =
-			    ((pos[i] + offset_[i]) % shape_[i] + shape_[i]) % shape_[i];
+			// NOTE: This is performance critical. Do not use modulo!
+			assert(0 <= pos[i] && pos[i] < shape_[i]);
+			pos[i] += offset_[i];
+			if (pos[i] >= shape_[i])
+				pos[i] -= shape_[i];
 			k += pos[i] * stride_[i];
 		}
 		return k;
 	}
 
   public:
-	/** constructors */
+	/** default constructor */
 	Lattice() : data_(nullptr)
 	{
 		shape_.fill(0);
@@ -163,22 +97,24 @@ class Lattice : public BasicLattice<Lattice<T, rank_>, T, rank_>
 		stride_.fill(0);
 	}
 
-	Lattice(span<T> data_, std::array<int, rank_> shape_)
+	/** view on contiguous data */
+	Lattice(span<T> data_, std::array<int, N> shape_)
 	    : data_(data_.data()), shape_(shape_)
 	{
 		offset_.fill(0);
 		int s = 1;
-		for (int i = rank_ - 1; i >= 0; --i)
+		for (int i = N - 1; i >= 0; --i)
 		{
 			stride_[i] = s;
 			s *= shape_[i];
 		}
-		assert((int)data_.size() == this->size());
+		assert((int)data_.size() == size());
 	}
 
-	operator Lattice<const T, rank_>() const
+	/** convert to const view */
+	operator Lattice<const T, N>() const
 	{
-		Lattice<const T, rank_> r;
+		Lattice<const T, N> r;
 		r.data_ = data_;
 		r.shape_ = shape_;
 		r.stride_ = stride_;
@@ -186,12 +122,30 @@ class Lattice : public BasicLattice<Lattice<T, rank_>, T, rank_>
 		return r;
 	}
 
+	/** element type */
+	typedef T type;
+
+	/** number of dimensions */
+	static constexpr int rank() { return N; }
+
 	/** shape of the lattice */
-	std::array<int, rank_> shape() const { return shape_; }
+	std::array<int, N> shape() const { return shape_; }
+
+	/** number of elements */
+	int size() const
+	{
+		int s = 1;
+		for (int i = 0; i < N; ++i)
+			s *= shape_[i];
+		return s;
+	}
+
+	/** range/iterator over indices (not values) */
+	LatticeRange<N> range() const { return LatticeRange<N>(shape_); }
 
 	/** element access */
-	T &operator()(std::array<int, rank_> pos) { return data_[index(pos)]; }
-	const T &operator()(std::array<int, rank_> pos) const
+	T &operator()(std::array<int, N> pos) { return data_[index(pos)]; }
+	const T &operator()(std::array<int, N> pos) const
 	{
 		return data_[index(pos)];
 	}
@@ -199,17 +153,21 @@ class Lattice : public BasicLattice<Lattice<T, rank_>, T, rank_>
 	/** periodic shift in one dimension */
 	Lattice shift(int i, int dist)
 	{
+		assert(0 <= i && i < N);
 		Lattice l = *this;
 		l.offset_[i] += dist;
+		l.offset_[i] %= l.shape_[i];
+		l.offset_[i] += l.shape_[i];
+		l.offset_[i] %= l.shape_[i];
 		return l;
 	}
 
 	/** fix one index */
-	Lattice<T, rank_ - 1> slice(int k, int pos)
+	Lattice<T, N - 1> slice(int k, int pos)
 	{
 		pos = (pos + offset_[k]) % shape_[k];
 		assert(0 <= pos && pos < shape_[k]);
-		Lattice<T, rank_ - 1> l;
+		Lattice<T, N - 1> l;
 		l.data_ = data_ + pos * stride_[k];
 		for (int i = 0; i < k; ++i)
 		{
@@ -217,62 +175,13 @@ class Lattice : public BasicLattice<Lattice<T, rank_>, T, rank_>
 			l.stride_[i] = stride_[i];
 			l.offset_[i] = offset_[i];
 		}
-		for (int i = k + 1; i < rank_; ++i)
+		for (int i = k + 1; i < N; ++i)
 		{
 			l.shape_[i - 1] = shape_[i];
 			l.stride_[i - 1] = stride_[i];
 			l.offset_[i - 1] = offset_[i];
 		}
 		return l;
-	}
-};
-
-/** element-wise unary expression */
-template <typename L, typename U>
-class LatticeUnary : public BasicLattice<LatticeUnary<L, U>, U, L::rank()>
-{
-	L latt;
-	typedef std::function<U(const typename L::type &)> fun_t;
-	fun_t fun;
-
-  public:
-	LatticeUnary() = default;
-	LatticeUnary(L latt, fun_t fun) : latt(latt), fun(fun) {}
-
-	std::array<int, L::rank()> shape() const { return latt.shape(); }
-
-	U operator()(std::array<int, L::rank()> pos) const
-	{
-		return fun(latt(pos));
-	}
-};
-
-/** element-wise binary expression */
-template <typename La, typename Lb, typename U>
-class LatticeBinary
-    : public BasicLattice<LatticeBinary<La, Lb, U>, U, La::rank()>
-{
-	La lattA;
-	Lb lattB;
-	typedef std::function<U(const typename La::type &,
-	                        const typename Lb::type &)>
-	    fun_t;
-	fun_t fun;
-
-  public:
-	LatticeBinary() = default;
-	LatticeBinary(La lattA, Lb lattB, fun_t fun)
-	    : lattA(lattA), lattB(lattB), fun(fun)
-	{
-		static_assert(La::rank() == Lb::rank());
-		assert(lattA.shape() == lattB.shape());
-	}
-
-	std::array<int, La::rank()> shape() const { return lattA.shape(); }
-
-	auto operator()(std::array<int, La::rank()> pos) const
-	{
-		return fun(lattA(pos), lattB(pos));
 	}
 };
 
