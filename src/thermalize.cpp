@@ -32,7 +32,7 @@ int main(int argc, char **argv)
 	("n", po::value<int>()->default_value(8), "lattice size")
 	("beta", po::value<std::vector<double>>()->multitoken(), "inverse temperature")
 	("sweeps", po::value<int>()->default_value(100), "number of sweeps")
-	("gaugefix", "do gauge-fixing and measure average link")
+	//("gaugefix", "do gauge-fixing and measure average link")
 	;
 	// clang-format on
 
@@ -53,7 +53,7 @@ int main(int argc, char **argv)
 	else
 		betas.push_back(0.5);
 	auto nSweeps = vm["sweeps"].as<int>();
-	bool doGF = vm.count("gaugefix");
+	// bool doGF = vm.count("gaugefix");
 
 	Gnuplot plotAction, plotLink;
 	plotAction.setRangeX(0, nSweeps);
@@ -82,11 +82,11 @@ int main(int argc, char **argv)
 
 			// measure average link (requires gauge fixing)
 			double link = 0.0 / 0.0;
-			if (doGF)
+			/*if (doGF)
 			{
-				auto rot = gaugeFix(m, 1.0e-11, 10000);
-				link = avgLink(m, rot);
-			}
+			    auto rot = gaugeFix(m, 1.0e-11, 10000);
+			    link = avgLink(m, rot);
+			}*/
 
 			fmt::print("beta = {} / {}, <loop4> = {}, <link> = {}\n", beta, 0,
 			           loop4, link);
@@ -101,13 +101,13 @@ int main(int argc, char **argv)
 				plotAction.plotData(pSweep[i], pAction[i],
 				                    fmt::format("<action> (b = {})", betas[i]));
 
-			if (doGF)
+			/*if (doGF)
 			{
-				plotLink.clear();
-				for (size_t i = 0; i < pSweep.size(); ++i)
-					plotLink.plotData(pSweep[i], pLink[i],
-					                  fmt::format("<link> (b = {})", betas[i]));
-			}
+			    plotLink.clear();
+			    for (size_t i = 0; i < pSweep.size(); ++i)
+			        plotLink.plotData(pSweep[i], pLink[i],
+			                          fmt::format("<link> (b = {})", betas[i]));
+			}*/
 
 			// one thermalization sweep
 			ga.thermalize(rng, beta, 0);
