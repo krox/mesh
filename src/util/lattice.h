@@ -8,61 +8,6 @@
 
 #include "util/span.h"
 
-/** this acts as range and iterator for lattice positions */
-template <int rank> struct LatticeRange
-{
-	std::array<int, rank> shape_;
-	std::array<int, rank> pos_;
-
-  public:
-	/** constructor */
-	LatticeRange() = default;
-	explicit LatticeRange(std::array<int, rank> shape_) : shape_(shape_)
-	{
-		pos_.fill(0);
-	}
-	LatticeRange(std::array<int, rank> shape_, std::array<int, rank> pos_)
-	    : shape_(shape_), pos_(pos_)
-	{}
-
-	/** current position */
-	std::array<int, rank> operator*() const { return pos_; }
-
-	/* advance to next position */
-	LatticeRange &operator++()
-	{
-		pos_[rank - 1] += 1;
-		for (int i = rank - 1; i > 0; --i)
-			if (pos_[i] >= shape_[i])
-			{
-				pos_[i] -= shape_[i];
-				pos_[i - 1] += 1;
-			}
-			else
-				break;
-		return *this;
-	}
-
-	/** compare iterators */
-	bool operator!=(const LatticeRange<rank> &b) const
-	{
-		assert(shape_ == b.shape_);
-		for (int i = 0; i < rank; ++i)
-			if (pos_[i] != b.pos_[i])
-				return true;
-		return false;
-	}
-
-	LatticeRange begin() const { return LatticeRange(shape_); }
-
-	LatticeRange end() const
-	{
-		auto r = LatticeRange(shape_);
-		r.pos_[0] = r.shape_[0];
-		return r;
-	}
-};
-
 /** non-owning multi-dimensional periodic view on regular data */
 template <typename T, int N> class Lattice
 {
@@ -140,9 +85,6 @@ template <typename T, int N> class Lattice
 		return s;
 	}
 
-	/** range/iterator over indices (not values) */
-	LatticeRange<N> range() const { return LatticeRange<N>(shape_); }
-
 	/** element access */
 	T &operator()(std::array<int, N> pos) { return data_[index(pos)]; }
 	const T &operator()(std::array<int, N> pos) const
@@ -184,5 +126,48 @@ template <typename T, int N> class Lattice
 		return l;
 	}
 };
+
+template <typename F, int N, typename... T>
+auto contract(F &&f, Lattice<T, N>... spans)
+{
+	if constexpr (N == 0)
+		return f(spans({})...);
+	else if constexpr (N == 1)
+	{
+
+		auto n = std::get<0>(std::tuple(spans...)).shape()[0];
+		std::invoke_result_t<F, T...> r = 0;
+		for (int i = 0; i < n; ++i)
+			r += f(spans({i})...);
+		return r;
+	}
+	else
+	{
+		auto n = std::get<0>(std::tuple(spans...)).shape()[0];
+		std::invoke_result_t<F, T...> r = 0;
+		for (int i = 0; i < n; ++i)
+			r += contract(f, spans.slice(0, i)...);
+		return r;
+	}
+}
+
+template <typename F, int N, typename T, typename... U>
+void eval(Lattice<T, N> lhs, F &&f, Lattice<U, N>... spans)
+{
+	if constexpr (N == 0)
+		lhs({}) = f(spans({})...);
+	else if constexpr (N == 1)
+	{
+		auto n = std::get<0>(std::tuple(spans...)).shape()[0];
+		for (int i = 0; i < n; ++i)
+			lhs({i}) = f(spans({i})...);
+	}
+	else
+	{
+		auto n = std::get<0>(std::tuple(spans...)).shape()[0];
+		for (int i = 0; i < n; ++i)
+			eval(lhs.slice(0, i), f, spans.slice(0, i)...);
+	}
+}
 
 #endif

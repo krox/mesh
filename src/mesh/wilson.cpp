@@ -17,8 +17,7 @@ Lattice<G, 4> multiply(std::vector<G> &buf, Lattice<const G, 4> a,
 	assert(buf.empty());
 	buf.resize(a.size());
 	auto r = Lattice<G, 4>(buf, a.shape());
-	for (auto i : a.range())
-		r(i) = a(i) * b(i);
+	eval(r, [](const G &a, const G &b) { return a * b; }, a, b);
 	return r;
 }
 
@@ -29,10 +28,11 @@ double plaqSum(Lattice<const G, 4> a, Lattice<const G, 4> b,
 {
 	assert(a.shape() == b.shape() && b.shape() == c.shape() &&
 	       c.shape() == d.shape());
-	double s = 0;
-	for (auto i : a.range())
-		s += ((a(i) * b(i)) * (c(i).adjoint() * d(i).adjoint())).action();
-	return s;
+	return contract(
+	    [](const G &a, const G &b, const G &c, const G &d) {
+		    return ((a * b) * (d * c).adjoint()).action();
+	    },
+	    a, b, c, d);
 }
 
 } // namespace
