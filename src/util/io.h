@@ -17,16 +17,30 @@ class DataSet
 
   public:
 	size_t size;
+	std::vector<hsize_t> shape;
+	int rank() const { return (int)shape.size(); }
 
-	/** non-copyable */
+	/** non copyable but movable */
 	DataSet(const DataSet &) = delete;
 	DataSet &operator=(const DataSet &) = delete;
+	DataSet(DataSet &&f) : id(f.id) { f.id = 0; };
+	DataSet &operator=(DataSet &&f)
+	{
+		close();
+		id = f.id;
+		size = f.size;
+		shape = f.shape;
+		f.id = 0;
+		return *this;
+	}
 
 	DataSet() = default;
 	explicit DataSet(hid_t id);
 	~DataSet();
+	void close();
 
 	void write(span<const double> data);
+	void write(hsize_t row, span<const double> data);
 	void read(span<double> data);
 	template <typename T> std::vector<T> read();
 };

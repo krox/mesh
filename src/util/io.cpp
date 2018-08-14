@@ -19,14 +19,19 @@ DataSet::DataSet(hid_t id) : id(id)
 		return;
 	auto space = enforce(H5Dget_space(id));
 	size = H5Sget_simple_extent_npoints(space);
+	shape.resize(64);
+	auto rank = H5Sget_simple_extent_dims(space, &shape[0], nullptr);
+	shape.resize(rank);
 	H5Sclose(space);
 }
 
-DataSet::~DataSet()
+void DataSet::close()
 {
 	if (id > 0)
 		H5Dclose(id);
 }
+
+DataSet::~DataSet() { close(); }
 
 void DataSet::read(span<double> data)
 {
@@ -45,6 +50,27 @@ void DataSet::write(span<const double> data)
 {
 	assert(data.size() == size);
 	enforce(H5Dwrite(id, H5T_NATIVE_DOUBLE, 0, 0, 0, data.data()));
+}
+
+void DataSet::write(hsize_t row, span<const double> data)
+{
+	assert(id > 0);
+	assert(row < shape[0]);
+	assert(data.size() == size / shape[0]);
+
+	auto offset = std::vector<hsize_t>(rank(), 0);
+	offset[0] = row;
+	auto memspace = enforce(H5Screate_simple(rank() - 1, &shape[1], nullptr));
+	std::vector<hsize_t> rowShape = shape;
+	rowShape[0] = 1;
+	auto space = enforce(H5Dget_space(id));
+	H5Sselect_hyperslab(space, H5S_SELECT_SET, offset.data(), nullptr,
+	                    rowShape.data(), nullptr);
+
+	enforce(H5Dwrite(id, H5T_NATIVE_DOUBLE, memspace, space, 0, data.data()));
+
+	H5Sclose(memspace);
+	H5Sclose(space);
 }
 
 DataFile::~DataFile() { close(); }
