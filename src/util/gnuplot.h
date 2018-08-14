@@ -3,6 +3,7 @@
 
 #include <functional>
 
+#include "util/span.h"
 #include "util/stats.h"
 
 class Gnuplot
@@ -27,12 +28,10 @@ class Gnuplot
 	                      double max, const std::string &title = "");
 
 	/** plot raw data points (i, ys[i]) */
-	Gnuplot &plotData(const std::vector<double> &ys,
-	                  const std::string &title = "data");
+	Gnuplot &plotData(span<const double> ys, const std::string &title = "data");
 
 	/** plot raw data points (xs[i], ys[i]) */
-	Gnuplot &plotData(const std::vector<double> &xs,
-	                  const std::vector<double> &ys,
+	Gnuplot &plotData(span<const double> xs, span<const double> ys,
 	                  const std::string &title = "data");
 
 	/** plot a histogram */

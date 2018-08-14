@@ -44,8 +44,7 @@ Gnuplot &Gnuplot::plotFunction(const std::function<double(double)> &fun,
 	return *this;
 }
 
-Gnuplot &Gnuplot::plotData(const std::vector<double> &ys,
-                           const std::string &title)
+Gnuplot &Gnuplot::plotData(span<const double> ys, const std::string &title)
 {
 	std::string filename = fmt::format("gnuplot_{}_{}.txt", plotID, nplots);
 	std::ofstream file(filename);
@@ -60,8 +59,7 @@ Gnuplot &Gnuplot::plotData(const std::vector<double> &ys,
 	return *this;
 }
 
-Gnuplot &Gnuplot::plotData(const std::vector<double> &xs,
-                           const std::vector<double> &ys,
+Gnuplot &Gnuplot::plotData(span<const double> xs, span<const double> ys,
                            const std::string &title)
 {
 	std::string filename = fmt::format("gnuplot_{}_{}.txt", plotID, nplots);

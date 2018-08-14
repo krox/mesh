@@ -3,18 +3,21 @@
 
 #include <vector>
 
+/** contiguous 1D array-view */
 template <typename T> class span
 {
 	T *data_ = nullptr;
 	size_t size_ = 0;
+
+	typedef typename std::remove_cv<T>::type T_mut;
 
   public:
 	/** constructors */
 	span() = default;
 	span(T *data, size_t size) : data_(data), size_(size) {}
 	span(T *begin, T *end) : data_(begin), size_(end - begin) {}
-	// span(std::vector<T> &v) : data_(v.data()), size_(v.size()) {}
-	template <typename C> span(C &c) : span(&*c.begin(), &*c.end()) {}
+	span(std::vector<T> &v) : data_(v.data()), size_(v.size()) {}
+	span(const std::vector<T_mut> &v) : data_(v.data()), size_(v.size()) {}
 
 	/** field access */
 	T *data() { return data_; }
@@ -24,6 +27,8 @@ template <typename T> class span
 	/** element access */
 	T &operator[](size_t i) { return data_[i]; }
 	const T &operator[](size_t i) const { return data_[i]; }
+	T &operator()(int i) { return data_[i]; }
+	const T &operator()(int i) const { return data_[i]; }
 
 	/** iterators */
 	T *begin() { return data_; }
