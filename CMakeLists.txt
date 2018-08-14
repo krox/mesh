@@ -20,9 +20,9 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -march=native -Wall -Wextra -Wno-unu
 find_package(Boost 1.62.0 COMPONENTS program_options REQUIRED)
 find_package(HDF5 REQUIRED)
 
-file(GLOB modules "src/mesh/*.cpp" "src/util/*.cpp")
+file(GLOB modules "src/mesh/*.cpp" "src/util/*.cpp" "src/scalar/*.cpp")
 
-set(binaries "main" "thermalize" "group_histogram" "generate" "wilson" "gaugefix")
+set(binaries "main" "thermalize" "group_histogram" "generate" "wilson" "gaugefix" "scalar")
 
 foreach(bin ${binaries})
 	add_executable(${bin} src/${bin}.cpp ${modules})
@@ -32,4 +32,5 @@ foreach(bin ${binaries})
 	target_link_libraries(${bin} ${HDF5_LIBRARIES})
 	target_link_libraries(${bin} fmt)
 	target_link_libraries(${bin} stdc++fs)
+	target_link_libraries(${bin} fftw3)
 endforeach()
