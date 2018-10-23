@@ -15,10 +15,11 @@ endif()
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -march=native -Wall -Wextra -Wno-unused-variable -Wno-register -Werror")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -march=native -Wall -Wextra -Wno-unused-variable -Wno-register -Werror -DXTENSOR_ENABLE_ASSERT -g")
 
 find_package(Boost 1.62.0 COMPONENTS program_options REQUIRED)
 find_package(HDF5 REQUIRED)
+find_package(xtensor REQUIRED)
 
 file(GLOB modules "src/mesh/*.cpp" "src/util/*.cpp" "src/scalar/*.cpp")
 
@@ -33,4 +34,5 @@ foreach(bin ${binaries})
 	target_link_libraries(${bin} fmt)
 	target_link_libraries(${bin} stdc++fs)
 	target_link_libraries(${bin} fftw3)
+	target_link_libraries(${bin} ${xtensor_LIBRARIES})
 endforeach()

@@ -3,11 +3,21 @@
 #include <experimental/filesystem>
 #include <iostream>
 #include <random>
+#include <vector>
 
 #include <fmt/format.h>
 
+#include "xtensor/xstrides.hpp"
+
+#include "xtensor/xmath.hpp"
+
+#include "xtensor/xtensor.hpp"
+#include "xtensor/xview.hpp"
+
 #include "mesh/topology.h"
+#include "scalar/phi4.h"
 #include "scalar/scalar.h"
+#include "util/fft.h"
 #include "util/gnuplot.h"
 #include "util/random.h"
 
@@ -21,15 +31,11 @@ int main(int argc, char **argv)
 	desc.add_options()
 	("help", "this help message")
 	("geom", po::value<std::vector<int>>()->multitoken(), "lattice size")
-	("kappa", po::value<double>()->default_value(0.0), "hopping parameter")
-	("lambda", po::value<double>()->default_value(0.0), "quartic coupling")
+	("mass", po::value<std::vector<double>>()->multitoken(), "bare lattice mass")
 	("count", po::value<int>()->default_value(1000), "number of gauge-configs to generate")
 	("discard", po::value<int>()->default_value(100), "number of gauge-configs to discard (thermalization)")
 	("sweeps", po::value<int>()->default_value(10), "number of sweeps between configs")
-	("or", po::value<int>()->default_value(0), "number of OR steps per heat bath")
-	("seed", po::value<uint64_t>()->default_value(std::random_device()()), "seed for random number generator (same for all betas)")
-	("file", po::value<std::string>()->default_value(""), "file output (HDF5 format)")
-	("plot", "show plot of generated ensemble")
+	("seed", po::value<uint64_t>()->default_value(std::random_device()()), "seed for random number generator")
 	;
 	// clang-format on
 
@@ -43,59 +49,28 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	scalar::ChainParams params;
-	params.geom = vm["geom"].as<std::vector<int>>();
-	params.count = vm["count"].as<int>();
-	params.discard = vm["discard"].as<int>();
-	params.sweeps = vm["sweeps"].as<int>();
-	params.overrelax = vm["or"].as<int>();
-	params.seed = vm["seed"].as<uint64_t>();
-	params.kappa = vm["kappa"].as<double>();
-	params.lambda = vm["lambda"].as<double>();
-	params.filename = vm["file"].as<std::string>();
-	bool doPlot = vm.count("plot");
+	scalar_chain_param_t<phi4_action> param;
+	param.geom = vm["geom"].as<std::vector<int>>();
+	param.count = vm["count"].as<int>();
+	param.discard = vm["discard"].as<int>();
+	param.sweeps = vm["sweeps"].as<int>();
+	param.seed = vm["seed"].as<uint64_t>();
 
-	if (!params.filename.empty())
+	auto masses = vm["mass"].as<std::vector<double>>();
+
+	for (double mass : masses)
 	{
-		// automatic filename if only path was given
-		if (params.filename.size() < 3 ||
-		    0 != params.filename.compare(params.filename.size() - 3, 3, ".h5"))
-			params.filename += '/' + params.autoFilename();
+		// run a chain
+		param.param.mass = mass;
+		auto res = runChain(param);
 
-		// skip if file already exists
-		if (std::experimental::filesystem::exists(params.filename))
-		{
-			fmt::print("chain '{}' already exists\n", params.filename);
-			return 0;
-		}
-	}
+		// analyze results
+		xt::xarray<double> mean = xt::mean(res.c2pt, {0});
+		double c2pt0 = mean[0];
 
-	fmt::print("starting chain '{}'\n", params.filename);
-	auto res = scalar::runChain(params);
-
-	fmt::print("kappa = {}\n", params.kappa);
-	fmt::print("lambda = {}\n", params.lambda);
-	fmt::print("geom =");
-	for (auto g : params.geom)
-		fmt::print(" {}", g);
-	fmt::print("\n");
-	fmt::print("action = {} (theory = {})\n", res.action,
-	           0.5 / (1 - params.kappa * params.kappa));
-	fmt::print("corr-time = {}\n", res.corrTime);
-
-	if (doPlot)
-	{
-		Gnuplot()
-		    .setRangeX(0, res.actionHistory.size())
-		    .plotData(
-		        res.actionHistory,
-		        fmt::format("<x^2> (k={}, l={})", params.kappa, params.lambda));
-
-		auto tau = res.corrTime * params.sweeps;
-		int T = std::min((int)(tau * 5), (int)res.actionHistory.size() / 10);
-		Gnuplot()
-		    .plotData(autocorrelation(res.actionHistory, T))
-		    .plotFunction([=](double x) { return exp(-x / tau); }, 0, T,
-		                  fmt::format("corr-time*{} = {}", params.sweeps, tau));
+		// plot results
+		Gnuplot().setLogScaleY().setRangeX(0, 30).plotData(mean).plotFunction(
+		    [&](double x) { return c2pt0 * exp(-x * mass); }, 0, 30,
+		    "free  theory");
 	}
 }
