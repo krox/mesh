@@ -19,6 +19,7 @@ class splitmix64
 	splitmix64() : s(0) {}
 	explicit splitmix64(uint64_t x) : s(x) {}
 
+	using result_type = uint64_t;
 	uint64_t min() const { return 0; }
 	uint64_t max() const { return UINT64_MAX; }
 
@@ -53,6 +54,7 @@ class xoroshiro128plus
 	xoroshiro128plus() { seed(0); }
 	explicit xoroshiro128plus(uint64_t x) { seed(x); }
 
+	using result_type = uint64_t;
 	uint64_t min() const { return 0; }
 	uint64_t max() const { return UINT64_MAX; }
 
@@ -120,6 +122,7 @@ class xoshiro256
 	xoshiro256() { seed(0); }
 	explicit xoshiro256(uint64_t x) { seed(x); }
 
+	using result_type = uint64_t;
 	uint64_t min() const { return 0; }
 	uint64_t max() const { return UINT64_MAX; }
 

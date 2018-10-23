@@ -1,6 +1,7 @@
 #ifndef UTIL_SPAN_H
 #define UTIL_SPAN_H
 
+#include <type_traits>
 #include <vector>
 
 /** contiguous 1D array-view */
@@ -12,6 +13,10 @@ template <typename T> class span
 	typedef typename std::remove_cv<T>::type T_mut;
 
   public:
+	using value_type = T;
+	using size_type = size_t;
+	using index_type = size_t;
+
 	/** constructors */
 	span() = default;
 	span(T *data, size_t size) : data_(data), size_(size) {}
