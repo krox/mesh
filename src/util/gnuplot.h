@@ -3,6 +3,8 @@
 
 #include <functional>
 
+#include "xtensor/xtensor.hpp"
+
 #include "util/span.h"
 #include "util/stats.h"
 
@@ -29,6 +31,12 @@ class Gnuplot
 
 	/** plot raw data points (i, ys[i]) */
 	Gnuplot &plotData(span<const double> ys, const std::string &title = "data");
+	Gnuplot &plotData(const xt::xtensor<double, 1> &ys,
+	                  const std::string &title = "data");
+
+	Gnuplot &plotErrorbar(const xt::xtensor<double, 1> &ys,
+	                      const xt::xtensor<double, 1> &err,
+	                      const std::string &title = "data");
 
 	/** plot raw data points (xs[i], ys[i]) */
 	Gnuplot &plotData(span<const double> xs, span<const double> ys,

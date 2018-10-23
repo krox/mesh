@@ -59,6 +59,39 @@ Gnuplot &Gnuplot::plotData(span<const double> ys, const std::string &title)
 	return *this;
 }
 
+Gnuplot &Gnuplot::plotData(const xt::xtensor<double, 1> &ys,
+                           const std::string &title)
+{
+	std::string filename = fmt::format("gnuplot_{}_{}.txt", plotID, nplots);
+	std::ofstream file(filename);
+	for (size_t i = 0; i < ys.size(); ++i)
+		file << i << " " << ys[i] << "\n";
+	file.flush();
+	file.close();
+	fmt::print(pipe, "{} '{}' using 1:2 with {} title \"{}\"\n",
+	           (nplots ? "replot" : "plot"), filename, style, title);
+	fflush(pipe);
+	++nplots;
+	return *this;
+}
+
+Gnuplot &Gnuplot::plotErrorbar(const xt::xtensor<double, 1> &ys,
+                               const xt::xtensor<double, 1> &err,
+                               const std::string &title)
+{
+	std::string filename = fmt::format("gnuplot_{}_{}.txt", plotID, nplots);
+	std::ofstream file(filename);
+	for (size_t i = 0; i < ys.size(); ++i)
+		file << i << " " << ys[i] << " " << err[i] << "\n";
+	file.flush();
+	file.close();
+	fmt::print(pipe, "{} '{}' using 1:2:3 with {} title \"{}\"\n",
+	           (nplots ? "replot" : "plot"), filename, "errorbars", title);
+	fflush(pipe);
+	++nplots;
+	return *this;
+}
+
 Gnuplot &Gnuplot::plotData(span<const double> xs, span<const double> ys,
                            const std::string &title)
 {
