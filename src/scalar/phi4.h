@@ -9,6 +9,10 @@ struct phi4_action_param_t
 	double coupling = 0.0;
 };
 
+/*
+Scalar ϕ^4 theory:
+S = 1/2 Σ_xy (ϕ_x-ϕ_y)^2 +  m^2/2 Σ_x ϕ_x^2 + g/24 Σ_x ϕ_x^4
+*/
 class phi4_action
 {
   public:

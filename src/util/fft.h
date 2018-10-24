@@ -30,7 +30,6 @@ class Correlator
 	template <typename G>
 	explicit Correlator(G *in, const std::vector<int> &shape)
 	{
-		[[maybe_unused]] auto alsjkdh = in;
 		rep = G::repSize();
 		static_assert(sizeof(G) == G::repSize() * sizeof(double));
 
@@ -40,8 +39,8 @@ class Correlator
 			assert(s % 2 == 0);
 			size *= s;
 		}
-
-		tmp = xt::zeros<std::complex<double>>({size / 2 + 1, (size_t)rep});
+		tmp = xt::zeros<std::complex<double>>(
+		    {size / shape.back() * (shape.back() / 2 + 1), (size_t)rep});
 		out = xt::zeros<double>({(size_t)size});
 
 		int rank = shape.size();

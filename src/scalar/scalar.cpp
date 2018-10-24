@@ -8,9 +8,8 @@ template <typename Action>
 scalar_chain_result_t runChain(const scalar_chain_param_t<Action> &param)
 {
 	/** initialize field */
-	assert(param.geom.size() == 1);
-	auto mesh = scalar_mesh<1>(Topology::lattice(param.geom));
-	auto action = Action(mesh, param.param, param.seed);
+	scalar_mesh<1> mesh(Topology::lattice(param.geom));
+	Action action(mesh, param.param, param.seed);
 	Correlator corr(mesh.phi.data(), param.geom);
 
 	/** run the Markov chain */
