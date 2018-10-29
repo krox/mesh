@@ -10,7 +10,6 @@
 #include "xtensor/xstrides.hpp"
 
 #include "xtensor/xmath.hpp"
-
 #include "xtensor/xtensor.hpp"
 #include "xtensor/xview.hpp"
 
@@ -23,6 +22,49 @@
 
 #include "boost/program_options.hpp"
 namespace po = boost::program_options;
+
+xt::xarray<double> getMom0(xt::xarray<double> c2pt)
+{
+	while (c2pt.dimension() > 2)
+		c2pt = xt::sum(c2pt, {1}) / c2pt.shape()[1];
+	return c2pt;
+}
+
+double analyzeMass(const xt::xarray<double> &c2pt_full, bool plot)
+{
+	// spatial momentum zero
+	xt::xarray<double> c2pt = getMom0(c2pt_full);
+	xt::xarray<double> mean = xt::mean(c2pt, {0});
+	xt::xarray<double> err =
+	    xt::sqrt(xt::mean((c2pt - mean) * (c2pt - mean), {0})) /
+	    sqrt(c2pt.shape()[0]);
+
+	// exponential fit using log-trick
+	std::vector<double> xs, ys, yse;
+	for (size_t t = 0; t <= mean.shape()[0] / 4; ++t)
+	{
+		if (mean(t) < 2 * err(t))
+			break;
+		xs.push_back(t);
+		ys.push_back(log(mean(t)));
+		yse.push_back(err(t) / mean(t));
+	}
+	auto fit = LinearFit(xs, ys, yse);
+	double a0 = exp(fit.a);
+	double mass = -fit.b;
+
+	// plot 2pt function
+	if (plot)
+	{
+		Gnuplot()
+		    .setLogScaleY()
+		    .setRangeX(0, (int)xs.size() + 2)
+		    .plotErrorbar(mean, err)
+		    .plotFunction([&](double x) { return a0 * exp(-x * mass); }, 0,
+		                  (int)xs.size(), fmt::format("mass = {}", mass));
+	}
+	return mass;
+}
 
 int main(int argc, char **argv)
 {
@@ -65,12 +107,6 @@ int main(int argc, char **argv)
 		auto res = runChain(param);
 
 		// analyze results
-		xt::xarray<double> mean = xt::mean(res.c2pt, {0});
-		double c2pt0 = mean[0];
-
-		// plot results
-		Gnuplot().setLogScaleY().setRangeX(0, 30).plotData(mean).plotFunction(
-		    [&](double x) { return c2pt0 * exp(-x * mass); }, 0, 30,
-		    "free  theory");
+		analyzeMass(res.c2pt, true);
 	}
 }

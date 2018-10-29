@@ -41,7 +41,7 @@ class Correlator
 		}
 		tmp = xt::zeros<std::complex<double>>(
 		    {size / shape.back() * (shape.back() / 2 + 1), (size_t)rep});
-		out = xt::zeros<double>({(size_t)size});
+		out = xt::zeros<double>(shape);
 
 		int rank = shape.size();
 
@@ -67,7 +67,8 @@ class Correlator
 		fftw_execute(plan2);
 	}
 
-	xt::xarray<double> &operator()() { return out; }
+	/** returns full n0 x n1...x nn correlator */
+	xt::xarray<double> &fullCorr() { return out; }
 };
 
 #endif

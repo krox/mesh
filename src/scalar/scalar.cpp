@@ -1,8 +1,8 @@
 #include "scalar/scalar.h"
 
 #include "scalar/phi4.h"
-
 #include "util/fft.h"
+#include "xtensor/xview.hpp"
 
 template <typename Action>
 scalar_chain_result_t runChain(const scalar_chain_param_t<Action> &param)
@@ -14,7 +14,11 @@ scalar_chain_result_t runChain(const scalar_chain_param_t<Action> &param)
 
 	/** run the Markov chain */
 	scalar_chain_result_t res;
-	res.c2pt = xt::zeros<double>({param.count, mesh.nSites()});
+	std::vector<int> s;
+	s.push_back(param.count);
+	for (int d : param.geom)
+		s.push_back(d);
+	res.c2pt = xt::zeros<double>(s);
 	mesh.initZero();
 	for (int i = -param.discard; i < param.count; ++i)
 	{
@@ -25,7 +29,7 @@ scalar_chain_result_t runChain(const scalar_chain_param_t<Action> &param)
 
 		// write 2pt correlator
 		corr.compute();
-		xt::view(res.c2pt, i) = corr();
+		xt::view(res.c2pt, i) = corr.fullCorr();
 	}
 
 	/** analyze measurements */
