@@ -17,6 +17,7 @@ class phi4_action
 {
   public:
 	using param_t = phi4_action_param_t;
+	static constexpr size_t rep = 1;
 
 	scalar_mesh<1> &mesh;
 	param_t param;

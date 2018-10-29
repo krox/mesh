@@ -1,6 +1,7 @@
 #include "scalar/scalar.h"
 
 #include "scalar/phi4.h"
+#include "scalar/sigma.h"
 #include "util/fft.h"
 #include "xtensor/xview.hpp"
 
@@ -8,7 +9,7 @@ template <typename Action>
 scalar_chain_result_t runChain(const scalar_chain_param_t<Action> &param)
 {
 	/** initialize field */
-	scalar_mesh<1> mesh(Topology::lattice(param.geom));
+	scalar_mesh<Action::rep> mesh(Topology::lattice(param.geom));
 	Action action(mesh, param.param, param.seed);
 	Correlator corr(mesh.phi.data(), param.geom);
 
@@ -40,3 +41,5 @@ scalar_chain_result_t runChain(const scalar_chain_param_t<Action> &param)
 
 template scalar_chain_result_t
 runChain<phi4_action>(const scalar_chain_param_t<phi4_action> &);
+template scalar_chain_result_t
+runChain<sigma_action>(const scalar_chain_param_t<sigma_action> &);

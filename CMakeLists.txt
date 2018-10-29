@@ -23,7 +23,7 @@ find_package(xtensor REQUIRED)
 
 file(GLOB modules "src/mesh/*.cpp" "src/util/*.cpp" "src/scalar/*.cpp")
 
-set(binaries "main" "thermalize" "group_histogram" "generate" "wilson" "gaugefix" "scalar")
+set(binaries "main" "thermalize" "group_histogram" "generate" "wilson" "gaugefix" "scalar" "sigma")
 
 foreach(bin ${binaries})
 	add_executable(${bin} src/${bin}.cpp ${modules})
