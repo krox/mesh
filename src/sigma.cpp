@@ -99,6 +99,11 @@ int main(int argc, char **argv)
 	param.seed = vm["seed"].as<uint64_t>();
 
 	auto betas = vm["beta"].as<std::vector<double>>();
+	double dim = param.geom.size();
+
+	std::vector<double> plotBeta, plotMass;
+
+	auto plot = Gnuplot();
 
 	for (double beta : betas)
 	{
@@ -107,6 +112,24 @@ int main(int argc, char **argv)
 		auto res = runChain(param);
 
 		// analyze results
-		analyzeMass(res.c2pt, true);
+		double mass = analyzeMass(res.c2pt, betas.size() == 1);
+		fmt::print("beta = {}, mass = {}\n", beta, mass);
+		plotBeta.push_back(beta);
+		plotMass.push_back(mass);
+
+		if (plotBeta.size() >= 2)
+		{
+			plot.clear();
+			plot.plotData(plotBeta, plotMass);
+
+			if (dim == 1)
+			{
+				plot.plotFunction(
+				    [&](double b) { return -log(b / 3.0 - b * b * b / 45.0); },
+				    betas.front(), 2.5, "strong coupling");
+				plot.plotFunction([&](double b) { return -log(1.0 - 1.0 / b); },
+				                  1.5, betas.back(), "weak coupling");
+			}
+		}
 	}
 }
