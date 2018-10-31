@@ -52,6 +52,12 @@ void DataSet::write(span<const double> data)
 	enforce(H5Dwrite(id, H5T_NATIVE_DOUBLE, 0, 0, 0, data.data()));
 }
 
+void DataSet::write(xt::xarray<double, xt::layout_type::row_major> &data)
+{
+	assert(data.size() == size);
+	enforce(H5Dwrite(id, H5T_NATIVE_DOUBLE, 0, 0, 0, data.raw_data()));
+}
+
 void DataSet::write(hsize_t row, span<const double> data)
 {
 	assert(id > 0);

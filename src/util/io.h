@@ -10,6 +10,7 @@
 #include "util/span.h"
 
 #include "hdf5.h"
+#include "xtensor/xarray.hpp"
 
 class DataSet
 {
@@ -40,6 +41,7 @@ class DataSet
 	void close();
 
 	void write(span<const double> data);
+	void write(xt::xarray<double, xt::layout_type::row_major> &data);
 	void write(hsize_t row, span<const double> data);
 	void read(span<double> data);
 	template <typename T> std::vector<T> read();
