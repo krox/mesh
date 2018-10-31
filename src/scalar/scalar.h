@@ -9,6 +9,8 @@
 
 #include "groups/scalar.h"
 #include "mesh/topology.h"
+#include "util/io.h"
+#include "util/span.h"
 
 template <int N> class scalar_mesh {
   public:
@@ -43,6 +45,10 @@ template <int N> class scalar_mesh {
 		for (auto &x : phi)
 			x = Scalar<N>::one();
 	}
+
+	span<const double> rawConfig() const {
+		return span<const double>((double const *)phi.data(), phi.size() * N);
+	}
 };
 
 /** parameters of markov chain */
@@ -57,6 +63,7 @@ template <typename Action> struct scalar_chain_param_t {
 	int discard = 0;   // number of discarded configs
 	int sweeps = 1;    // number of sweeps between measurements
 	uint64_t seed = 0; // seed for random number generator
+	std::string filename = "";
 };
 
 /** some measurements taken during the simulation. This may include measurements

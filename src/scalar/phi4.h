@@ -7,6 +7,10 @@ struct phi4_action_param_t
 {
 	double mass = 0.2;
 	double coupling = 0.0;
+
+	// stupid hack
+	double beta = 0.0 / 0.0;
+	double mu = 0.0 / 0.0;
 };
 
 /*

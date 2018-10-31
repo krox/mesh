@@ -69,6 +69,26 @@ double analyzeMass(const xt::xarray<double> &c2pt_full, bool plot)
 	return mass;
 }
 
+std::string autoFilename(const std::vector<int> geom, double beta, double mu)
+{
+	char g = 'x';
+	if (geom.size() == 2)
+	{
+		if (geom[1] == geom[0])
+			g = 'p';
+		if (geom[1] == 2 * geom[0])
+			g = 'q';
+		if (geom[1] == 3 * geom[0])
+			g = 'r';
+	}
+
+	if (mu == 0)
+		return fmt::format("O3.{}{}.b{}.h5", g, geom[0], (int)(beta * 1000));
+	else
+		return fmt::format("O3.{}{}.b{}.b{}.h5", g, geom[0], (int)(beta * 1000),
+		                   (int)(mu * 1000));
+}
+
 int main(int argc, char **argv)
 {
 	// clang-format off
@@ -82,6 +102,8 @@ int main(int argc, char **argv)
 	("discard", po::value<int>()->default_value(100), "number of gauge-configs to discard (thermalization)")
 	("sweeps", po::value<int>()->default_value(10), "number of sweeps between configs")
 	("seed", po::value<uint64_t>()->default_value(std::random_device()()), "seed for random number generator")
+	("filename", po::value<std::string>()->default_value(""), "hdf5 output")
+	("plot", "show plot of generated ensemble(s)")
 	;
 	// clang-format on
 
@@ -101,6 +123,8 @@ int main(int argc, char **argv)
 	param.discard = vm["discard"].as<int>();
 	param.sweeps = vm["sweeps"].as<int>();
 	param.seed = vm["seed"].as<uint64_t>();
+	std::string filename = vm["filename"].as<std::string>();
+	bool doPlot = vm.count("plot");
 
 	auto betas = vm["beta"].as<std::vector<double>>();
 	auto mus = vm["mu"].as<std::vector<double>>();
@@ -115,14 +139,27 @@ int main(int argc, char **argv)
 	{
 		for (double mu : mus)
 		{
-			// run a chain
+			// parameters for this run
 			param.param.beta = beta;
 			param.param.mu = mu;
+
+			if (!filename.empty())
+			{
+				// automatic filename if only path was given
+				if (filename.size() < 3 ||
+				    0 != filename.compare(filename.size() - 3, 3, ".h5"))
+					param.filename =
+					    fmt::format("{}/{}.h5", filename,
+					                autoFilename(param.geom, param.param.beta,
+					                             param.param.mu));
+			}
+
+			// run the chain
 			auto res = runChain(param);
 
 			// analyze results
-			double mass =
-			    analyzeMass(res.c2pt, betas.size() == 1 && mus.size() == 1);
+			double mass = analyzeMass(res.c2pt, doPlot && betas.size() == 1 &&
+			                                        mus.size() == 1);
 			double action = xt::mean(res.actionHistory)();
 			double signReal = xt::mean(xt::cos(res.phaseAngle))();
 			double signImag = xt::mean(xt::sin(res.phaseAngle))();
@@ -136,7 +173,7 @@ int main(int argc, char **argv)
 			plotMass.push_back(mass);
 			plotAction.push_back(action);
 
-			if (plotMass.size() >= 2)
+			if (doPlot && plotMass.size() >= 2)
 			{
 				plot.clear();
 				plot.plotData(plotBeta, plotMass);
@@ -154,7 +191,7 @@ int main(int argc, char **argv)
 				}
 			}
 
-			if (plotAction.size() >= 2)
+			if (doPlot && plotAction.size() >= 2)
 			{
 				plot2.clear();
 				plot2.plotData(plotBeta, plotAction, "action density");

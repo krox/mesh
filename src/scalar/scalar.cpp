@@ -4,6 +4,7 @@
 #include "scalar/sigma.h"
 #include "util/fft.h"
 #include "xtensor/xview.hpp"
+#include <fmt/format.h>
 
 template <typename Action>
 scalar_chain_result_t runChain(const scalar_chain_param_t<Action> &param)
@@ -15,13 +16,34 @@ scalar_chain_result_t runChain(const scalar_chain_param_t<Action> &param)
 
 	/** run the Markov chain */
 	scalar_chain_result_t res;
-	std::vector<int> s;
+	std::vector<hsize_t> s;
 	s.push_back(param.count);
 	for (int d : param.geom)
 		s.push_back(d);
 	res.c2pt = xt::zeros<double>(s);
 	res.actionHistory = xt::zeros<double>({param.count});
 	res.phaseAngle = xt::zeros<double>({param.count});
+
+	DataFile file;
+	if (param.filename != "")
+	{
+		file = DataFile::create(param.filename);
+
+		// physical parameters
+		file.setAttribute("beta", param.param.beta);
+		file.setAttribute("mu", param.param.mu);
+
+		// topological parameters
+		file.setAttribute("geometry", param.geom);
+
+		// simulation parameters
+		file.setAttribute("markov_count", param.count);
+		file.setAttribute("markov_discard", param.discard);
+		file.setAttribute("markov_sweeps", param.sweeps);
+
+		file.makeGroup("/configs");
+	}
+
 	mesh.initZero();
 	for (int i = -param.discard; i < param.count; ++i)
 	{
@@ -37,10 +59,31 @@ scalar_chain_result_t runChain(const scalar_chain_param_t<Action> &param)
 		// measure 2pt correlator
 		corr.compute();
 		xt::view(res.c2pt, i) = corr.fullCorr();
+
+		// write config to file
+		if (param.filename != "")
+		{
+			std::vector<hsize_t> shape;
+			for (int d : param.geom)
+				shape.push_back(d);
+			shape.push_back(Action::rep);
+
+			std::string name = fmt::format("/configs/{}", i + 1);
+			file.createData(name, shape).write(mesh.rawConfig());
+		}
 	}
 
 	/** analyze measurements */
 	res.reject = (double)action.nReject / (action.nAccept + action.nReject);
+
+	if (param.filename != "")
+	{
+		file.createData("action_history", {res.actionHistory.size()})
+		    .write(res.actionHistory);
+		file.createData("phase_angle", {res.actionHistory.size()})
+		    .write(res.phaseAngle);
+		file.createData("c2pt", s).write(res.c2pt);
+	}
 
 	return res;
 }
