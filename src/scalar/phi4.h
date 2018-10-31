@@ -31,6 +31,9 @@ class phi4_action
 	{}
 
 	void sweep();
+
+	double action() const { assert(false); }
+	double phaseAngle() const { return 0.0; }
 };
 
 #endif

@@ -9,6 +9,9 @@
 
 #include "xtensor/xstrides.hpp"
 
+#include "xtensor/xadapt.hpp"
+#include "xtensor/xeval.hpp"
+#include "xtensor/xfunction.hpp"
 #include "xtensor/xmath.hpp"
 #include "xtensor/xtensor.hpp"
 #include "xtensor/xview.hpp"
@@ -73,7 +76,8 @@ int main(int argc, char **argv)
 	desc.add_options()
 	("help", "this help message")
 	("geom", po::value<std::vector<int>>()->multitoken(), "lattice size")
-	("beta", po::value<std::vector<double>>()->multitoken(), "inverse temperature")
+	("beta", po::value<std::vector<double>>()->multitoken(), "inverse coupling ( = 1/T = 1/g_0^2 )")
+	("mu", po::value<std::vector<double>>()->multitoken(), "chemical potential")
 	("count", po::value<int>()->default_value(1000), "number of gauge-configs to generate")
 	("discard", po::value<int>()->default_value(100), "number of gauge-configs to discard (thermalization)")
 	("sweeps", po::value<int>()->default_value(10), "number of sweeps between configs")
@@ -99,36 +103,77 @@ int main(int argc, char **argv)
 	param.seed = vm["seed"].as<uint64_t>();
 
 	auto betas = vm["beta"].as<std::vector<double>>();
+	auto mus = vm["mu"].as<std::vector<double>>();
 	double dim = param.geom.size();
 
-	std::vector<double> plotBeta, plotMass;
+	std::vector<double> plotBeta, plotMu, plotMass, plotAction;
 
 	auto plot = Gnuplot();
+	auto plot2 = Gnuplot();
 
 	for (double beta : betas)
 	{
-		// run a chain
-		param.param.beta = beta;
-		auto res = runChain(param);
-
-		// analyze results
-		double mass = analyzeMass(res.c2pt, betas.size() == 1);
-		fmt::print("beta = {}, mass = {}\n", beta, mass);
-		plotBeta.push_back(beta);
-		plotMass.push_back(mass);
-
-		if (plotBeta.size() >= 2)
+		for (double mu : mus)
 		{
-			plot.clear();
-			plot.plotData(plotBeta, plotMass);
+			// run a chain
+			param.param.beta = beta;
+			param.param.mu = mu;
+			auto res = runChain(param);
 
-			if (dim == 1)
+			// analyze results
+			double mass =
+			    analyzeMass(res.c2pt, betas.size() == 1 && mus.size() == 1);
+			double action = xt::mean(res.actionHistory)();
+			double signReal = xt::mean(xt::cos(res.phaseAngle))();
+			double signImag = xt::mean(xt::sin(res.phaseAngle))();
+			fmt::print("beta = {}, mu = {}, mass = {}, <sign> = {} + {}i, mL = "
+			           "{}, reject = {}\n",
+			           beta, mu, mass, signReal, signImag, mass * param.geom[0],
+			           res.reject);
+
+			plotBeta.push_back(beta);
+			plotMu.push_back(mu);
+			plotMass.push_back(mass);
+			plotAction.push_back(action);
+
+			if (plotMass.size() >= 2)
 			{
-				plot.plotFunction(
-				    [&](double b) { return -log(b / 3.0 - b * b * b / 45.0); },
-				    betas.front(), 2.5, "strong coupling");
-				plot.plotFunction([&](double b) { return -log(1.0 - 1.0 / b); },
-				                  1.5, betas.back(), "weak coupling");
+				plot.clear();
+				plot.plotData(plotBeta, plotMass);
+
+				if (dim == 1)
+				{
+					plot.plotFunction(
+					    [&](double b) {
+						    return -log(b / 3.0 - b * b * b / 45.0);
+					    },
+					    betas.front(), 2.5, "strong coupling");
+					plot.plotFunction(
+					    [&](double b) { return -log(1.0 - 1.0 / b); }, 1.5,
+					    betas.back(), "weak coupling");
+				}
+			}
+
+			if (plotAction.size() >= 2)
+			{
+				plot2.clear();
+				plot2.plotData(plotBeta, plotAction, "action density");
+
+				if (dim == 2)
+				{
+					plot2.plotFunction(
+					    [&](double b) {
+						    double y = cosh(b) / sinh(b) - 1 / b;
+						    return 4 - 4 * y - 8 * y * y * y -
+						           48 / 5.0 * y * y * y * y * y;
+					    },
+					    betas.front(), 1.3, "strong coupling");
+					plot2.plotFunction(
+					    [&](double b) {
+						    return 2 / b + 0.25 / b / b + 0.156 / b / b / b;
+					    },
+					    1.2, betas.back(), "weak coupling");
+				}
 			}
 		}
 	}

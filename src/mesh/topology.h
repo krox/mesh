@@ -37,6 +37,7 @@ class Topology
   public:
 	std::vector<Link> links;
 	std::vector<std::vector<HalfLink>> graph;
+	std::vector<int> timeStep; // succesor site in time-direction
 
 	/** type of topology (for regular lattices) */
 	std::string top;
@@ -44,7 +45,7 @@ class Topology
 
 	/** constructors */
 	Topology() = default;
-	explicit Topology(int nSites) : graph(nSites) {}
+	explicit Topology(int nSites) : graph(nSites), timeStep(nSites, -1) {}
 
 	/** create periodic, rectangular lattice topology */
 	static Topology lattice1D(int nx);

@@ -8,7 +8,10 @@ Topology Topology::lattice1D(int nx)
 	top.links.reserve(top.nSites());
 
 	for (int x = 0; x < nx; ++x)
+	{
 		top.addLink(x, (x + 1) % nx);
+		top.timeStep[x] = (x + 1) % nx;
+	}
 
 	assert(top.nLinks() == top.nSites());
 	return top;
@@ -28,6 +31,7 @@ Topology Topology::lattice2D(int nx, int ny)
 		{
 			top.addLink(f(x, y), f(x + 1, y));
 			top.addLink(f(x, y), f(x, y + 1));
+			top.timeStep[f(x, y)] = f(x, y + 1);
 		}
 
 	assert(top.nLinks() == 2 * top.nSites());
@@ -52,6 +56,7 @@ Topology Topology::lattice3D(int nx, int ny, int nz)
 				top.addLink(f(x, y, z), f(x + 1, y, z));
 				top.addLink(f(x, y, z), f(x, y + 1, z));
 				top.addLink(f(x, y, z), f(x, y, z + 1));
+				top.timeStep[f(x, y, z)] = f(x, y, z + 1);
 			}
 
 	assert(top.nLinks() == 3 * top.nSites());
@@ -78,6 +83,7 @@ Topology Topology::lattice4D(int nx, int ny, int nz, int nt)
 					top.addLink(f(x, y, z, t), f(x, y + 1, z, t));
 					top.addLink(f(x, y, z, t), f(x, y, z + 1, t));
 					top.addLink(f(x, y, z, t), f(x, y, z, t + 1));
+					top.timeStep[f(x, y, z, t)] = f(x, y, z, t + 1);
 				}
 
 	assert(top.nLinks() == 4 * top.nSites());

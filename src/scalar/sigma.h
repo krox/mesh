@@ -6,11 +6,12 @@
 struct sigma_action_param_t
 {
 	double beta = 3.0;
+	double mu = 0.0;
 };
 
 /*
 O(3) model:
-S = β Σ_xy n_x *n_y
+S = -β ( Σ_xy n_x * n_y - μ^2/2 Σ_x n3^2 - iμ Σ_x n1(x)*(n2(x+t)-n2(x-t)) )
 constaint: n_x^2 = 1
 */
 class sigma_action
@@ -30,7 +31,14 @@ class sigma_action
 	    : mesh(mesh), param(param), rng(seed)
 	{}
 
+	/** heat-bath sweep (phase quenched) */
 	void sweep();
+
+	/** real part of (negative) action */
+	double action() const;
+
+	/** imaginary part of (negative) action */
+	double phaseAngle() const;
 };
 
 #endif

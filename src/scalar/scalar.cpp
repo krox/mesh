@@ -20,6 +20,8 @@ scalar_chain_result_t runChain(const scalar_chain_param_t<Action> &param)
 	for (int d : param.geom)
 		s.push_back(d);
 	res.c2pt = xt::zeros<double>(s);
+	res.actionHistory = xt::zeros<double>({param.count});
+	res.phaseAngle = xt::zeros<double>({param.count});
 	mesh.initZero();
 	for (int i = -param.discard; i < param.count; ++i)
 	{
@@ -28,7 +30,11 @@ scalar_chain_result_t runChain(const scalar_chain_param_t<Action> &param)
 		if (i < 0)
 			continue;
 
-		// write 2pt correlator
+		// basic observables
+		res.actionHistory(i) = action.action();  // action density(real part)
+		res.phaseAngle(i) = action.phaseAngle(); // imaginary part of action
+
+		// measure 2pt correlator
 		corr.compute();
 		xt::view(res.c2pt, i) = corr.fullCorr();
 	}

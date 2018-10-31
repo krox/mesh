@@ -13,6 +13,7 @@
 template <int N> class scalar_mesh {
   public:
 	std::vector<std::vector<int>> g;
+	std::vector<int> timeStep;
 	std::vector<Scalar<N>> phi;
 
 	int nFlavors() const { return N; }
@@ -25,7 +26,8 @@ template <int N> class scalar_mesh {
 	}
 
 	/** does not initialize the field */
-	scalar_mesh(const Topology &top) : g(top.nSites()), phi(top.nSites()) {
+	scalar_mesh(const Topology &top)
+	    : g(top.nSites()), timeStep(top.timeStep), phi(top.nSites()) {
 		for (auto &[a, b] : top.links) {
 			g[a].push_back(b);
 			g[b].push_back(a);
@@ -63,6 +65,8 @@ struct scalar_chain_result_t {
 	double reject;
 
 	xt::xarray<double> c2pt;
+	xt::xarray<double> actionHistory;
+	xt::xarray<double> phaseAngle;
 };
 
 template <typename Action>
