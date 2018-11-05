@@ -64,6 +64,7 @@ template <typename Action> struct scalar_chain_param_t {
 	int sweeps = 1;    // number of sweeps between measurements
 	uint64_t seed = 0; // seed for random number generator
 	std::string filename = "";
+	bool skipConfig = false;
 };
 
 /** some measurements taken during the simulation. This may include measurements

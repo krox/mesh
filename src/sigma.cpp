@@ -71,22 +71,12 @@ double analyzeMass(const xt::xarray<double> &c2pt_full, bool plot)
 
 std::string autoFilename(const std::vector<int> geom, double beta, double mu)
 {
-	char g = 'x';
-	if (geom.size() == 2)
-	{
-		if (geom[1] == geom[0])
-			g = 'p';
-		if (geom[1] == 2 * geom[0])
-			g = 'q';
-		if (geom[1] == 3 * geom[0])
-			g = 'r';
-	}
-
 	if (mu == 0)
-		return fmt::format("O3.{}{}.b{}.h5", g, geom[0], (int)(beta * 1000));
+		return fmt::format("O3.{}x{}.b{}.h5", geom[0], geom[1],
+		                   (int)(beta * 1000));
 	else
-		return fmt::format("O3.{}{}.b{}.b{}.h5", g, geom[0], (int)(beta * 1000),
-		                   (int)(mu * 1000));
+		return fmt::format("O3.{}x{}.b{}.m{}.h5", geom[0], geom[1],
+		                   (int)(beta * 1000), (int)(mu * 1000));
 }
 
 int main(int argc, char **argv)
@@ -103,6 +93,7 @@ int main(int argc, char **argv)
 	("sweeps", po::value<int>()->default_value(10), "number of sweeps between configs")
 	("seed", po::value<uint64_t>()->default_value(std::random_device()()), "seed for random number generator")
 	("filename", po::value<std::string>()->default_value(""), "hdf5 output")
+	("skip-config", "do not include actual configs in output")
 	("plot", "show plot of generated ensemble(s)")
 	;
 	// clang-format on
@@ -123,6 +114,7 @@ int main(int argc, char **argv)
 	param.discard = vm["discard"].as<int>();
 	param.sweeps = vm["sweeps"].as<int>();
 	param.seed = vm["seed"].as<uint64_t>();
+	param.skipConfig = vm.count("skip-config");
 	std::string filename = vm["filename"].as<std::string>();
 	bool doPlot = vm.count("plot");
 
@@ -149,7 +141,7 @@ int main(int argc, char **argv)
 				if (filename.size() < 3 ||
 				    0 != filename.compare(filename.size() - 3, 3, ".h5"))
 					param.filename =
-					    fmt::format("{}/{}.h5", filename,
+					    fmt::format("{}/{}", filename,
 					                autoFilename(param.geom, param.param.beta,
 					                             param.param.mu));
 			}

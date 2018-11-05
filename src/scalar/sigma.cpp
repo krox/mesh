@@ -57,6 +57,7 @@ void sigma_action::sweep()
 
 double sigma_action::action() const
 {
+	// NOTE: this assumes mu = 0
 	double sum = 0.0;
 	for (int i = 0; i < mesh.nSites(); ++i)
 		for (auto j : mesh.g[i])

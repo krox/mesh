@@ -41,7 +41,8 @@ scalar_chain_result_t runChain(const scalar_chain_param_t<Action> &param)
 		file.setAttribute("markov_discard", param.discard);
 		file.setAttribute("markov_sweeps", param.sweeps);
 
-		file.makeGroup("/configs");
+		if (!param.skipConfig)
+			file.makeGroup("/configs");
 	}
 
 	mesh.initZero();
@@ -68,8 +69,11 @@ scalar_chain_result_t runChain(const scalar_chain_param_t<Action> &param)
 				shape.push_back(d);
 			shape.push_back(Action::rep);
 
-			std::string name = fmt::format("/configs/{}", i + 1);
-			file.createData(name, shape).write(mesh.rawConfig());
+			if (!param.skipConfig)
+			{
+				std::string name = fmt::format("/configs/{}", i + 1);
+				file.createData(name, shape).write(mesh.rawConfig());
+			}
 		}
 	}
 
