@@ -182,3 +182,21 @@ double correlationTime(const std::vector<double> &xs)
 	}
 	return 1.0 / 0.0; // no reliable estimation -> infinity
 }
+
+double correlationTime(const xt::xtensor<double, 1> &xs)
+{
+	double mx = xt::mean(xs)();
+	double vx = xt::mean((xs - mx) * (xs - mx))();
+
+	double time = 0.5;
+	for (size_t lag = 1; lag < xs.size() / 20; ++lag)
+	{
+		double sum = 0;
+		for (size_t i = 0; i < xs.size() - lag; ++i)
+			sum += (xs[i] - mx) * (xs[i + lag] - mx);
+		time += sum / (xs.size() - lag) / vx;
+		if (lag >= 5 * time)
+			return time;
+	}
+	return 1.0 / 0.0; // no reliable estimation -> infinity
+}

@@ -70,7 +70,7 @@ int main(int argc, char **argv)
 			betas.push_back(betaMin + 1.0 * i / (n - 1) * (betaMax - betaMin));
 	}
 
-	std::vector<double> plotBeta, plotMag;
+	std::vector<double> plotBeta, plotMag, plotMagAbs, plotCorr;
 
 	for (double beta : betas)
 	{
@@ -84,10 +84,15 @@ int main(int argc, char **argv)
 		}
 
 		// analyze
-		double mag = xt::mean(xt::abs(res.magHistory))();
-		fmt::print("beta = {}, |mag| = {}\n", beta, mag);
+		double mag = xt::mean(res.magHistory)();
+		double magAbs = xt::mean(xt::abs(res.magHistory))();
+		double tau = correlationTime(res.magHistory);
+		fmt::print("beta = {}, <mag> = {}, <|mag|> = {}, corr = {}\n", beta,
+		           mag, magAbs, tau);
 		plotBeta.push_back(beta);
 		plotMag.push_back(mag);
+		plotMagAbs.push_back(magAbs);
+		plotCorr.push_back(tau);
 
 		param.seed += 1; // change seed for next beta
 	}
@@ -95,11 +100,13 @@ int main(int argc, char **argv)
 	if (betas.size() >= 2)
 	{
 		Gnuplot()
-		    .plotData(plotBeta, plotMag)
+		    .plotData(plotBeta, plotMag, "<mag>")
+		    .plotData(plotBeta, plotMagAbs, "<|mag|>")
 		    .plotFunction(
 		        [](double beta) {
 			        return pow(1 - pow(sinh(2 * beta), -4), 0.125);
 		        },
 		        0.44068679350977147, betas.back());
+		Gnuplot().plotData(plotBeta, plotCorr);
 	}
 }

@@ -6,6 +6,10 @@
 #include <array>
 #include <vector>
 
+#include "xtensor/xstrides.hpp"
+
+#include "xtensor/xtensor.hpp"
+
 double mean(const std::vector<double> &xs);
 double variance(const std::vector<double> &xs);
 
@@ -92,5 +96,6 @@ std::vector<double> autocorrelation(const std::vector<double> &xs, size_t m);
 
 /** estimate auto-correlation time */
 double correlationTime(const std::vector<double> &xs);
+double correlationTime(const xt::xtensor<double, 1> &xs);
 
 #endif
