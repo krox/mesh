@@ -36,7 +36,8 @@ class phi4_action
 
 	void sweep();
 
-	double action() const { assert(false); }
+	double action() const { return 0.0 / 0.0; }
+	double magnetization() const { return 0.0 / 0.0; }
 	double phaseAngle() const { return 0.0; }
 };
 

@@ -74,6 +74,7 @@ struct scalar_chain_result_t {
 
 	xt::xarray<double> c2pt;
 	xt::xarray<double> actionHistory;
+	xt::xarray<double> magHistory;
 	xt::xarray<double> phaseAngle;
 };
 

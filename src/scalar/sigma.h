@@ -37,6 +37,8 @@ class sigma_action
 	/** real part of (negative) action */
 	double action() const;
 
+	double magnetization() const { return 0.0 / 0.0; }
+
 	/** imaginary part of (negative) action */
 	double phaseAngle() const;
 };

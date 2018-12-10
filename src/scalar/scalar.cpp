@@ -1,5 +1,6 @@
 #include "scalar/scalar.h"
 
+#include "scalar/ising.h"
 #include "scalar/phi4.h"
 #include "scalar/sigma.h"
 #include "util/fft.h"
@@ -22,6 +23,7 @@ scalar_chain_result_t runChain(const scalar_chain_param_t<Action> &param)
 		s.push_back(d);
 	res.c2pt = xt::zeros<double>(s);
 	res.actionHistory = xt::zeros<double>({param.count});
+	res.magHistory = xt::zeros<double>({param.count});
 	res.phaseAngle = xt::zeros<double>({param.count});
 
 	DataFile file;
@@ -54,7 +56,8 @@ scalar_chain_result_t runChain(const scalar_chain_param_t<Action> &param)
 			continue;
 
 		// basic observables
-		res.actionHistory(i) = action.action();  // action density(real part)
+		res.actionHistory(i) = action.action(); // action density(real part)
+		res.magHistory(i) = action.magnetization();
 		res.phaseAngle(i) = action.phaseAngle(); // imaginary part of action
 
 		// measure 2pt correlator
@@ -84,6 +87,8 @@ scalar_chain_result_t runChain(const scalar_chain_param_t<Action> &param)
 	{
 		file.createData("action_history", {res.actionHistory.size()})
 		    .write(res.actionHistory);
+		file.createData("mag_history", {res.magHistory.size()})
+		    .write(res.magHistory);
 		file.createData("phase_angle", {res.actionHistory.size()})
 		    .write(res.phaseAngle);
 		file.createData("c2pt", s).write(res.c2pt);
@@ -96,3 +101,5 @@ template scalar_chain_result_t
 runChain<phi4_action>(const scalar_chain_param_t<phi4_action> &);
 template scalar_chain_result_t
 runChain<sigma_action>(const scalar_chain_param_t<sigma_action> &);
+template scalar_chain_result_t
+runChain<ising_action>(const scalar_chain_param_t<ising_action> &);
