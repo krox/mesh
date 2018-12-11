@@ -51,7 +51,11 @@ scalar_chain_result_t runChain(const scalar_chain_param_t<Action> &param)
 	for (int i = -param.discard; i < param.count; ++i)
 	{
 		for (int j = 0; j < param.sweeps; ++j)
+		{
 			action.sweep();
+			for (int k = 0; k < param.clusters; ++k)
+				action.cluster();
+		}
 		if (i < 0)
 			continue;
 

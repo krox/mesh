@@ -35,7 +35,8 @@ int main(int argc, char **argv)
 	("betaCount", po::value<int>()->default_value(20), "interaction")
 	("count", po::value<int>()->default_value(1000), "number of gauge-configs to generate")
 	("discard", po::value<int>()->default_value(100), "number of gauge-configs to discard (thermalization)")
-	("sweeps", po::value<int>()->default_value(5), "number of sweeps between configs")
+	("sweeps", po::value<int>()->default_value(2), "number of heatbath sweeps between configs")
+	("clusters", po::value<int>()->default_value(1), "number of cluster flips per heatbath sweeps")
 	("seed", po::value<uint64_t>()->default_value(std::random_device()()), "seed for random number generator")
 	;
 	// clang-format on
@@ -55,6 +56,7 @@ int main(int argc, char **argv)
 	param.count = vm["count"].as<int>();
 	param.discard = vm["discard"].as<int>();
 	param.sweeps = vm["sweeps"].as<int>();
+	param.clusters = vm["clusters"].as<int>();
 	param.seed = vm["seed"].as<uint64_t>();
 
 	std::vector<double> betas;

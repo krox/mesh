@@ -30,7 +30,8 @@ class ising_action
 	    : mesh(mesh), param(param), rng(seed)
 	{}
 
-	void sweep();
+	void sweep();   // heat-bath sweep
+	void cluster(); // one cluster update
 
 	double action() const;
 	double magnetization() const;

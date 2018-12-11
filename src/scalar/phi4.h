@@ -35,6 +35,7 @@ class phi4_action
 	{}
 
 	void sweep();
+	void cluster() { assert(false); }
 
 	double action() const { return 0.0 / 0.0; }
 	double magnetization() const { return 0.0 / 0.0; }

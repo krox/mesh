@@ -61,7 +61,8 @@ template <typename Action> struct scalar_chain_param_t {
 	/** additional simulation parameters */
 	int count = 100;   // number of configs to generate
 	int discard = 0;   // number of discarded configs
-	int sweeps = 1;    // number of sweeps between measurements
+	int sweeps = 1;    // number of HB-sweeps between measurements
+	int clusters = 0;  // number of cluster-flips per HB sweeps
 	uint64_t seed = 0; // seed for random number generator
 	std::string filename = "";
 	bool skipConfig = false;

@@ -34,6 +34,8 @@ class sigma_action
 	/** heat-bath sweep (phase quenched) */
 	void sweep();
 
+	void cluster() { assert(false); }
+
 	/** real part of (negative) action */
 	double action() const;
 
