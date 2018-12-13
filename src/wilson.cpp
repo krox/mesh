@@ -6,12 +6,12 @@
 
 #include <fmt/format.h>
 
+#include "groups/su2.h"
+#include "groups/u1.h"
+#include "groups/z2.h"
 #include "mesh/gauge_action.h"
 #include "mesh/mesh.h"
-#include "mesh/su2.h"
-#include "mesh/u1.h"
 #include "mesh/wilson.h"
-#include "mesh/z2.h"
 #include "util/gnuplot.h"
 #include "util/io.h"
 

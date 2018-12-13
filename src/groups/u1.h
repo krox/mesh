@@ -1,8 +1,10 @@
-#ifndef MESH_U1_H
-#define MESH_U1_H
+#ifndef GROUPS_U1_H
+#define GROUPS_U1_H
 
 #include <cmath>
 #include <random>
+
+#include "util/random.h"
 
 /** unitary group U(1) */
 struct U1

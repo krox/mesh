@@ -1,7 +1,9 @@
-#ifndef MESH_Z2_H
-#define MESH_Z2_H
+#ifndef GROUPS_Z2_H
+#define GROUPS_Z2_H
 
 #include <random>
+
+#include "util/random.h"
 
 struct Z2
 {

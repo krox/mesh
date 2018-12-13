@@ -2,8 +2,8 @@
 
 #include <fmt/format.h>
 
-#include "mesh/su2.h"
-#include "mesh/u1.h"
+#include "groups/su2.h"
+#include "groups/u1.h"
 
 template <typename G> double GaugeFixing<G>::gaugeTerm() const
 {

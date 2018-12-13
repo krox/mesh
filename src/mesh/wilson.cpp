@@ -1,9 +1,9 @@
 
 #include "mesh/wilson.h"
 
-#include "mesh/su2.h"
-#include "mesh/u1.h"
-#include "mesh/z2.h"
+#include "groups/su2.h"
+#include "groups/u1.h"
+#include "groups/z2.h"
 #include "util/lattice.h"
 
 namespace {

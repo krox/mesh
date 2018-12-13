@@ -1,8 +1,10 @@
-#ifndef MESH_SU2_H
-#define MESH_SU2_H
+#ifndef GROUPS_SU2_H
+#define GROUPS_SU2_H
 
 #include <cmath>
 #include <random>
+
+#include "util/random.h"
 
 /** Special unitary group SU(2) */
 struct SU2
