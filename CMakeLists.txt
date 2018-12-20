@@ -21,9 +21,9 @@ find_package(Boost 1.62.0 COMPONENTS program_options REQUIRED)
 find_package(HDF5 REQUIRED)
 find_package(xtensor REQUIRED)
 
-file(GLOB modules "src/mesh/*.cpp" "src/util/*.cpp" "src/scalar/*.cpp")
+file(GLOB modules "src/mesh/*.cpp" "src/util/*.cpp" "src/scalar/*.cpp" "src/gauge/*.cpp")
 
-set(binaries "main" "thermalize" "group_histogram" "generate" "wilson" "gaugefix" "scalar" "sigma" "ising")
+set(binaries "main" "thermalize" "group_histogram" "generate" "wilson" "gaugefix" "scalar" "sigma" "ising" "gauge")
 
 foreach(bin ${binaries})
 	add_executable(${bin} src/${bin}.cpp ${modules})
