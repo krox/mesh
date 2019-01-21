@@ -44,6 +44,8 @@ struct Z2
 	Z2 normalize() const { return a < 0 ? Z2(-1) : Z2(1); }
 	double action() const { return a; }
 	Z2 algebra() const { return Z2(0); }
+	Z2 sym() const { return Z2(a); }
+	Z2 antisym() const { return Z2(0); }
 
 	/** statistics on random element generation */
 	static void clearStats() {}

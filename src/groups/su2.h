@@ -82,6 +82,9 @@ struct SU2
 	/** NOTE: this has the wrong phase factor */
 	SU2 algebra() const { return SU2(0, v[1], v[2], v[3]); }
 
+	SU2 sym() const { return SU2(v[0], 0, 0, 0); }
+	SU2 antisym() const { return SU2(0, v[1], v[2], v[3]); }
+
 	/** statistics on random element generation */
 	static inline uint64_t nAccepts = 0, nTries = 0;
 	static void clearStats()

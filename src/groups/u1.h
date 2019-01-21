@@ -69,6 +69,9 @@ struct U1
 	/** NOTE: this has the wrong phase factor */
 	U1 algebra() const { return U1(0, v[1]); }
 
+	U1 sym() const { return U1(v[0], 0); }
+	U1 antisym() const { return U1(0, v[1]); }
+
 	/** statistics on random element generation */
 	static inline uint64_t nAccepts = 0, nTries = 0;
 	static void clearStats()
