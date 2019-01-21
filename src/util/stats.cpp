@@ -74,14 +74,33 @@ LinearFit::LinearFit(const std::vector<double> &xs,
 /** evaluate the fitted function */
 double LinearFit::operator()(double x) const { return a + b * x; }
 
-histogram::histogram(double min, double max, size_t n)
-    : mins(n), maxs(n), bins(n, 0)
+void histogram::init(double min, double max, size_t n)
 {
+	mins.resize(n);
+	maxs.resize(n);
+	bins.resize(n);
 	for (size_t i = 0; i < n; ++i)
 	{
 		mins[i] = min + (max - min) * i / n;
 		maxs[i] = min + (max - min) * (i + 1) / n;
+		bins[i] = 0;
 	}
+}
+
+histogram::histogram(double min, double max, size_t n) { init(min, max, n); }
+
+histogram::histogram(const xt::xtensor<double, 1> &xs, size_t n)
+{
+	double lo = 1.0 / 0.0;
+	double hi = -1.0 / 0.0;
+	for (double x : xs)
+	{
+		lo = std::min(lo, x);
+		hi = std::max(hi, x);
+	}
+	init(lo, hi, n);
+	for (double x : xs)
+		add(x);
 }
 
 void histogram::add(double x)

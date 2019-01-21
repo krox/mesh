@@ -54,8 +54,10 @@ struct histogram
 	std::vector<double> maxs;
 	std::vector<size_t> bins;
 
+	void init(double min, double max, size_t n);
 	histogram(double min, double max, size_t n);
-	histogram(const std::vector<double> &xs);
+	histogram(const std::vector<double> &xs, size_t n);
+	histogram(const xt::xtensor<double, 1> &xs, size_t n);
 
 	void add(double x);
 };
