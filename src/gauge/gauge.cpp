@@ -2,6 +2,7 @@
 
 #include "gauge/wilson.h"
 #include "groups/su2.h"
+#include "groups/su3.h"
 #include "groups/u1.h"
 #include "groups/z2.h"
 #include "xtensor/xview.hpp"
@@ -151,3 +152,4 @@ template <typename G> double GaugeMesh<G>::topCharge() const
 template class GaugeMesh<Z2>;
 template class GaugeMesh<U1>;
 template class GaugeMesh<SU2>;
+template class GaugeMesh<SU3>;

@@ -12,7 +12,7 @@
 struct GaugeChainParams
 {
 	/** physical parameters */
-	std::string group = "su2";            // z2, u1, su2
+	std::string group = "su3";            // z2, u1, su2, su3
 	std::vector<int> geom = {4, 4, 4, 4}; // size of lattice
 
 	/** parameters of Markov chain */

@@ -1,6 +1,7 @@
 #include "gauge/markov.h"
 
 #include "groups/su2.h"
+#include "groups/su3.h"
 #include "groups/u1.h"
 #include "groups/z2.h"
 
@@ -46,5 +47,7 @@ GaugeChainResult runChain(const GaugeChainParams &chainParams,
 		return runChainImpl<U1>(chainParams, actionParams);
 	if (chainParams.group == "su2")
 		return runChainImpl<SU2>(chainParams, actionParams);
+	if (chainParams.group == "su3")
+		return runChainImpl<SU3>(chainParams, actionParams);
 	assert(false);
 }

@@ -20,6 +20,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -march=native -Wall -Wextra -Wno-unu
 find_package(Boost 1.62.0 COMPONENTS program_options REQUIRED)
 find_package(HDF5 REQUIRED)
 find_package(xtensor REQUIRED)
+find_package(Eigen3 3.3 REQUIRED NO_MODULE)
 
 file(GLOB modules "src/mesh/*.cpp" "src/util/*.cpp" "src/scalar/*.cpp" "src/gauge/*.cpp")
 
@@ -35,4 +36,5 @@ foreach(bin ${binaries})
 	target_link_libraries(${bin} stdc++fs)
 	target_link_libraries(${bin} fftw3)
 	target_link_libraries(${bin} ${xtensor_LIBRARIES})
+	target_link_libraries(${bin} Eigen3::Eigen)
 endforeach()
