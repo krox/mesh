@@ -2,20 +2,29 @@
 #define GAUGE_GAUGE_H
 
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <vector>
 
 #include "xtensor/xarray.hpp"
 
-#include "mesh/topology.h"
 #include "util/io.h"
+#include "util/random.h"
 #include "util/span.h"
 
-template <typename G> class gauge_mesh
+/** helper class for topology. I.e. bunch of indices */
+class GaugeTopology
 {
   public:
 	std::vector<int> geom;
-	std::vector<G> u;
+
+	// plaqs: u(i) * u(j) * u(k).adj * u(l).adj
+	// staples 0,1,2: u(j) * u(k).adj * u(l).adj
+	//         3,4,5: u(j).adj * u(k).adj * u(l)
+	std::vector<std::array<int, 4>> plaqs;
+	std::vector<std::array<std::array<int, 3>, 6>> staples;
+
+	GaugeTopology(const std::vector<int> &geom);
 
 	int nSites() const
 	{
@@ -25,17 +34,46 @@ template <typename G> class gauge_mesh
 		return s;
 	}
 
-	int nLinks() const { return (int)u.size(); }
+	int nLinks() const { return 4 * nSites(); }
+	int nPlaqs() const { return 6 * nSites(); }
+};
+
+/** gauge field with a couple of basic helper functions. No specific action */
+template <typename G> class GaugeMesh
+{
+  public:
+	std::shared_ptr<const GaugeTopology> top;
+	std::vector<G> u;
+
+	int nSites() const { return top->nSites(); }
+	int nLinks() const { return top->nLinks(); }
+	int nPlaqs() const { return top->nPlaqs(); }
 
 	/** initializes to unit-field */
-	gauge_mesh(const std::vector<int> &geom)
-	    : geom(geom), u(nSites() * geom.size(), G::one())
+	GaugeMesh(const std::shared_ptr<GaugeTopology> &top)
+	    : top(top), u(nLinks(), G::one())
 	{}
 
+	/** sum/average of staples of link i */
+	G stapleSum(int i) const;
+	G stapleAvg(int i) const { return stapleSum(i) * (1.0 / 6.0); };
+
+	/** sum/average of all plaquettes */
+	double plaqSum() const;
+	double plaqAvg() const { return plaqSum() / nPlaqs(); }
+
+	/** set all links to unit ("free field") */
 	void initUnit()
 	{
 		for (auto &x : u)
 			x = G::one();
+	}
+
+	/** set all links randomly ("weak field") */
+	void initRandom(rng_t &rng)
+	{
+		for (auto &x : u)
+			x = G::random(rng);
 	}
 
 	span<const double> rawConfig() const
@@ -44,33 +82,5 @@ template <typename G> class gauge_mesh
 		                          u.size() * G::repSize());
 	}
 };
-
-/** parameters of markov chain */
-template <typename Action> struct gauge_chain_param_t
-{
-	/** parameters with physical meaning */
-	std::vector<int> geom = {4, 4, 4, 4}; // size of lattice
-	typename Action::param_t param;       // parameters of action
-
-	/** additional simulation parameters */
-	int count = 100;   // number of configs to generate
-	int discard = 0;   // number of discarded configs
-	int sweeps = 1;    // number of HB-sweeps between measurements
-	int clusters = 0;  // number of cluster-flips per HB sweeps
-	uint64_t seed = 0; // seed for random number generator
-	std::string filename = "";
-	bool skipConfig = false;
-};
-
-/** some measurements taken during the simulation. This may include measurements
- * on intermediate configs that were not saved. */
-struct gauge_chain_result_t
-{
-	xt::xarray<double> plaqHistory; // average plaquette
-	// xt::xarray<double> topHistory;  // global topological charge
-};
-
-template <typename Action>
-gauge_chain_result_t runChain(const gauge_chain_param_t<Action> &param);
 
 #endif

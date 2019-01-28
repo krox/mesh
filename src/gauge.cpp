@@ -13,6 +13,8 @@
 #include "xtensor/xtensor.hpp"
 #include "xtensor/xview.hpp"
 
+#include "gauge/gauge.h"
+#include "gauge/markov.h"
 #include "gauge/wilson.h"
 #include "groups/su2.h"
 #include "groups/u1.h"
@@ -31,13 +33,14 @@ int main(int argc, char **argv)
 	desc.add_options()
 	("help", "this help message")
 	("geom", po::value<std::vector<int>>()->multitoken(), "lattice size")
+	("group,g", po::value<std::string>()->default_value("su2"), "gauge group")
 	("beta", po::value<std::vector<double>>()->multitoken(), "interaction")
 	("betaMin", po::value<double>()->default_value(0.0), "interaction")
 	("betaMax", po::value<double>()->default_value(3.0), "interaction")
 	("betaCount", po::value<int>()->default_value(31), "interaction")
 	("count", po::value<int>()->default_value(100), "number of gauge-configs to generate")
 	("discard", po::value<int>()->default_value(100), "number of gauge-configs to discard (thermalization)")
-	("sweeps", po::value<int>()->default_value(2), "number of heatbath sweeps between configs")
+	("sweeps", po::value<int>()->default_value(1), "number of heatbath sweeps between configs")
 	("seed", po::value<uint64_t>()->default_value(std::random_device()()), "seed for random number generator")
 	;
 	// clang-format on
@@ -52,8 +55,9 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	gauge_chain_param_t<wilson_action<Z2>> param;
+	GaugeChainParams param;
 	param.geom = vm["geom"].as<std::vector<int>>();
+	param.group = vm["group"].as<std::string>();
 	param.count = vm["count"].as<int>();
 	param.discard = vm["discard"].as<int>();
 	param.sweeps = vm["sweeps"].as<int>();
@@ -77,12 +81,13 @@ int main(int argc, char **argv)
 	for (double beta : betas)
 	{
 		// run a chain
-		param.param.beta = beta;
-		auto res = runChain(param);
+		WilsonActionParams actionParams;
+		actionParams.beta = beta;
+		auto res = runChain(param, actionParams);
 
 		if (betas.size() == 1)
 		{
-			Gnuplot().plotData(res.plaqHistory);
+			Gnuplot().plotData(res.plaqHistory, "avg plaq");
 		}
 
 		// analyze
