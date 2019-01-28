@@ -79,9 +79,8 @@ struct SU2
 
 	double action() const { return v[0]; }
 
-	/** NOTE: this has the wrong phase factor */
+	SU2 traceless() const { return SU2(0, v[1], v[2], v[3]); }
 	SU2 algebra() const { return SU2(0, v[1], v[2], v[3]); }
-
 	SU2 sym() const { return SU2(v[0], 0, 0, 0); }
 	SU2 antisym() const { return SU2(0, v[1], v[2], v[3]); }
 

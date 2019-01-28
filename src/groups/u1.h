@@ -66,9 +66,8 @@ struct U1
 
 	double action() const { return v[0]; }
 
-	/** NOTE: this has the wrong phase factor */
+	U1 traceless() const { return U1(0, 0); }
 	U1 algebra() const { return U1(0, v[1]); }
-
 	U1 sym() const { return U1(v[0], 0); }
 	U1 antisym() const { return U1(0, v[1]); }
 
