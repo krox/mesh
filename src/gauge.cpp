@@ -87,7 +87,8 @@ int main(int argc, char **argv)
 
 		if (betas.size() == 1)
 		{
-			Gnuplot().plotData(res.plaqHistory, "avg plaq");
+			Gnuplot().plotData(res.plaqHistory, "<plaq>");
+			Gnuplot().plotData(res.topHistory, "<Q_{top}>");
 		}
 
 		// analyze
@@ -103,7 +104,7 @@ int main(int argc, char **argv)
 
 	if (betas.size() >= 2)
 	{
-		Gnuplot().plotData(plotBeta, plotPlaq, "<plaq>");
+		Gnuplot().setRangeY(0, 1).plotData(plotBeta, plotPlaq, "<plaq>");
 		Gnuplot().plotData(plotBeta, plotCorr);
 	}
 }

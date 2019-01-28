@@ -31,6 +31,7 @@ struct GaugeChainParams
 struct GaugeChainResult
 {
 	xt::xarray<double> plaqHistory; // average plaquette
+	xt::xarray<double> topHistory;  // topological charge
 };
 
 GaugeChainResult runChain(const GaugeChainParams &chainParams,

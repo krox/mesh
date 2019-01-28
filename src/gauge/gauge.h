@@ -50,7 +50,7 @@ template <typename G> class GaugeMesh
 	int nPlaqs() const { return top->nPlaqs(); }
 
 	/** initializes to unit-field */
-	GaugeMesh(const std::shared_ptr<GaugeTopology> &top)
+	GaugeMesh(const std::shared_ptr<const GaugeTopology> &top)
 	    : top(top), u(nLinks(), G::one())
 	{}
 
@@ -75,6 +75,14 @@ template <typename G> class GaugeMesh
 		for (auto &x : u)
 			x = G::random(rng);
 	}
+
+	/** link smearing */
+	GaugeMesh<G> smearAPE(double alpha) const;
+	GaugeMesh<G> smearEXP(double alpha) const;
+	// future: HYP smearing
+
+	/** topological charge */
+	double topCharge() const;
 
 	span<const double> rawConfig() const
 	{

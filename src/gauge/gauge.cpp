@@ -90,6 +90,64 @@ template <typename G> double GaugeMesh<G>::plaqSum() const
 	return sum;
 }
 
+template <typename G> GaugeMesh<G> GaugeMesh<G>::smearAPE(double a) const
+{
+	GaugeMesh<G> r(top);
+	for (int i = 0; i < nLinks(); ++i)
+		r.u[i] = (u[i] * (1.0 - a) + stapleAvg(i).adjoint() * a).normalize();
+	return r;
+}
+
+template <typename G> GaugeMesh<G> GaugeMesh<G>::smearEXP(double alpha) const
+{
+	GaugeMesh<G> r(top);
+	for (int i = 0; i < nLinks(); ++i)
+	{
+		G s = u[i] * stapleSum(i);
+		s = (s - s.adjoint()).traceless() * (0.5 * alpha);
+
+		s = G::one() + s + s * s * 0.5 + s * s * s * (1.0 / 6) +
+		    s * s * s * s * (1.0 / 24) +
+		    s * s * s * s * s * (1.0 / 120); // TODO: actual exponential
+
+		r.u[i] = (s * u[i]).normalize();
+	}
+	return r;
+}
+
+template <typename G> double GaugeMesh<G>::topCharge() const
+{
+	/** NOTE: plaqs are ordered [x,y,z,t,{xy,xz,xt,yz,yt,zt}] */
+
+	// sum up clover ( = sum of 4 plaqs) at every site/orientation
+	auto clover = std::vector<std::array<G, 6>>(nSites());
+	for (auto &a : clover)
+		a.fill(G::zero());
+	for (int pi = 0; pi < nPlaqs(); ++pi)
+	{
+		auto [i, j, k, l] = top->plaqs[pi]; // link ids of this plaq
+		int o = pi % 6;                     // orientation of this plaq
+
+		// this plaquette is part of for different clovers
+		clover[i / 4][o] += u[i] * u[j] * u[k].adjoint() * u[l].adjoint();
+		clover[j / 4][o] += u[j] * u[k].adjoint() * u[l].adjoint() * u[i];
+		clover[k / 4][o] += u[k].adjoint() * u[l].adjoint() * u[i] * u[j];
+		clover[l / 4][o] += u[l].adjoint() * u[i] * u[j] * u[k].adjoint();
+	}
+
+	// sum up topological charge
+	double Q = 0.0;
+	for (int i = 0; i < nSites(); ++i)
+	{
+		auto &c = clover[i];
+		Q += (c[0].antisym() * c[5].antisym()).action(); // F(xy) F(zt)
+		Q -= (c[1].antisym() * c[4].antisym()).action(); // F(xz) F(yt)
+		Q += (c[2].antisym() * c[3].antisym()).action(); // F(xt) F(yz)
+	}
+
+	return Q; // TODO: some constant factor is missing
+}
+
 template class GaugeMesh<Z2>;
 template class GaugeMesh<U1>;
 template class GaugeMesh<SU2>;

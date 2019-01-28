@@ -15,6 +15,7 @@ GaugeChainResult runChainImpl(const GaugeChainParams &param,
 	/** run the Markov chain */
 	GaugeChainResult res;
 	res.plaqHistory = xt::zeros<double>({param.count});
+	res.topHistory = xt::zeros<double>({param.count});
 
 	mesh.initUnit();
 	for (int i = -param.discard; i < param.count; ++i)
@@ -30,6 +31,7 @@ GaugeChainResult runChainImpl(const GaugeChainParams &param,
 
 		// basic observables
 		res.plaqHistory(i) = mesh.plaqAvg();
+		res.topHistory(i) = mesh.topCharge(); // TODO: smearing
 	}
 
 	return res;
