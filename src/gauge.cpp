@@ -43,6 +43,8 @@ int main(int argc, char **argv)
 	("discard", po::value<int>()->default_value(100), "number of gauge-configs to discard (thermalization)")
 	("sweeps", po::value<int>()->default_value(1), "number of heatbath sweeps between configs")
 	("seed", po::value<uint64_t>()->default_value(std::random_device()()), "seed for random number generator")
+	("filename", po::value<std::string>()->default_value(""), "output (hdf5 format)")
+	("plot", "show plot of generated ensemble")
 	;
 	// clang-format on
 
@@ -64,6 +66,8 @@ int main(int argc, char **argv)
 	param.discard = vm["discard"].as<int>();
 	param.sweeps = vm["sweeps"].as<int>();
 	param.seed = vm["seed"].as<uint64_t>();
+	param.filename = vm["filename"].as<std::string>();
+	bool doPlot = vm.count("plot");
 
 	WilsonActionParams actionParams;
 	auto action = vm["action"].as<std::string>();
@@ -106,6 +110,9 @@ int main(int argc, char **argv)
 			betas.push_back(betaMin + 1.0 * i / (n - 1) * (betaMax - betaMin));
 	}
 
+	if (param.filename != "")
+		assert(betas.size() == 1);
+
 	std::vector<double> plotBeta, plotPlaq, plotCorr;
 
 	for (double beta : betas)
@@ -116,7 +123,7 @@ int main(int argc, char **argv)
 
 		auto res = runChain(param, actionParams);
 
-		if (betas.size() == 1)
+		if (doPlot && betas.size() == 1)
 		{
 			Gnuplot().plotData(res.plaqHistory, "<plaq>");
 			Gnuplot().plotData(res.topHistory, "<Q_{top}>");
@@ -133,7 +140,7 @@ int main(int argc, char **argv)
 		param.seed += 1; // change seed for next beta
 	}
 
-	if (betas.size() >= 2)
+	if (doPlot && betas.size() >= 2)
 	{
 		Gnuplot().setRangeY(0, 1).plotData(plotBeta, plotPlaq, "<plaq>");
 		Gnuplot().plotData(plotBeta, plotCorr);

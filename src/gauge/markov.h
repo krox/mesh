@@ -26,7 +26,6 @@ struct GaugeChainParams
 
 	/** technical parameters */
 	std::string filename = "";
-	bool skipConfig = false;
 };
 
 /** some measurements taken during the simulation */
