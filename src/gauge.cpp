@@ -34,6 +34,7 @@ int main(int argc, char **argv)
 	("help", "this help message")
 	("geom", po::value<std::vector<int>>()->multitoken(), "lattice size")
 	("group,g", po::value<std::string>()->default_value("su3"), "gauge group")
+	("action", po::value<std::string>()->default_value("wilson"), "gauge action (wilson/symanzik/iwasaki/dbw2)")
 	("beta", po::value<std::vector<double>>()->multitoken(), "interaction")
 	("betaMin", po::value<double>()->default_value(0.0), "interaction")
 	("betaMax", po::value<double>()->default_value(3.0), "interaction")
@@ -56,12 +57,41 @@ int main(int argc, char **argv)
 	}
 
 	GaugeChainParams param;
-	param.geom = vm["geom"].as<std::vector<int>>();
+	auto geom = vm["geom"].as<std::vector<int>>();
+	param.top = std::make_shared<GaugeTopology>(geom);
 	param.group = vm["group"].as<std::string>();
 	param.count = vm["count"].as<int>();
 	param.discard = vm["discard"].as<int>();
 	param.sweeps = vm["sweeps"].as<int>();
 	param.seed = vm["seed"].as<uint64_t>();
+
+	WilsonActionParams actionParams;
+	auto action = vm["action"].as<std::string>();
+	if (action == "wilson")
+	{
+		actionParams.c0 = 1.0;
+		actionParams.c1 = 0.0;
+	}
+	else if (action == "symanzik")
+	{
+		actionParams.c0 = 5.0 / 3.0;
+		actionParams.c1 = -1.0 / 12.0;
+	}
+	else if (action == "iwasaki")
+	{
+		actionParams.c0 = 3.648;
+		actionParams.c1 = -0.331;
+	}
+	else if (action == "dbw2")
+	{
+		actionParams.c0 = 12.272;
+		actionParams.c1 = -1.409;
+	}
+	else
+		assert(false);
+
+	if (param.group != "su3")
+		assert(action == "wilson");
 
 	std::vector<double> betas;
 	if (vm.count("beta"))
@@ -81,8 +111,9 @@ int main(int argc, char **argv)
 	for (double beta : betas)
 	{
 		// run a chain
-		WilsonActionParams actionParams;
+
 		actionParams.beta = beta;
+
 		auto res = runChain(param, actionParams);
 
 		if (betas.size() == 1)

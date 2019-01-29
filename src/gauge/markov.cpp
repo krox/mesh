@@ -10,7 +10,7 @@ GaugeChainResult runChainImpl(const GaugeChainParams &param,
                               const WilsonActionParams &actionParams)
 {
 	/** initialize field */
-	GaugeMesh<G> mesh(std::make_shared<GaugeTopology>(param.geom));
+	GaugeMesh<G> mesh(param.top);
 	WilsonAction<G> action(mesh, actionParams, param.seed);
 
 	/** run the Markov chain */

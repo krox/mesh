@@ -16,7 +16,12 @@ template <> void WilsonAction<SU3>::sweep()
 {
 	for (int i = 0; i < mesh.nLinks(); ++i)
 	{
-		SU3 s = mesh.stapleSum(i); // This is costly -> only do it once
+		// This is costly -> only do it once
+		SU3 s;
+		if (param.c1 == 0)
+			s = mesh.stapleSum(i) * param.c0;
+		else
+			s = mesh.stapleSum(i) * param.c0 + mesh.lstapleSum(i) * param.c1;
 
 		{
 			SU2 sub = (mesh.u[i] * s).sub1();

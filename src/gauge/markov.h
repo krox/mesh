@@ -6,14 +6,16 @@
 
 #include "xtensor/xarray.hpp"
 
+#include "gauge/gauge.h"
 #include "gauge/wilson.h"
 
 /** parameters of markov chain */
 struct GaugeChainParams
 {
 	/** physical parameters */
-	std::string group = "su3";            // z2, u1, su2, su3
-	std::vector<int> geom = {4, 4, 4, 4}; // size of lattice
+	std::string group = "su3"; // z2, u1, su2, su3
+	// std::vector<int> geom = {4, 4, 4, 4}; // size of lattice
+	std::shared_ptr<const GaugeTopology> top; // topology of the lattice
 
 	/** parameters of Markov chain */
 	int count = 100;   // number of configs to generate

@@ -10,8 +10,8 @@
 /** parameters of Wilson action */
 struct WilsonActionParams
 {
-	double beta = 0.0;
-	// future: adjoint action, improvement coefficients
+	double beta = 0.0;         // inverse bare coupling
+	double c0 = 1.0, c1 = 0.0; // coefficients for plaq/rect
 };
 
 /*
