@@ -97,6 +97,12 @@ class DataFile
 	void setAttribute(const std::string &name, const std::vector<double> &v);
 	void setAttribute(const std::string &name, const std::vector<int> &v);
 
+	template <typename T, size_t N>
+	void setAttribute(const std::string &name, const std::array<T, N> &v)
+	{
+		setAttribute(name, std::vector<T>(v.begin(), v.end()));
+	}
+
 	template <typename T> T getAttribute(const std::string &name);
 };
 
