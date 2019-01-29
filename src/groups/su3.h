@@ -143,14 +143,14 @@ struct SU3
 	{
 		SU3 a = *this;
 		a = (a + a.adjoint()) * 0.5;
-		a -= one() * (a.v.trace().real() / 3.0);
+		a.v -= one().v * (a.v.trace() / 3.0);
 		return a;
 	}
 
 	SU3 traceless() const
 	{
 		SU3 a = *this;
-		a -= one() * (a.v.trace().real() / 3.0);
+		a.v -= one().v * (a.v.trace() / 3.0);
 		return a;
 	}
 

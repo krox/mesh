@@ -54,8 +54,8 @@ class GaugeTopology
 	//         3,4,5: u(j).adj * u(k).adj * u(l)
 	std::vector<std::array<std::array<int, 3>, 6>> staples;
 
-	// long staples 0-11: bcDEF, 12-23: bCDEf, 24-35: BCDef
-	std::vector<std::array<std::array<int, 5>, 36>> lstaples;
+	// long staples 0-6: bcDEF, 6-11: bCDEf, 12-17: BCDef
+	std::vector<std::array<std::array<int, 5>, 18>> lstaples;
 
 	GaugeTopology(const std::vector<int> &geom);
 
@@ -69,7 +69,7 @@ class GaugeTopology
 
 	int nLinks() const { return 4 * nSites(); }
 	int nPlaqs() const { return 6 * nSites(); }
-	int nRects() const { return 24 * nSites(); }
+	int nRects() const { return 12 * nSites(); }
 };
 
 /** gauge field with a couple of basic helper functions. No specific action */
@@ -93,7 +93,7 @@ template <typename G> class GaugeMesh
 	G stapleSum(int i) const;
 	G stapleAvg(int i) const { return stapleSum(i) * (1.0 / 6.0); };
 	G lstapleSum(int i) const;
-	G lstapleAvg(int i) const { return lstapleSum(i) * (1.0 / 36.0); };
+	G lstapleAvg(int i) const { return lstapleSum(i) * (1.0 / 18.0); };
 
 	/** sum/average of all plaquettes/rectangles */
 	double plaqSum() const;

@@ -58,50 +58,29 @@ GaugeTopology::GaugeTopology(const std::vector<int> &geom)
 		staples[i][5] = staplesNeg[i][2];
 	}
 
-	rects.reserve(24 * nSites());
+	rects.reserve(12 * nSites());
 	lstaples.resize(nLinks());
 	auto lstaples1 = std::vector<std::vector<std::array<int, 5>>>(nLinks());
 	auto lstaples2 = std::vector<std::vector<std::array<int, 5>>>(nLinks());
 	auto lstaples3 = std::vector<std::vector<std::array<int, 5>>>(nLinks());
 
-	// add two rects
-	auto addRects = [&](const std::array<int, 4> &x, int mu, int nu) {
-		{
-			// mu mu nu -mu -mu -nu
-			int a = lid(x, mu);
-			int b = lid(x, mu, mu);
-			int c = lid(x, mu, mu, nu);
-			int d = lid(x, mu, nu, mu);
-			int e = lid(x, nu, mu);
-			int f = lid(x, nu);
+	// add one rects (mu mu nu -mu -mu -nu)
+	auto addRect = [&](const std::array<int, 4> &x, int mu, int nu) {
+		int a = lid(x, mu);
+		int b = lid(x, mu, mu);
+		int c = lid(x, mu, mu, nu);
+		int d = lid(x, mu, nu, mu);
+		int e = lid(x, nu, mu);
+		int f = lid(x, nu);
 
-			// abcDEF = fedCBA
-			rects.push_back({a, b, c, d, e, f});
-			lstaples1[a].push_back({b, c, d, e, f});
-			lstaples2[b].push_back({c, d, e, f, a});
-			lstaples3[c].push_back({d, e, f, a, b});
-			lstaples1[f].push_back({e, d, c, b, a});
-			lstaples2[e].push_back({d, c, b, a, f});
-			lstaples3[d].push_back({c, b, a, f, e});
-		}
-		{
-			// mu nu nu -mu -nu -nu
-			int a = lid(x, mu);
-			int b = lid(x, mu, nu);
-			int c = lid(x, mu, nu, nu);
-			int d = lid(x, nu, nu, mu);
-			int e = lid(x, nu, nu);
-			int f = lid(x, nu);
-
-			// abcDEF = fedCBA
-			rects.push_back({a, b, c, d, e, f});
-			lstaples1[a].push_back({b, c, d, e, f});
-			lstaples2[b].push_back({c, d, e, f, a});
-			lstaples3[c].push_back({d, e, f, a, b});
-			lstaples1[f].push_back({e, d, c, b, a});
-			lstaples2[e].push_back({d, c, b, a, f});
-			lstaples3[d].push_back({c, b, a, f, e});
-		}
+		// abcDEF = fedCBA
+		rects.push_back({a, b, c, d, e, f});
+		lstaples1[a].push_back({b, c, d, e, f});
+		lstaples2[b].push_back({c, d, e, f, a});
+		lstaples3[c].push_back({d, e, f, a, b});
+		lstaples1[f].push_back({e, d, c, b, a});
+		lstaples2[e].push_back({d, c, b, a, f});
+		lstaples3[d].push_back({c, b, a, f, e});
 	};
 
 	for (int x = 0; x < nx; ++x)
@@ -111,19 +90,19 @@ GaugeTopology::GaugeTopology(const std::vector<int> &geom)
 					for (int mu = 0; mu < 4; ++mu)
 						for (int nu = 0; nu < 4; ++nu)
 							if (mu != nu)
-								addRects({x, y, z, t}, mu, nu);
-	assert((int)rects.size() == 24 * nSites());
+								addRect({x, y, z, t}, mu, nu);
+	assert((int)rects.size() == 12 * nSites());
 
 	for (int i = 0; i < nLinks(); ++i)
 	{
-		assert(lstaples1[i].size() == 12);
-		assert(lstaples2[i].size() == 12);
-		assert(lstaples3[i].size() == 12);
-		for (int k = 0; k < 12; ++k)
+		assert(lstaples1[i].size() == 6);
+		assert(lstaples2[i].size() == 6);
+		assert(lstaples3[i].size() == 6);
+		for (int k = 0; k < 6; ++k)
 		{
 			lstaples[i][k] = lstaples1[i][k];
-			lstaples[i][k + 12] = lstaples2[i][k];
-			lstaples[i][k + 24] = lstaples3[i][k];
+			lstaples[i][k + 6] = lstaples2[i][k];
+			lstaples[i][k + 12] = lstaples3[i][k];
 		}
 	}
 }
@@ -145,13 +124,13 @@ template <typename G> G GaugeMesh<G>::lstapleSum(int i) const
 {
 	auto &s = top->lstaples[i];
 	G sum = G::zero();
-	for (int k = 0; k < 12; ++k)
+	for (int k = 0; k < 6; ++k)
 		sum += u[s[k][0]] * u[s[k][1]] * u[s[k][2]].adjoint() *
 		       u[s[k][2]].adjoint() * u[s[k][2]].adjoint();
-	for (int k = 12; k < 24; ++k)
+	for (int k = 6; k < 12; ++k)
 		sum += u[s[k][0]] * u[s[k][1]].adjoint() * u[s[k][2]].adjoint() *
 		       u[s[k][2]].adjoint() * u[s[k][2]];
-	for (int k = 24; k < 36; ++k)
+	for (int k = 12; k < 18; ++k)
 		sum += u[s[k][0]].adjoint() * u[s[k][1]].adjoint() *
 		       u[s[k][2]].adjoint() * u[s[k][2]] * u[s[k][2]];
 	return sum;
