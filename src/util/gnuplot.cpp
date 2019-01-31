@@ -119,7 +119,7 @@ Gnuplot &Gnuplot::plotHistogram(const histogram &hist, const std::string &title)
 		     << "\n";
 	file.flush();
 	file.close();
-	fmt::print(pipe, "{} '{}' using 1:2 with points title \"{}\"\n",
+	fmt::print(pipe, "{} '{}' using 1:2 with histeps title \"{}\"\n",
 	           (nplots ? "replot" : "plot"), filename, title);
 	fflush(pipe);
 	nplots++;

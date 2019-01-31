@@ -103,6 +103,20 @@ histogram::histogram(const xt::xtensor<double, 1> &xs, size_t n)
 		add(x);
 }
 
+histogram::histogram(const std::vector<double> &xs, size_t n)
+{
+	double lo = 1.0 / 0.0;
+	double hi = -1.0 / 0.0;
+	for (double x : xs)
+	{
+		lo = std::min(lo, x);
+		hi = std::max(hi, x);
+	}
+	init(lo, hi, n);
+	for (double x : xs)
+		add(x);
+}
+
 void histogram::add(double x)
 {
 	auto it = std::upper_bound(maxs.begin(), maxs.end(), x);
