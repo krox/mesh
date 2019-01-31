@@ -42,6 +42,8 @@ struct Z2
 	Z2 adjoint() const { return Z2(a); }
 	double norm() const { return fabs(a); }
 	Z2 normalize() const { return a < 0 ? Z2(-1) : Z2(1); }
+	double error() const { return std::fabs(norm() - 1.0); }
+
 	double action() const { return a; }
 	Z2 traceless() const { return Z2(0); }
 	Z2 algebra() const { return Z2(0); }

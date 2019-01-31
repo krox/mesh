@@ -64,6 +64,9 @@ struct U1
 
 	U1 normalize() const { return *this / norm(); }
 
+	/** distance from group */
+	double error() const { return std::fabs(norm() - 1.0); }
+
 	double action() const { return v[0]; }
 
 	U1 traceless() const { return U1(0, 0); }

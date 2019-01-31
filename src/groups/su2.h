@@ -77,6 +77,9 @@ struct SU2
 
 	SU2 normalize() const { return *this / norm(); }
 
+	/** distance from group */
+	double error() const { return std::fabs(norm() - 1.0); }
+
 	double action() const { return v[0]; }
 
 	SU2 traceless() const { return SU2(0, v[1], v[2], v[3]); }

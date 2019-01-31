@@ -127,6 +127,9 @@ template <typename G> class GaugeMesh
 			x = G::random(rng);
 	}
 
+	/** maximal distance from group */
+	double error() const;
+
 	/** link smearing */
 	GaugeMesh<G> smearCool() const;
 	GaugeMesh<G> smearCool(int count) const

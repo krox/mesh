@@ -137,6 +137,13 @@ struct SU3
 		return r;
 	}
 
+	/** distance from group */
+	double error() const
+	{
+		return std::fabs(v.determinant() - 1.0) +
+		       (*this * adjoint() - one()).norm();
+	}
+
 	double action() const { return (1.0 / 3.0) * v.trace().real(); }
 
 	SU3 algebra() const

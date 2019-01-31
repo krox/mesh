@@ -166,6 +166,14 @@ template <typename G> double GaugeMesh<G>::rectSum() const
 	return sum;
 }
 
+template <typename G> double GaugeMesh<G>::error() const
+{
+	double err = 0;
+	for (int i = 0; i < nLinks(); ++i)
+		err = std::max(err, u[i].error());
+	return err;
+}
+
 template <typename G> GaugeMesh<G> GaugeMesh<G>::smearCool() const
 {
 	GaugeMesh<G> r(top);
