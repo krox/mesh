@@ -16,32 +16,41 @@
 /** helper class for topology. I.e. bunch of indices */
 class GaugeTopology
 {
+	/** Memory consumption per site:
+	SU(2) links:  128
+	SU(3) links:  576
+
+	plaqs:         96
+	staples:      288
+	clovers:      384
+	rects:        288
+	staples:     1440
+	sum indices: 2496
+	*/
   public:
 	std::array<int, 4> geom;
 
-	/** (x,mu) -> linkId.
-	 Note: this takes nontrivial time (due to %), so caching is advisable */
-	int lid(std::array<int, 4> x, int mu) const
+	/** x -> siteId. This takes nontrivial time, so caching is advisable */
+	int sid(std::array<int, 4> x) const
 	{
 		x[0] = (x[0] + geom[0]) % geom[0];
 		x[1] = (x[1] + geom[1]) % geom[1];
 		x[2] = (x[2] + geom[2]) % geom[2];
 		x[3] = (x[3] + geom[3]) % geom[3];
-		int i = ((x[0] * geom[1] + x[1]) * geom[2] + x[2]) * geom[3] + x[3];
-		return 4 * i + mu;
+		return ((x[0] * geom[1] + x[1]) * geom[2] + x[2]) * geom[3] + x[3];
 	}
 
-	int lid(std::array<int, 4> x, int shift, int mu) const
+	int sid(std::array<int, 4> x, int shift) const
 	{
 		x[shift] += 1;
-		return lid(x, mu);
+		return sid(x);
 	}
 
-	int lid(std::array<int, 4> x, int shift, int shift2, int mu) const
+	int sid(std::array<int, 4> x, int shift, int shift2) const
 	{
 		x[shift] += 1;
 		x[shift2] += 1;
-		return lid(x, mu);
+		return sid(x);
 	}
 
 	// plaqs: u(i) * u(j) * u(k).adj * u(l).adj
@@ -49,6 +58,9 @@ class GaugeTopology
 
 	// rects: u(i) * u(j) * u(k) * u(l).adj * u(m).adj * u(n).adj
 	std::vector<std::array<int, 6>> rects; // count = 24 * nSites
+
+	// 4 plaqs per orientation: abCD, aBCd, ABcd, AbcD
+	std::vector<std::array<std::array<std::array<int, 4>, 4>, 6>> clovers;
 
 	// staples 0,1,2: u(j) * u(k).adj * u(l).adj
 	//         3,4,5: u(j).adj * u(k).adj * u(l)
@@ -146,6 +158,9 @@ template <typename G> class GaugeMesh
 	}
 	// future: HYP smearing
 
+	/** sum of four plaquettes */
+	G clover(int i, int o) const;
+
 	/** topological charge */
 	double topCharge() const;
 
@@ -153,6 +168,11 @@ template <typename G> class GaugeMesh
 	{
 		return span<const double>((double const *)u.data(),
 		                          u.size() * G::repSize());
+	}
+
+	span<double> rawConfigMut()
+	{
+		return span<double>((double *)u.data(), u.size() * G::repSize());
 	}
 };
 

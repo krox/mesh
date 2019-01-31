@@ -21,13 +21,19 @@ GaugeTopology::GaugeTopology(const std::vector<int> &geom)
 	staples.resize(nLinks());
 	auto staplesPos = std::vector<std::vector<std::array<int, 3>>>(nLinks());
 	auto staplesNeg = std::vector<std::vector<std::array<int, 3>>>(nLinks());
+	clovers.resize(nSites());
 
 	// add one plaquette
 	auto addPlaq = [&](const std::array<int, 4> &x, int mu, int nu) {
-		int i = lid(x, mu);
-		int j = lid(x, mu, nu);
-		int k = lid(x, nu, mu);
-		int l = lid(x, nu);
+		int a = sid(x);
+		int b = sid(x, mu);
+		int c = sid(x, mu, nu);
+		int d = sid(x, nu);
+
+		int i = a * 4 + mu;
+		int j = b * 4 + nu;
+		int k = d * 4 + mu;
+		int l = a * 4 + nu;
 
 		// ijKL = lkJI
 		plaqs.push_back({i, j, k, l});
@@ -35,6 +41,12 @@ GaugeTopology::GaugeTopology(const std::vector<int> &geom)
 		staplesNeg[j].push_back({k, l, i});
 		staplesPos[l].push_back({k, j, i});
 		staplesNeg[k].push_back({j, i, l});
+
+		int o = (nu - 1) + (mu == 0 ? 0 : mu == 1 ? 2 : 3);
+		clovers[a][o][0] = {i, j, k, l};
+		clovers[b][o][1] = {j, k, l, i};
+		clovers[c][o][2] = {k, j, i, j};
+		clovers[d][o][3] = {l, i, j, k};
 	};
 
 	for (int x = 0; x < nx; ++x)
@@ -66,12 +78,12 @@ GaugeTopology::GaugeTopology(const std::vector<int> &geom)
 
 	// add one rects (mu mu nu -mu -mu -nu)
 	auto addRect = [&](const std::array<int, 4> &x, int mu, int nu) {
-		int a = lid(x, mu);
-		int b = lid(x, mu, mu);
-		int c = lid(x, mu, mu, nu);
-		int d = lid(x, mu, nu, mu);
-		int e = lid(x, nu, mu);
-		int f = lid(x, nu);
+		int a = sid(x) * 4 + mu;
+		int b = sid(x, mu) * 4 + mu;
+		int c = sid(x, mu, mu) * 4 + nu;
+		int d = sid(x, mu, nu) * 4 + mu;
+		int e = sid(x, nu) * 4 + mu;
+		int f = sid(x) * 4 + nu;
 
 		// abcDEF = fedCBA
 		rects.push_back({a, b, c, d, e, f});
@@ -176,48 +188,62 @@ template <typename G> GaugeMesh<G> GaugeMesh<G>::smearEXP(double alpha) const
 	for (int i = 0; i < nLinks(); ++i)
 	{
 		G s = u[i] * stapleSum(i);
-		s = (s - s.adjoint()).traceless() * (0.5 * alpha);
+		s = (s - s.adjoint()).traceless() * (-0.5 * alpha);
 
-		s = G::one() + s + s * s * 0.5 + s * s * s * (1.0 / 6) +
-		    s * s * s * s * (1.0 / 24) +
-		    s * s * s * s * s * (1.0 / 120); // TODO: actual exponential
+		s = G::one() + s + (s * s) * 0.5 + (s * s) * s * (1.0 / 6) +
+		    (s * s) * (s * s) * (1.0 / 24) +
+		    (s * s) * (s * s) * s * (1.0 / 120); // TODO: actual exponential
 
 		r.u[i] = (s * u[i]).normalize();
 	}
 	return r;
 }
 
+template <typename G> G GaugeMesh<G>::clover(int i, int o) const
+{
+	assert(0 <= o && o < 6);
+	G s = G::zero();
+
+	auto &c = top->clovers[i][o];
+	s += u[c[0][0]] * u[c[0][1]] * u[c[0][2]].adjoint() * u[c[0][3]].adjoint();
+	s += u[c[1][0]] * u[c[1][1]].adjoint() * u[c[1][2]].adjoint() * u[c[1][3]];
+	s += u[c[2][0]].adjoint() * u[c[2][1]].adjoint() * u[c[2][2]] * u[c[2][3]];
+	s += u[c[3][0]].adjoint() * u[c[3][1]] * u[c[3][2]] * u[c[3][3]].adjoint();
+	return s;
+}
+
 template <typename G> double GaugeMesh<G>::topCharge() const
 {
-	/** NOTE: plaqs are ordered [x,y,z,t,{xy,xz,xt,yz,yt,zt}] */
-
-	// sum up clover ( = sum of 4 plaqs) at every site/orientation
-	auto clover = std::vector<std::array<G, 6>>(nSites());
-	for (auto &a : clover)
-		a.fill(G::zero());
-	for (int pi = 0; pi < nPlaqs(); ++pi)
-	{
-		auto [i, j, k, l] = top->plaqs[pi]; // link ids of this plaq
-		int o = pi % 6;                     // orientation of this plaq
-
-		// this plaquette is part of for different clovers
-		clover[i / 4][o] += u[i] * u[j] * u[k].adjoint() * u[l].adjoint();
-		clover[j / 4][o] += u[j] * u[k].adjoint() * u[l].adjoint() * u[i];
-		clover[k / 4][o] += u[k].adjoint() * u[l].adjoint() * u[i] * u[j];
-		clover[l / 4][o] += u[l].adjoint() * u[i] * u[j] * u[k].adjoint();
-	}
-
 	// sum up topological charge
 	double Q = 0.0;
 	for (int i = 0; i < nSites(); ++i)
 	{
-		auto &c = clover[i];
-		Q += (c[0].antisym() * c[5].antisym()).action(); // F(xy) F(zt)
-		Q -= (c[1].antisym() * c[4].antisym()).action(); // F(xz) F(yt)
-		Q += (c[2].antisym() * c[3].antisym()).action(); // F(xt) F(yz)
+		{
+			G g = clover(i, 0);
+			G h = clover(i, 5);
+			Q += ((g - g.adjoint()).traceless() * (h - h.adjoint()).traceless())
+			         .action();
+		}
+		{
+			G g = clover(i, 1);
+			G h = clover(i, 4);
+			Q -= ((g - g.adjoint()).traceless() * (h - h.adjoint()).traceless())
+			         .action();
+		}
+		{
+			G g = clover(i, 2);
+			G h = clover(i, 3);
+			Q += ((g - g.adjoint()).traceless() * (h - h.adjoint()).traceless())
+			         .action();
+		}
 	}
-
-	return Q; // TODO: some constant factor is missing
+	double factor = 1.0 / (32.0 * 3.14159 * 3.14169); // definition of Q_top
+	factor *= 24.0 / 3.0;  // the epsilon summation has 24 terms, we use only 3
+	factor *= 0.25;        // "hermitian part" is missing a factor 1/2
+	factor *= 0.25 * 0.25; // clover needs normalization
+	factor *= 9.0;         // we used ".action" when we meant ".trace"
+	// NOTE: no normalization by volume
+	return Q * factor;
 }
 
 template class GaugeMesh<Z2>;
