@@ -74,8 +74,8 @@ class DataFile
 	/** open/close */
 	DataFile() = default;
 	~DataFile();
-	static DataFile create(const std::string &filename);
-	static DataFile open(const std::string &filename);
+	static DataFile create(const std::string &filename, bool overwrite = false);
+	static DataFile open(const std::string &filename, bool writeable = false);
 	void close();
 
 	/** general object access */

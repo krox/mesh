@@ -81,15 +81,17 @@ void DataSet::write(hsize_t row, span<const double> data)
 
 DataFile::~DataFile() { close(); }
 
-DataFile DataFile::create(const std::string &filename)
+DataFile DataFile::create(const std::string &filename, bool overwrite)
 {
-	auto id = enforce(H5Fcreate(filename.c_str(), H5F_ACC_EXCL, 0, 0));
+	auto mode = overwrite ? H5F_ACC_TRUNC : H5F_ACC_EXCL;
+	auto id = enforce(H5Fcreate(filename.c_str(), mode, 0, 0));
 	return DataFile(id);
 }
 
-DataFile DataFile::open(const std::string &filename)
+DataFile DataFile::open(const std::string &filename, bool writeable)
 {
-	auto id = enforce(H5Fopen(filename.c_str(), H5F_ACC_RDWR, 0));
+	auto mode = writeable ? H5F_ACC_RDWR : H5F_ACC_RDONLY;
+	auto id = enforce(H5Fopen(filename.c_str(), mode, 0));
 	return DataFile(id);
 }
 
