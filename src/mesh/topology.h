@@ -1,9 +1,14 @@
-#ifndef MESH_TOPOLOGY_H
-#define MESH_TOPOLOGY_H
+#pragma once
 
 #include <array>
 #include <cassert>
+#include <string>
 #include <vector>
+
+/**
+ * The 'Topology' class only contains the graph of the mesh, not the field.
+ * Also it should be usable for both scalar fields and gauge fields.
+ */
 
 struct LinkRef
 {
@@ -35,11 +40,16 @@ struct Link
 class Topology
 {
   public:
+	/* The pure graph itself */
 	std::vector<Link> links;
 	std::vector<std::vector<HalfLink>> graph;
-	std::vector<int> timeStep; // succesor site in time-direction
 
-	/** type of topology (for regular lattices) */
+	/* succesor site in time-direction
+	  ( Only used for some imaginary action stuff.
+	    only set for regular lattices. ) */
+	std::vector<int> timeStep;
+
+	/** type of topology (for regular lattices only) */
 	std::string top;
 	std::vector<int> geom;
 
@@ -115,5 +125,3 @@ inline std::vector<std::array<LinkRef, 4>> Topology::loops4() const
 										loops.push_back({i, j, k, l});
 	return loops;
 }
-
-#endif

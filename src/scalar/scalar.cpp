@@ -3,17 +3,15 @@
 #include "scalar/ising.h"
 #include "scalar/phi4.h"
 #include "scalar/sigma.h"
-#include "util/fft.h"
-#include "xtensor/xview.hpp"
 #include <fmt/format.h>
 
 template <typename Action>
 scalar_chain_result_t runChain(const scalar_chain_param_t<Action> &param)
 {
 	/** initialize field */
-	scalar_mesh<Action::rep> mesh(Topology::lattice(param.geom));
+	ScalarMesh<Action::rep> mesh(Topology::lattice(param.geom));
 	Action action(mesh, param.param, param.seed);
-	Correlator corr(mesh.phi.data(), param.geom);
+	// Correlator corr(mesh.phi.data(), param.geom);
 
 	/** run the Markov chain */
 	scalar_chain_result_t res;
@@ -21,15 +19,12 @@ scalar_chain_result_t runChain(const scalar_chain_param_t<Action> &param)
 	s.push_back(param.count);
 	for (int d : param.geom)
 		s.push_back(d);
-	res.c2pt = xt::zeros<double>(s);
-	res.actionHistory = xt::zeros<double>({param.count});
-	res.magHistory = xt::zeros<double>({param.count});
-	res.phaseAngle = xt::zeros<double>({param.count});
+	// res.c2pt = xt::zeros<double>(s);
 
-	DataFile file;
+	util::DataFile file;
 	if (param.filename != "")
 	{
-		file = DataFile::create(param.filename);
+		file = util::DataFile::create(param.filename);
 
 		// physical parameters
 		file.setAttribute("beta", param.param.beta);
@@ -43,8 +38,7 @@ scalar_chain_result_t runChain(const scalar_chain_param_t<Action> &param)
 		file.setAttribute("markov_discard", param.discard);
 		file.setAttribute("markov_sweeps", param.sweeps);
 
-		if (!param.skipConfig)
-			file.makeGroup("/configs");
+		file.makeGroup("/configs");
 	}
 
 	mesh.initZero();
@@ -60,13 +54,12 @@ scalar_chain_result_t runChain(const scalar_chain_param_t<Action> &param)
 			continue;
 
 		// basic observables
-		res.actionHistory(i) = action.action(); // action density(real part)
-		res.magHistory(i) = action.magnetization();
-		res.phaseAngle(i) = action.phaseAngle(); // imaginary part of action
+		res.actionHistory.push_back(action.action());
+		res.magHistory.push_back(action.magnetization());
 
 		// measure 2pt correlator
-		corr.compute();
-		xt::view(res.c2pt, i) = corr.fullCorr();
+		// corr.compute();
+		// xt::view(res.c2pt, i) = corr.fullCorr();
 
 		// write config to file
 		if (param.filename != "")
@@ -76,11 +69,8 @@ scalar_chain_result_t runChain(const scalar_chain_param_t<Action> &param)
 				shape.push_back(d);
 			shape.push_back(Action::rep);
 
-			if (!param.skipConfig)
-			{
-				std::string name = fmt::format("/configs/{}", i + 1);
-				file.createData(name, shape).write(mesh.rawConfig());
-			}
+			std::string name = fmt::format("/configs/{}", i + 1);
+			file.createData(name, shape).write(mesh.rawConfig());
 		}
 	}
 
@@ -93,9 +83,7 @@ scalar_chain_result_t runChain(const scalar_chain_param_t<Action> &param)
 		    .write(res.actionHistory);
 		file.createData("mag_history", {res.magHistory.size()})
 		    .write(res.magHistory);
-		file.createData("phase_angle", {res.actionHistory.size()})
-		    .write(res.phaseAngle);
-		file.createData("c2pt", s).write(res.c2pt);
+		// file.createData("c2pt", s).write(res.c2pt);
 	}
 
 	return res;

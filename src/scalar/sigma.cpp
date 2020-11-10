@@ -6,9 +6,8 @@
 #include <vector>
 
 #include "mesh/topology.h"
-#include "util/fft.h"
 #include "util/gnuplot.h"
-#include "util/io.h"
+#include "util/hdf5.h"
 #include "util/random.h"
 
 /** one heat-bath sweep on the field */
@@ -16,29 +15,36 @@ void sigma_action::sweep()
 {
 	std::normal_distribution dist(0.0, 1.0);
 	std::uniform_real_distribution uni_dist(0.0, 1.0);
+	Scalar one;
+	one[0] = 1.0;
+	one[1] = 0.0;
+	one[2] = 0.0;
+
 	for (int i = 0; i < mesh.nSites(); ++i)
 	{
 		// "staple-sum"
-		Scalar<3> rho = Scalar<3>::zero();
+		Scalar rho;
+		rho[0] = rho[1] = rho[2] = 0.0;
 		for (auto j : mesh.g[i])
 			rho += mesh.phi[j];
-		double alpha = rho.norm() * param.beta;
+		double alpha = util::length(rho) * param.beta;
 
 		while (true)
 		{
 			if (alpha < 1.0e-10)
 			{
-				mesh.phi[i] = Scalar<3>::randomSphere(rng);
+				mesh.phi[i] = util::uniform_sphere_distribution<Scalar>()(rng);
 			}
 			else
 			{
-				mesh.phi[i] = Scalar<3>::randomSphere(rng, alpha);
-				Scalar<3> refl = (Scalar<3>::one() - rho.normalize());
-				if (refl.norm() >= 1.0e-8)
+				mesh.phi[i] =
+				    util::exponential_sphere_distribution<Scalar>(alpha)(rng);
+				Scalar refl = (one - util::normalize(rho));
+				if (util::length(refl) >= 1.0e-8)
 				{
-					refl = refl.normalize();
+					refl = util::normalize(refl);
 					mesh.phi[i] =
-					    mesh.phi[i] - refl * refl.dot(mesh.phi[i]) * 2.0;
+					    mesh.phi[i] - refl * util::dot(refl, mesh.phi[i]) * 2.0;
 				}
 			}
 
@@ -61,17 +67,6 @@ double sigma_action::action() const
 	double sum = 0.0;
 	for (int i = 0; i < mesh.nSites(); ++i)
 		for (auto j : mesh.g[i])
-			sum += mesh.phi[i].dot(mesh.phi[j]);
+			sum += util::dot(mesh.phi[i], mesh.phi[j]);
 	return 4.0 - sum / mesh.nSites();
-}
-
-double sigma_action::phaseAngle() const
-{
-	double sum = 0.0;
-	for (int i = 0; i < mesh.nSites(); ++i)
-	{
-		sum += mesh.phi[i][1] * mesh.phi[mesh.timeStep[i]][2];
-		sum -= mesh.phi[i][2] * mesh.phi[mesh.timeStep[i]][1];
-	}
-	return -param.mu * sum;
 }

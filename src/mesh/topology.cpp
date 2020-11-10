@@ -1,5 +1,7 @@
 #include "mesh/topology.h"
 
+#include <stdexcept>
+
 Topology Topology::lattice1D(int nx)
 {
 	Topology top(nx);

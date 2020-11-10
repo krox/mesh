@@ -6,7 +6,7 @@
 struct sigma_action_param_t
 {
 	double beta = 3.0;
-	double mu = 0.0;
+	double mu = 0.0; // not really implemented.
 };
 
 /*
@@ -20,14 +20,15 @@ class sigma_action
 	using param_t = sigma_action_param_t;
 	static constexpr size_t rep = 3;
 
-	scalar_mesh<3> &mesh;
+	ScalarMesh<3> &mesh;
+	using Scalar = ScalarMesh<3>::Scalar;
 	param_t param;
 
 	rng_t rng;
 	int64_t nAccept = 0;
 	int64_t nReject = 0;
 
-	sigma_action(scalar_mesh<3> &mesh, const param_t &param, uint64_t seed = 0)
+	sigma_action(ScalarMesh<3> &mesh, const param_t &param, uint64_t seed = 0)
 	    : mesh(mesh), param(param), rng(seed)
 	{}
 

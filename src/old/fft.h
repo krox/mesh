@@ -4,18 +4,8 @@
 /** Some useful wrappers around the FFTW library */
 
 #include <complex>
-
-#include "xtensor/xarray.hpp"
-#include "xtensor/xcomplex.hpp"
-#include "xtensor/xmath.hpp"
-#include "xtensor/xreducer.hpp"
-#include "xtensor/xtensor.hpp"
-#include "xtensor/xview.hpp"
 #include <fftw3.h>
-
-#include "util/span.h"
-
-#include <iostream>
+#include "util/tensor.h
 
 /** periodic 2pt-correlator measurement */
 class Correlator

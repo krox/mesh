@@ -1,23 +1,15 @@
+#include "CLI/CLI.hpp"
+#include "fmt/format.h"
+#include "groups/su2.h"
+#include "groups/u1.h"
+#include "groups/z2.h"
+#include "util/gnuplot.h"
+#include "util/random.h"
+#include "util/stats.h"
 #include <cassert>
 #include <cmath>
 #include <iostream>
 #include <random>
-
-#include <fmt/format.h>
-
-#include "groups/su2.h"
-#include "groups/u1.h"
-#include "groups/z2.h"
-#include "mesh/gauge_action.h"
-#include "mesh/gauge_fixing.h"
-#include "mesh/mesh.h"
-
-#include "util/gnuplot.h"
-#include "util/random.h"
-#include "util/stats.h"
-
-#include "boost/program_options.hpp"
-namespace po = boost::program_options;
 
 template <typename G> void run(double a, double a2, int n)
 {
@@ -26,7 +18,7 @@ template <typename G> void run(double a, double a2, int n)
 
 	// generate the histogram
 	rng_t rng{std::random_device()()};
-	histogram hist(-1, 1, binCount);
+	util::Histogram hist(-1, 1, binCount);
 	for (int i = 0; i < n; ++i)
 		hist.add(G::random(rng, a, a2).action());
 
@@ -40,7 +32,7 @@ template <typename G> void run(double a, double a2, int n)
 	c = n / binCount / c;
 
 	// plot everything
-	Gnuplot p;
+	util::Gnuplot p;
 	p.setLogScaleY();
 	p.setRangeX(-1.05, 1.05);
 	p.plotHistogram(hist);
@@ -49,36 +41,25 @@ template <typename G> void run(double a, double a2, int n)
 
 int main(int argc, char **argv)
 {
-	// clang-format off
-	po::options_description desc("Allowed options");
-	desc.add_options()
-	("help", "this help message")
-	("group,g", po::value<std::string>()->default_value("u1"), "gauge group")
-	("alpha", po::value<double>()->default_value(1.0), "linear coefficient")
-	("alpha2", po::value<double>()->default_value(0.0), "quadratic coefficient")
-	("n", po::value<int>()->default_value(1000000), "number of samples to take")
-	;
-	// clang-format on
+	std::string group = "u1";
+	double alpha = 1.0;
+	double alpha2 = 0.0;
+	int n = 1000000;
 
-	po::variables_map vm;
-	po::store(po::parse_command_line(argc, argv, desc), vm);
-	po::notify(vm);
+	CLI::App app{"Generate elements of a gauge-group and plot a histogram "
+	             "compared to the expected distribution."};
+	// physics options
+	app.add_option("--group,-g", group, "gauge group (u1,su2)");
+	app.add_option("--alpha", alpha, "linear coefficient");
+	app.add_option("--alpha2", alpha2, "quadratic coefficient");
+	app.add_option("--count,-n", n, "number of samples to generate");
 
-	if (vm.count("help"))
-	{
-		std::cout << desc << "\n";
-		return 1;
-	}
+	CLI11_PARSE(app, argc, argv);
 
-	auto g = vm["group"].as<std::string>();
-	auto alpha = vm["alpha"].as<double>();
-	auto alpha2 = vm["alpha2"].as<double>();
-	auto n = vm["n"].as<int>();
-
-	if (g == "u1")
+	if (group == "u1")
 		run<U1>(alpha, alpha2, n);
-	/*else if (g == "su2")
-	    run<SU2>(alpha, alpha2, n);*/
+	else if (group == "su2")
+		run<SU2>(alpha, alpha2, n);
 	else
-		throw "unknown gauge group";
+		throw std::runtime_error("unknown gauge group");
 }

@@ -5,22 +5,30 @@
 #include <string>
 #include <vector>
 
-#include "xtensor/xarray.hpp"
-
-#include "groups/scalar.h"
 #include "mesh/topology.h"
-#include "util/io.h"
+#include "util/hdf5.h"
+#include "util/linalg.h"
+#include "util/random.h"
 #include "util/span.h"
 
-template <int N> class scalar_mesh {
+using rng_t = util::xoshiro256;
+
+/**
+ * ScalarMesh = Topology + Field values.
+ *   - Does not know the used action, but only the size of the representation.
+ */
+template <int N> class ScalarMesh
+{
   public:
+	using Scalar = util::Vector<double, N>;
+
 	std::vector<std::vector<int>> g;
-	std::vector<int> timeStep;
-	std::vector<Scalar<N>> phi;
+	std::vector<Scalar> phi;
 
 	int nFlavors() const { return N; }
 	int nSites() const { return (int)g.size(); }
-	int nLinks() const {
+	int nLinks() const
+	{
 		int count = 0;
 		for (int i = 0; i < nSites(); ++i)
 			count += (int)g[i].size();
@@ -28,31 +36,39 @@ template <int N> class scalar_mesh {
 	}
 
 	/** does not initialize the field */
-	scalar_mesh(const Topology &top)
-	    : g(top.nSites()), timeStep(top.timeStep), phi(top.nSites()) {
-		for (auto &[a, b] : top.links) {
+	ScalarMesh(const Topology &top) : g(top.nSites()), phi(top.nSites())
+	{
+		for (auto &[a, b] : top.links)
+		{
 			g[a].push_back(b);
 			g[b].push_back(a);
 		}
 	}
 
-	void initZero() {
+	void initZero()
+	{
 		for (auto &x : phi)
-			x = Scalar<N>::zero();
+			for (size_t i = 0; i < N; ++i)
+				x[i] = 0.0;
 	}
 
-	void initOne() {
+	void initOne()
+	{
 		for (auto &x : phi)
-			x = Scalar<N>::one();
+			for (size_t i = 0; i < N; ++i)
+				x[i] = i == 0 ? 1.0 : 0.0;
 	}
 
-	span<const double> rawConfig() const {
-		return span<const double>((double const *)phi.data(), phi.size() * N);
+	util::span<const double> rawConfig() const
+	{
+		return util::span<const double>((double const *)phi.data(),
+		                                phi.size() * N);
 	}
 };
 
 /** parameters of markov chain */
-template <typename Action> struct scalar_chain_param_t {
+template <typename Action> struct scalar_chain_param_t
+{
 
 	/** parameters with physical meaning */
 	std::vector<int> geom = {128};  // size of lattice
@@ -65,18 +81,16 @@ template <typename Action> struct scalar_chain_param_t {
 	int clusters = 0;  // number of cluster-flips per HB sweeps
 	uint64_t seed = 0; // seed for random number generator
 	std::string filename = "";
-	bool skipConfig = false;
 };
 
 /** some measurements taken during the simulation. This may include measurements
  * on intermediate configs that were not saved. */
-struct scalar_chain_result_t {
+struct scalar_chain_result_t
+{
 	double reject;
 
-	xt::xarray<double> c2pt;
-	xt::xarray<double> actionHistory;
-	xt::xarray<double> magHistory;
-	xt::xarray<double> phaseAngle;
+	std::vector<double> actionHistory;
+	std::vector<double> magHistory;
 };
 
 template <typename Action>

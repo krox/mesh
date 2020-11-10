@@ -4,8 +4,6 @@
 #include <string>
 #include <vector>
 
-#include "xtensor/xarray.hpp"
-
 #include "gauge/gauge.h"
 #include "gauge/wilson.h"
 
@@ -31,8 +29,8 @@ struct GaugeChainParams
 /** some measurements taken during the simulation */
 struct GaugeChainResult
 {
-	xt::xarray<double> plaqHistory; // average plaquette
-	xt::xarray<double> topHistory;  // topological charge
+	std::vector<double> plaqHistory; // average plaquette
+	std::vector<double> topHistory;  // topological charge
 };
 
 GaugeChainResult runChain(const GaugeChainParams &chainParams,

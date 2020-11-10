@@ -22,17 +22,17 @@ template <typename G> class Mesh
 	{}
 
 	void initOrdered();
-	void initRandom(rng_t &rng);
-	void initMixed(rng_t &rng);
+	void initRandom(util::xoshiro256 &rng);
+	void initMixed(util::xoshiro256 &rng);
 
 	/** access to the gauge field */
 	G &u(int i) { return u_[i]; }
 	const G &u(int i) const { return u_[i]; }
 	G u(LinkRef i) const { return i.sign ? u_[i.i].adjoint() : u_[i.i]; }
 
-	span<double> rawLinks();
-	span<const double> rawLinks() const;
-	span<const double> rawLinksConst() const;
+	util::span<double> rawLinks();
+	util::span<const double> rawLinks() const;
+	util::span<const double> rawLinksConst() const;
 
 	std::array<Lattice<const G, 4>, 4> asLattice4() const;
 };
@@ -43,13 +43,13 @@ template <typename G> inline void Mesh<G>::initOrdered()
 		g = G::one();
 }
 
-template <typename G> inline void Mesh<G>::initRandom(rng_t &rng)
+template <typename G> inline void Mesh<G>::initRandom(util::xoshiro256 &rng)
 {
 	for (G &g : u_)
 		g = G::random(rng);
 }
 
-template <typename G> inline void Mesh<G>::initMixed(rng_t &rng)
+template <typename G> inline void Mesh<G>::initMixed(util::xoshiro256 &rng)
 {
 	for (size_t i = 0; i < u_.size() / 2; ++i)
 		u(i) = G::one();
@@ -57,22 +57,23 @@ template <typename G> inline void Mesh<G>::initMixed(rng_t &rng)
 		u(i) = G::random(rng);
 }
 
-template <typename G> inline span<double> Mesh<G>::rawLinks()
+template <typename G> inline util::span<double> Mesh<G>::rawLinks()
 {
 	static_assert(G::repSize() * sizeof(double) == sizeof(G));
-	return span((double *)u_.data(), G::repSize() * u_.size());
+	return util::span((double *)u_.data(), G::repSize() * u_.size());
 }
 
-template <typename G> inline span<const double> Mesh<G>::rawLinks() const
+template <typename G> inline util::span<const double> Mesh<G>::rawLinks() const
 {
 	static_assert(G::repSize() * sizeof(double) == sizeof(G));
-	return span((const double *)u_.data(), G::repSize() * u_.size());
+	return util::span((const double *)u_.data(), G::repSize() * u_.size());
 }
 
-template <typename G> inline span<const double> Mesh<G>::rawLinksConst() const
+template <typename G>
+inline util::span<const double> Mesh<G>::rawLinksConst() const
 {
 	static_assert(G::repSize() * sizeof(double) == sizeof(G));
-	return span((const double *)u_.data(), G::repSize() * u_.size());
+	return util::span((const double *)u_.data(), G::repSize() * u_.size());
 }
 
 template <typename G>

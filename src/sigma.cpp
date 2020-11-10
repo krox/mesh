@@ -1,73 +1,60 @@
+#include "scalar/sigma.h"
+#include "CLI/CLI.hpp"
+#include "mesh/topology.h"
+#include "scalar/scalar.h"
+#include "util/gnuplot.h"
+#include "util/random.h"
 #include <cassert>
 #include <cmath>
 #include <experimental/filesystem>
+#include <fmt/format.h>
 #include <iostream>
 #include <random>
 #include <vector>
 
-#include <fmt/format.h>
-
-#include "xtensor/xstrides.hpp"
-
-#include "xtensor/xadapt.hpp"
-#include "xtensor/xeval.hpp"
-#include "xtensor/xfunction.hpp"
-#include "xtensor/xmath.hpp"
-#include "xtensor/xtensor.hpp"
-#include "xtensor/xview.hpp"
-
-#include "mesh/topology.h"
-#include "scalar/scalar.h"
-#include "scalar/sigma.h"
-#include "util/fft.h"
-#include "util/gnuplot.h"
-#include "util/random.h"
-
-#include "boost/program_options.hpp"
-namespace po = boost::program_options;
-
+/*
 xt::xarray<double> getMom0(xt::xarray<double> c2pt)
 {
-	while (c2pt.dimension() > 2)
-		c2pt = xt::sum(c2pt, {1}) / c2pt.shape()[1];
-	return c2pt;
+    while (c2pt.dimension() > 2)
+        c2pt = xt::sum(c2pt, {1}) / c2pt.shape()[1];
+    return c2pt;
 }
 
 double analyzeMass(const xt::xarray<double> &c2pt_full, bool plot)
 {
-	// spatial momentum zero
-	xt::xarray<double> c2pt = getMom0(c2pt_full);
-	xt::xarray<double> mean = xt::mean(c2pt, {0});
-	xt::xarray<double> err =
-	    xt::sqrt(xt::mean((c2pt - mean) * (c2pt - mean), {0})) /
-	    sqrt(c2pt.shape()[0]);
+    // spatial momentum zero
+    xt::xarray<double> c2pt = getMom0(c2pt_full);
+    xt::xarray<double> mean = xt::mean(c2pt, {0});
+    xt::xarray<double> err =
+        xt::sqrt(xt::mean((c2pt - mean) * (c2pt - mean), {0})) /
+        sqrt(c2pt.shape()[0]);
 
-	// exponential fit using log-trick
-	std::vector<double> xs, ys, yse;
-	for (size_t t = 0; t <= mean.shape()[0] / 4; ++t)
-	{
-		if (mean(t) < 2 * err(t))
-			break;
-		xs.push_back(t);
-		ys.push_back(log(mean(t)));
-		yse.push_back(err(t) / mean(t));
-	}
-	auto fit = LinearFit(xs, ys, yse);
-	double a0 = exp(fit.a);
-	double mass = -fit.b;
+    // exponential fit using log-trick
+    std::vector<double> xs, ys, yse;
+    for (size_t t = 0; t <= mean.shape()[0] / 4; ++t)
+    {
+        if (mean(t) < 2 * err(t))
+            break;
+        xs.push_back(t);
+        ys.push_back(log(mean(t)));
+        yse.push_back(err(t) / mean(t));
+    }
+    auto fit = LinearFit(xs, ys, yse);
+    double a0 = exp(fit.a);
+    double mass = -fit.b;
 
-	// plot 2pt function
-	if (plot)
-	{
-		Gnuplot()
-		    .setLogScaleY()
-		    .setRangeX(0, (int)xs.size() + 2)
-		    .plotErrorbar(mean, err)
-		    .plotFunction([&](double x) { return a0 * exp(-x * mass); }, 0,
-		                  (int)xs.size(), fmt::format("mass = {}", mass));
-	}
-	return mass;
-}
+    // plot 2pt function
+    if (plot)
+    {
+        Gnuplot()
+            .setLogScaleY()
+            .setRangeX(0, (int)xs.size() + 2)
+            .plotErrorbar(mean, err)
+            .plotFunction([&](double x) { return a0 * exp(-x * mass); }, 0,
+                          (int)xs.size(), fmt::format("mass = {}", mass));
+    }
+    return mass;
+}*/
 
 std::string autoFilename(const std::vector<int> geom, double beta, double mu)
 {
@@ -81,51 +68,67 @@ std::string autoFilename(const std::vector<int> geom, double beta, double mu)
 
 int main(int argc, char **argv)
 {
-	// clang-format off
-	po::options_description desc("Allowed options");
-	desc.add_options()
-	("help", "this help message")
-	("geom", po::value<std::vector<int>>()->multitoken(), "lattice size")
-	("beta", po::value<std::vector<double>>()->multitoken(), "inverse coupling ( = 1/T = 1/g_0^2 )")
-	("mu", po::value<std::vector<double>>()->multitoken(), "chemical potential")
-	("count", po::value<int>()->default_value(1000), "number of gauge-configs to generate")
-	("discard", po::value<int>()->default_value(100), "number of gauge-configs to discard (thermalization)")
-	("sweeps", po::value<int>()->default_value(10), "number of sweeps between configs")
-	("seed", po::value<uint64_t>()->default_value(std::random_device()()), "seed for random number generator")
-	("filename", po::value<std::string>()->default_value(""), "hdf5 output")
-	("skip-config", "do not include actual configs in output")
-	("plot", "show plot of generated ensemble(s)")
-	;
-	// clang-format on
+	scalar_chain_param_t<sigma_action> param;
+	param.geom = {32, 32};
+	param.count = 1000;
+	param.discard = 100;
+	param.sweeps = 2;
+	param.clusters = 0;
+	param.seed = (uint64_t)-1;
+	std::vector<double> betas = {};
+	std::vector<double> mus = {0.0};
+	double beta_min = 0.0;
+	double beta_max = 3.0;
+	int beta_count = 20;
+	bool do_plot = false;
 
-	po::variables_map vm;
-	po::store(po::parse_command_line(argc, argv, desc), vm);
-	po::notify(vm);
+	CLI::App app{"Simulate the O(3) non-linear sigma model."};
+	// physics options
+	app.add_option("--geom", param.geom, "geometry of the lattice");
+	app.add_option("--beta", betas, "coupling constant");
 
-	if (vm.count("help"))
+	app.add_option("--beta-min", beta_min, "coupling constant");
+	app.add_option("--beta-max", beta_max, "coupling constant");
+	app.add_option("--beta-count", beta_count, "coupling constant");
+
+	// markov options
+	app.add_option("--count", param.count, "number of configs to generate");
+	app.add_option("--discard", param.discard,
+	               "number of configs to discard for thermalization");
+	app.add_option("--sweeps", param.sweeps,
+	               "number of heatbath sweeps between configs");
+	app.add_option("--seed", param.seed,
+	               "seed for random number generator (default = random)");
+
+	// output options
+	app.add_flag("--plot", do_plot, "plot result");
+	app.add_flag("--filename", param.filename,
+	             "hdf5 output (one dataset per config)");
+
+	CLI11_PARSE(app, argc, argv);
+
+	// no explicit (list of) beta values -> make a sweep
+	if (betas.empty())
+		for (int i = 0; i < beta_count; ++i)
+			betas.push_back(beta_min +
+			                1.0 * i / (beta_count - 1) * (beta_max - beta_min));
+
+	// no seed given -> get a random one
+	if (param.seed == (uint64_t)-1)
+		param.seed = std::random_device()();
+
+	if (param.filename != "" && betas.size() != 1)
 	{
-		std::cout << desc << "\n";
-		return 1;
+		fmt::print("ERROR: HDF5 output only possible for single beta value\n");
+		return -1;
 	}
 
-	scalar_chain_param_t<sigma_action> param;
-	param.geom = vm["geom"].as<std::vector<int>>();
-	param.count = vm["count"].as<int>();
-	param.discard = vm["discard"].as<int>();
-	param.sweeps = vm["sweeps"].as<int>();
-	param.seed = vm["seed"].as<uint64_t>();
-	param.skipConfig = vm.count("skip-config");
-	std::string filename = vm["filename"].as<std::string>();
-	bool doPlot = vm.count("plot");
-
-	auto betas = vm["beta"].as<std::vector<double>>();
-	auto mus = vm["mu"].as<std::vector<double>>();
 	double dim = param.geom.size();
 
-	std::vector<double> plotBeta, plotMu, plotMass, plotAction;
+	std::vector<double> plotBeta, plotMu, plotAction;
 
-	auto plot = Gnuplot();
-	auto plot2 = Gnuplot();
+	auto plot = util::Gnuplot();
+	auto plot2 = util::Gnuplot();
 
 	for (double beta : betas)
 	{
@@ -135,55 +138,40 @@ int main(int argc, char **argv)
 			param.param.beta = beta;
 			param.param.mu = mu;
 
-			if (!filename.empty())
-			{
-				// automatic filename if only path was given
-				if (filename.size() < 3 ||
-				    0 != filename.compare(filename.size() - 3, 3, ".h5"))
-					param.filename =
-					    fmt::format("{}/{}", filename,
-					                autoFilename(param.geom, param.param.beta,
-					                             param.param.mu));
-			}
-
 			// run the chain
 			auto res = runChain(param);
 
 			// analyze results
-			double mass = analyzeMass(res.c2pt, doPlot && betas.size() == 1 &&
-			                                        mus.size() == 1);
-			double action = xt::mean(res.actionHistory)();
-			double signReal = xt::mean(xt::cos(res.phaseAngle))();
-			double signImag = xt::mean(xt::sin(res.phaseAngle))();
-			fmt::print("beta = {}, mu = {}, mass = {}, <sign> = {} + {}i, mL = "
-			           "{}, reject = {}\n",
-			           beta, mu, mass, signReal, signImag, mass * param.geom[0],
-			           res.reject);
+			/*double mass = analyzeMass(res.c2pt, do_plot && betas.size() == 1
+			   && mus.size() == 1);*/
+			double action = util::mean(res.actionHistory);
+			fmt::print("beta = {}, mu = {}, action = {}, reject = {}\n", beta,
+			           mu, action, res.reject);
 
 			plotBeta.push_back(beta);
 			plotMu.push_back(mu);
-			plotMass.push_back(mass);
+			// plotMass.push_back(mass);
 			plotAction.push_back(action);
 
-			if (doPlot && plotMass.size() >= 2)
+			/*if (do_plot && plotMass.size() >= 2)
 			{
-				plot.clear();
-				plot.plotData(plotBeta, plotMass);
+			    plot.clear();
+			    plot.plotData(plotBeta, plotMass);
 
-				if (dim == 1)
-				{
-					plot.plotFunction(
-					    [&](double b) {
-						    return -log(b / 3.0 - b * b * b / 45.0);
-					    },
-					    betas.front(), 2.5, "strong coupling");
-					plot.plotFunction(
-					    [&](double b) { return -log(1.0 - 1.0 / b); }, 1.5,
-					    betas.back(), "weak coupling");
-				}
-			}
+			    if (dim == 1)
+			    {
+			        plot.plotFunction(
+			            [&](double b) {
+			                return -log(b / 3.0 - b * b * b / 45.0);
+			            },
+			            betas.front(), 2.5, "strong coupling");
+			        plot.plotFunction(
+			            [&](double b) { return -log(1.0 - 1.0 / b); }, 1.5,
+			            betas.back(), "weak coupling");
+			    }
+			}*/
 
-			if (doPlot && plotAction.size() >= 2)
+			if (do_plot && plotAction.size() >= 2)
 			{
 				plot2.clear();
 				plot2.plotData(plotBeta, plotAction, "action density");

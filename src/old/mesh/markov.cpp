@@ -7,7 +7,7 @@
 #include "groups/z2.h"
 #include "mesh/gauge_action.h"
 #include "mesh/mesh.h"
-#include "util/io.h"
+#include "util/hdf5.h"
 #include "util/stats.h"
 
 std::string ChainParams::autoFilename() const
@@ -100,8 +100,8 @@ template <typename G> ChainResult runChainImpl(const ChainParams &params)
 	}
 
 	/** analyze measurements */
-	res.action = mean(res.actionHistory);
-	res.corrTime = correlationTime(res.actionHistory) / params.sweeps;
+	res.action = util::mean(res.actionHistory);
+	res.corrTime = util::correlationTime(res.actionHistory) / params.sweeps;
 
 	if (params.filename != "")
 	{

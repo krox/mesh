@@ -7,11 +7,11 @@
 #include <string>
 #include <vector>
 
-#include "xtensor/xarray.hpp"
-
 #include "util/io.h"
 #include "util/random.h"
 #include "util/span.h"
+
+using rng_t = util::xoshiro256;
 
 /** helper class for topology. I.e. bunch of indices */
 class GaugeTopology
@@ -167,15 +167,15 @@ template <typename G> class GaugeMesh
 	/** topological charge */
 	double topCharge() const;
 
-	span<const double> rawConfig() const
+	util::span<const double> rawConfig() const
 	{
-		return span<const double>((double const *)u.data(),
-		                          u.size() * G::repSize());
+		return util::span<const double>((double const *)u.data(),
+		                                u.size() * G::repSize());
 	}
 
-	span<double> rawConfigMut()
+	util::span<double> rawConfigMut()
 	{
-		return span<double>((double *)u.data(), u.size() * G::repSize());
+		return util::span<double>((double *)u.data(), u.size() * G::repSize());
 	}
 };
 

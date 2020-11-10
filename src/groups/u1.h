@@ -1,6 +1,7 @@
 #ifndef GROUPS_U1_H
 #define GROUPS_U1_H
 
+#include <cassert>
 #include <cmath>
 #include <random>
 

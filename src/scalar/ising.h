@@ -19,14 +19,14 @@ class ising_action
 	using param_t = ising_action_param_t;
 	static constexpr size_t rep = 1;
 
-	scalar_mesh<1> &mesh;
+	ScalarMesh<1> &mesh;
 	param_t param;
 
 	rng_t rng;
 	int64_t nAccept = 0;
 	int64_t nReject = 0;
 
-	ising_action(scalar_mesh<1> &mesh, const param_t &param, uint64_t seed = 0)
+	ising_action(ScalarMesh<1> &mesh, const param_t &param, uint64_t seed = 0)
 	    : mesh(mesh), param(param), rng(seed)
 	{}
 
@@ -35,7 +35,6 @@ class ising_action
 
 	double action() const;
 	double magnetization() const;
-	double phaseAngle() const { return 0.0; }
 };
 
 #endif

@@ -1,10 +1,12 @@
 #ifndef GROUPS_SU2_H
 #define GROUPS_SU2_H
 
+#include <cassert>
 #include <cmath>
 #include <random>
 
 #include "util/random.h"
+using rng_t = util::xoshiro256;
 
 /** Special unitary group SU(2) */
 struct SU2
@@ -31,6 +33,15 @@ struct SU2
 	/** special elements */
 	static SU2 zero() { return SU2(0, 0, 0, 0); }
 	static SU2 one() { return SU2(1, 0, 0, 0); }
+
+	/** (unnormalized) probability distribution */
+	static double dist(double alpha, double alpha2, double tr)
+	{
+		(void)alpha;
+		(void)alpha2;
+		(void)tr;
+		return 0.0 / 0.0;
+	}
 
 	/** scalar operators */
 	SU2 operator*(double b) const

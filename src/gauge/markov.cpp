@@ -6,7 +6,7 @@
 #include "groups/su3.h"
 #include "groups/u1.h"
 #include "groups/z2.h"
-#include "util/io.h"
+#include "util/hdf5.h"
 
 template <typename G>
 GaugeChainResult runChainImpl(const GaugeChainParams &param,

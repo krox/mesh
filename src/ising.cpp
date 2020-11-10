@@ -1,3 +1,10 @@
+#include "scalar/ising.h"
+#include "CLI/CLI.hpp"
+#include "fmt/format.h"
+#include "mesh/topology.h"
+#include "util/gnuplot.h"
+#include "util/random.h"
+#include "util/sampler.h"
 #include <cassert>
 #include <cmath>
 #include <experimental/filesystem>
@@ -5,74 +12,65 @@
 #include <random>
 #include <vector>
 
-#include <fmt/format.h>
-
-#include "xtensor/xstrides.hpp"
-
-#include "xtensor/xmath.hpp"
-#include "xtensor/xtensor.hpp"
-#include "xtensor/xview.hpp"
-
-#include "mesh/topology.h"
-#include "scalar/ising.h"
-#include "util/fft.h"
-#include "util/gnuplot.h"
-#include "util/random.h"
-
-#include "boost/program_options.hpp"
-namespace po = boost::program_options;
-
 int main(int argc, char **argv)
 {
-	// clang-format off
-	po::options_description desc("Allowed options");
-	desc.add_options()
-	("help", "this help message")
-	("geom", po::value<std::vector<int>>()->multitoken(), "lattice size")
-	("beta", po::value<std::vector<double>>()->multitoken(), "interaction")
-	("betaMin", po::value<double>()->default_value(0.0), "interaction")
-	("betaMax", po::value<double>()->default_value(1.0), "interaction")
-	("betaCount", po::value<int>()->default_value(20), "interaction")
-	("count", po::value<int>()->default_value(1000), "number of gauge-configs to generate")
-	("discard", po::value<int>()->default_value(100), "number of gauge-configs to discard (thermalization)")
-	("sweeps", po::value<int>()->default_value(2), "number of heatbath sweeps between configs")
-	("clusters", po::value<int>()->default_value(1), "number of cluster flips per heatbath sweeps")
-	("seed", po::value<uint64_t>()->default_value(std::random_device()()), "seed for random number generator")
-	;
-	// clang-format on
-
-	po::variables_map vm;
-	po::store(po::parse_command_line(argc, argv, desc), vm);
-	po::notify(vm);
-
-	if (vm.count("help"))
-	{
-		std::cout << desc << "\n";
-		return 1;
-	}
-
 	scalar_chain_param_t<ising_action> param;
-	param.geom = vm["geom"].as<std::vector<int>>();
-	param.count = vm["count"].as<int>();
-	param.discard = vm["discard"].as<int>();
-	param.sweeps = vm["sweeps"].as<int>();
-	param.clusters = vm["clusters"].as<int>();
-	param.seed = vm["seed"].as<uint64_t>();
+	param.geom = {32, 32};
+	param.count = 1000;
+	param.discard = 100;
+	param.sweeps = 2;
+	param.clusters = 1;
+	param.seed = (uint64_t)-1;
+	std::vector<double> betas = {};
+	double beta_min = 0.0;
+	double beta_max = 1.0;
+	int beta_count = 20;
+	bool do_plot = false;
 
-	std::vector<double> betas;
-	if (vm.count("beta"))
-		betas = vm["beta"].as<std::vector<double>>();
-	else
+	CLI::App app{"Simulate 2D Ising model with a combination of heatbath and "
+	             "cluster updates."};
+	// physics options
+	app.add_option("--geom", param.geom, "geometry of the lattice");
+	app.add_option("--beta", betas, "coupling constant");
+	app.add_option("--beta-min", beta_min, "coupling constant");
+	app.add_option("--beta-max", beta_max, "coupling constant");
+	app.add_option("--beta-count", beta_count, "coupling constant");
+
+	// markov options
+	app.add_option("--count", param.count, "number of configs to generate");
+	app.add_option("--discard", param.discard,
+	               "number of configs to discard for thermalization");
+	app.add_option("--sweeps", param.sweeps,
+	               "number of heatbath sweeps between configs");
+	app.add_option("--clusters", param.sweeps,
+	               "number of cluster flips per heatbath sweeps");
+	app.add_option("--seed", param.seed,
+	               "seed for random number generator (default = random)");
+
+	// output options
+	app.add_flag("--plot", do_plot, "plot result");
+	app.add_flag("--filename", param.filename,
+	             "hdf5 output (one dataset per config)");
+
+	CLI11_PARSE(app, argc, argv);
+
+	// no explicit (list of) beta values -> make a sweep
+	if (betas.empty())
+		for (int i = 0; i < beta_count; ++i)
+			betas.push_back(beta_min +
+			                1.0 * i / (beta_count - 1) * (beta_max - beta_min));
+
+	// no seed given -> get a random one
+	if (param.seed == (uint64_t)-1)
+		param.seed = std::random_device()();
+
+	if (param.filename != "" && betas.size() != 1)
 	{
-		double betaMin = vm["betaMin"].as<double>();
-		double betaMax = vm["betaMax"].as<double>();
-		int n = vm["betaCount"].as<int>();
-
-		for (int i = 0; i < n; ++i)
-			betas.push_back(betaMin + 1.0 * i / (n - 1) * (betaMax - betaMin));
+		fmt::print("ERROR: HDF5 output only possible for single beta value\n");
+		return -1;
 	}
 
-	std::vector<double> plotBeta, plotMag, plotMagAbs, plotCorr;
+	std::vector<double> plotBeta, plotMag, plotMagAbs;
 
 	for (double beta : betas)
 	{
@@ -80,35 +78,38 @@ int main(int argc, char **argv)
 		param.param.beta = beta;
 		auto res = runChain(param);
 
-		if (betas.size() == 1)
-		{
-			Gnuplot().plotData(res.magHistory);
-		}
+		if (betas.size() == 1 && do_plot)
+			util::Gnuplot().plotData(res.magHistory);
 
 		// analyze
-		double mag = xt::mean(res.magHistory)();
-		double magAbs = xt::mean(xt::abs(res.magHistory))();
-		double tau = correlationTime(res.magHistory);
+		double mag = util::mean(res.magHistory);
+		double magAbs = util::mean_abs(res.magHistory);
+		double tau = util::correlationTime(res.magHistory);
 		fmt::print("beta = {}, <mag> = {}, <|mag|> = {}, corr = {}\n", beta,
 		           mag, magAbs, tau);
 		plotBeta.push_back(beta);
 		plotMag.push_back(mag);
 		plotMagAbs.push_back(magAbs);
-		plotCorr.push_back(tau);
 
 		param.seed += 1; // change seed for next beta
 	}
 
-	if (betas.size() >= 2)
+	if (betas.size() >= 2 && do_plot)
 	{
-		Gnuplot()
-		    .plotData(plotBeta, plotMag, "<mag>")
-		    .plotData(plotBeta, plotMagAbs, "<|mag|>")
-		    .plotFunction(
-		        [](double beta) {
-			        return pow(1 - pow(sinh(2 * beta), -4), 0.125);
-		        },
-		        0.44068679350977147, betas.back());
-		Gnuplot().plotData(plotBeta, plotCorr);
+		auto plot = util::Gnuplot();
+		plot.plotData(plotBeta, plotMag, "<mag>");
+		plot.plotData(plotBeta, plotMagAbs, "<|mag|>");
+
+		// known exact formula for 2D infinite-volume
+		if (param.geom.size() == 2)
+		{
+			plot.plotFunction(
+			    [](double beta) {
+				    return pow(1 - pow(sinh(2 * beta), -4), 0.125);
+			    },
+			    0.44068679350977147, betas.back());
+			plot.plotFunction([](double) { return 0.0; }, betas.front(),
+			                  0.44068679350977147);
+		}
 	}
 }
