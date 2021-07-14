@@ -1,40 +1,36 @@
-#ifndef SCALAR_ISING_H
-#define SCALAR_ISING_H
+#pragma once
 
 #include "scalar/scalar.h"
 
-struct ising_action_param_t
+struct IsingActionParams
 {
 	double beta = 0.0 / 0.0; // nearest-neighbour coupling
-	double mu = 0.0 / 0.0;   // not implemented yet
+	                         // double mu = 0.0 / 0.0;   // chemical potential
 };
 
 /*
 Ising model:
 S = -β Σ_xy ϕ_x ϕ_y
+with ϕ = ±1
 */
-class ising_action
+class IsingAction
 {
   public:
-	using param_t = ising_action_param_t;
 	static constexpr size_t rep = 1;
+	using params_t = IsingActionParams;
+	using mesh_t = ScalarMesh<1>;
 
-	ScalarMesh<1> &mesh;
-	param_t param;
+	params_t params;
 
-	rng_t rng;
 	int64_t nAccept = 0;
 	int64_t nReject = 0;
 
-	ising_action(ScalarMesh<1> &mesh, const param_t &param, uint64_t seed = 0)
-	    : mesh(mesh), param(param), rng(seed)
-	{}
+	IsingAction(params_t const &params) : params(params) {}
 
-	void sweep();   // heat-bath sweep
-	void cluster(); // one cluster update
+	// direct updates: heat-bath and cluster algorithm
+	void sweep(mesh_t &mesh, rng_t &rng);
+	void cluster(mesh_t &mesh, rng_t &rng);
 
-	double action() const;
-	double magnetization() const;
+	double action(mesh_t &mesh) const;
+	double magnetization(mesh_t &mesh) const;
 };
-
-#endif

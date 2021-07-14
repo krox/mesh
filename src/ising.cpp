@@ -14,13 +14,13 @@
 
 int main(int argc, char **argv)
 {
-	scalar_chain_param_t<ising_action> param;
-	param.geom = {32, 32};
-	param.count = 1000;
-	param.discard = 100;
-	param.sweeps = 2;
-	param.clusters = 1;
-	param.seed = (uint64_t)-1;
+	ScalarChainParams<IsingAction> params;
+	params.geom = {32, 32};
+	params.count = 1000;
+	params.discard = 100;
+	params.sweeps = 2;
+	params.clusters = 1;
+	params.seed = (uint64_t)-1;
 	std::vector<double> betas = {};
 	double beta_min = 0.0;
 	double beta_max = 1.0;
@@ -30,26 +30,26 @@ int main(int argc, char **argv)
 	CLI::App app{"Simulate 2D Ising model with a combination of heatbath and "
 	             "cluster updates."};
 	// physics options
-	app.add_option("--geom", param.geom, "geometry of the lattice");
+	app.add_option("--geom", params.geom, "geometry of the lattice");
 	app.add_option("--beta", betas, "coupling constant");
 	app.add_option("--beta-min", beta_min, "coupling constant");
 	app.add_option("--beta-max", beta_max, "coupling constant");
 	app.add_option("--beta-count", beta_count, "coupling constant");
 
 	// markov options
-	app.add_option("--count", param.count, "number of configs to generate");
-	app.add_option("--discard", param.discard,
+	app.add_option("--count", params.count, "number of configs to generate");
+	app.add_option("--discard", params.discard,
 	               "number of configs to discard for thermalization");
-	app.add_option("--sweeps", param.sweeps,
+	app.add_option("--sweeps", params.sweeps,
 	               "number of heatbath sweeps between configs");
-	app.add_option("--clusters", param.sweeps,
+	app.add_option("--clusters", params.sweeps,
 	               "number of cluster flips per heatbath sweeps");
-	app.add_option("--seed", param.seed,
+	app.add_option("--seed", params.seed,
 	               "seed for random number generator (default = random)");
 
 	// output options
 	app.add_flag("--plot", do_plot, "plot result");
-	app.add_flag("--filename", param.filename,
+	app.add_flag("--filename", params.filename,
 	             "hdf5 output (one dataset per config)");
 
 	CLI11_PARSE(app, argc, argv);
@@ -61,10 +61,10 @@ int main(int argc, char **argv)
 			                1.0 * i / (beta_count - 1) * (beta_max - beta_min));
 
 	// no seed given -> get a random one
-	if (param.seed == (uint64_t)-1)
-		param.seed = std::random_device()();
+	if (params.seed == (uint64_t)-1)
+		params.seed = std::random_device()();
 
-	if (param.filename != "" && betas.size() != 1)
+	if (params.filename != "" && betas.size() != 1)
 	{
 		fmt::print("ERROR: HDF5 output only possible for single beta value\n");
 		return -1;
@@ -75,8 +75,8 @@ int main(int argc, char **argv)
 	for (double beta : betas)
 	{
 		// run a chain
-		param.param.beta = beta;
-		auto res = runChain(param);
+		params.actionParams.beta = beta;
+		auto res = runChain(params);
 
 		if (betas.size() == 1 && do_plot)
 			util::Gnuplot().plotData(res.magHistory);
@@ -91,7 +91,7 @@ int main(int argc, char **argv)
 		plotMag.push_back(mag);
 		plotMagAbs.push_back(magAbs);
 
-		param.seed += 1; // change seed for next beta
+		params.seed += 1; // change seed for next beta
 	}
 
 	if (betas.size() >= 2 && do_plot)
@@ -101,7 +101,7 @@ int main(int argc, char **argv)
 		plot.plotData(plotBeta, plotMagAbs, "<|mag|>");
 
 		// known exact formula for 2D infinite-volume
-		if (param.geom.size() == 2)
+		if (params.geom.size() == 2)
 		{
 			plot.plotFunction(
 			    [](double beta) {

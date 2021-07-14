@@ -1,5 +1,6 @@
-#ifndef SCALAR_PHI4_H
-#define SCALAR_PHI4_H
+#pragma once
+
+#if 0
 
 #include "scalar/scalar.h"
 

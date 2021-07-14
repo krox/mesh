@@ -6,66 +6,67 @@
 #include <fmt/format.h>
 
 template <typename Action>
-scalar_chain_result_t runChain(const scalar_chain_param_t<Action> &param)
+ScalarChainResult runChain(const ScalarChainParams<Action> &params)
 {
 	/** initialize field */
-	ScalarMesh<Action::rep> mesh(Topology::lattice(param.geom));
-	Action action(mesh, param.param, param.seed);
-	// Correlator corr(mesh.phi.data(), param.geom);
+	ScalarMesh<Action::rep> mesh(Topology::lattice(params.geom));
+	Action action(params.actionParams);
+	rng_t rng(params.seed);
+	// Correlator corr(mesh.phi.data(), params.geom);
 
 	/** run the Markov chain */
-	scalar_chain_result_t res;
+	ScalarChainResult res;
 	std::vector<hsize_t> s;
-	s.push_back(param.count);
-	for (int d : param.geom)
+	s.push_back(params.count);
+	for (int d : params.geom)
 		s.push_back(d);
 	// res.c2pt = xt::zeros<double>(s);
 
 	util::DataFile file;
-	if (param.filename != "")
+	if (params.filename != "")
 	{
-		file = util::DataFile::create(param.filename);
+		file = util::DataFile::create(params.filename);
 
 		// physical parameters
-		file.setAttribute("beta", param.param.beta);
-		file.setAttribute("mu", param.param.mu);
+		file.setAttribute("beta", params.actionParams.beta);
+		// file.setAttribute("mu", params.actionParams.mu);
 
 		// topological parameters
-		file.setAttribute("geometry", param.geom);
+		file.setAttribute("geometry", params.geom);
 
 		// simulation parameters
-		file.setAttribute("markov_count", param.count);
-		file.setAttribute("markov_discard", param.discard);
-		file.setAttribute("markov_sweeps", param.sweeps);
+		file.setAttribute("markov_count", params.count);
+		file.setAttribute("markov_discard", params.discard);
+		file.setAttribute("markov_sweeps", params.sweeps);
 
 		file.makeGroup("/configs");
 	}
 
 	mesh.initZero();
-	for (int i = -param.discard; i < param.count; ++i)
+	for (int i = -params.discard; i < params.count; ++i)
 	{
-		for (int j = 0; j < param.sweeps; ++j)
+		for (int j = 0; j < params.sweeps; ++j)
 		{
-			action.sweep();
-			for (int k = 0; k < param.clusters; ++k)
-				action.cluster();
+			action.sweep(mesh, rng);
+			for (int k = 0; k < params.clusters; ++k)
+				action.cluster(mesh, rng);
 		}
 		if (i < 0)
 			continue;
 
 		// basic observables
-		res.actionHistory.push_back(action.action());
-		res.magHistory.push_back(action.magnetization());
+		res.actionHistory.push_back(action.action(mesh));
+		res.magHistory.push_back(action.magnetization(mesh));
 
 		// measure 2pt correlator
 		// corr.compute();
 		// xt::view(res.c2pt, i) = corr.fullCorr();
 
 		// write config to file
-		if (param.filename != "")
+		if (params.filename != "")
 		{
 			std::vector<hsize_t> shape;
-			for (int d : param.geom)
+			for (int d : params.geom)
 				shape.push_back(d);
 			shape.push_back(Action::rep);
 
@@ -77,7 +78,7 @@ scalar_chain_result_t runChain(const scalar_chain_param_t<Action> &param)
 	/** analyze measurements */
 	res.reject = (double)action.nReject / (action.nAccept + action.nReject);
 
-	if (param.filename != "")
+	if (params.filename != "")
 	{
 		file.createData("action_history", {res.actionHistory.size()})
 		    .write(res.actionHistory);
@@ -89,9 +90,9 @@ scalar_chain_result_t runChain(const scalar_chain_param_t<Action> &param)
 	return res;
 }
 
-template scalar_chain_result_t
-runChain<phi4_action>(const scalar_chain_param_t<phi4_action> &);
-template scalar_chain_result_t
-runChain<sigma_action>(const scalar_chain_param_t<sigma_action> &);
-template scalar_chain_result_t
-runChain<ising_action>(const scalar_chain_param_t<ising_action> &);
+// template scalar_chain_result_t
+// runChain<phi4_action>(const scalar_chain_param_t<phi4_action> &);
+// template scalar_chain_result_t
+// runChain<sigma_action>(const scalar_chain_param_t<sigma_action> &);
+template ScalarChainResult
+runChain<IsingAction>(ScalarChainParams<IsingAction> const &);

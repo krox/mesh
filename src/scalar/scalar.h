@@ -1,5 +1,4 @@
-#ifndef SCALAR_SCALAR_H
-#define SCALAR_SCALAR_H
+#pragma once
 
 #include <cstdint>
 #include <string>
@@ -22,28 +21,15 @@ template <int N> class ScalarMesh
   public:
 	using Scalar = util::Vector<double, N>;
 
-	std::vector<std::vector<int>> g;
+	Topology top;
 	std::vector<Scalar> phi;
 
 	int nFlavors() const { return N; }
-	int nSites() const { return (int)g.size(); }
-	int nLinks() const
-	{
-		int count = 0;
-		for (int i = 0; i < nSites(); ++i)
-			count += (int)g[i].size();
-		return count / 2;
-	}
+	int nSites() const { return top.nSites(); }
+	int nLinks() const { return top.nLinks(); }
 
 	/** does not initialize the field */
-	ScalarMesh(const Topology &top) : g(top.nSites()), phi(top.nSites())
-	{
-		for (auto &[a, b] : top.links)
-		{
-			g[a].push_back(b);
-			g[b].push_back(a);
-		}
-	}
+	ScalarMesh(const Topology &top_) : top(top_), phi(top_.nSites()) {}
 
 	void initZero()
 	{
@@ -67,25 +53,26 @@ template <int N> class ScalarMesh
 };
 
 /** parameters of markov chain */
-template <typename Action> struct scalar_chain_param_t
+template <typename Action> struct ScalarChainParams
 {
+	// physical parameters
+	std::vector<int> geom = {128};          // size of lattice
+	typename Action::params_t actionParams; // parameters of action
 
-	/** parameters with physical meaning */
-	std::vector<int> geom = {128};  // size of lattice
-	typename Action::param_t param; // parameters of action
-
-	/** additional simulation parameters */
+	// additional parameters for the Markov chain
 	int count = 100;   // number of configs to generate
 	int discard = 0;   // number of discarded configs
 	int sweeps = 1;    // number of HB-sweeps between measurements
 	int clusters = 0;  // number of cluster-flips per HB sweeps
 	uint64_t seed = 0; // seed for random number generator
+
+	// output of configs
 	std::string filename = "";
 };
 
 /** some measurements taken during the simulation. This may include measurements
  * on intermediate configs that were not saved. */
-struct scalar_chain_result_t
+struct ScalarChainResult
 {
 	double reject;
 
@@ -94,6 +81,4 @@ struct scalar_chain_result_t
 };
 
 template <typename Action>
-scalar_chain_result_t runChain(const scalar_chain_param_t<Action> &param);
-
-#endif
+ScalarChainResult runChain(const ScalarChainParams<Action> &params);

@@ -10,16 +10,15 @@
 
 // NOTE: the field may be incorrectly zero-initialized (instead of +1/-1)
 
-/** one heat-bath sweep on the field */
-void ising_action::sweep()
+void IsingAction::sweep(mesh_t &mesh, rng_t &rng)
 {
 	for (int i = 0; i < mesh.nSites(); ++i)
 	{
 		// sum of neighbors
 		double rho = 0;
-		for (auto j : mesh.g[i])
-			rho += mesh.phi[j][0];
-		rho *= param.beta;
+		for (auto const &link : mesh.top.graph[i])
+			rho += mesh.phi[link.to][0];
+		rho *= params.beta;
 
 		// probability
 		double p = exp(rho) / (exp(rho) + exp(-rho));
@@ -28,9 +27,9 @@ void ising_action::sweep()
 	}
 }
 
-void ising_action::cluster()
+void IsingAction::cluster(mesh_t &mesh, rng_t &rng)
 {
-	auto dist = std::bernoulli_distribution(1.0 - exp(-2 * param.beta));
+	auto dist = std::bernoulli_distribution(1.0 - exp(-2 * params.beta));
 	std::vector<int> q;
 
 	// start cluster a random site
@@ -44,31 +43,31 @@ void ising_action::cluster()
 		int i = q.back();
 		q.pop_back();
 
-		for (int j : mesh.g[i])
+		for (auto const &link : mesh.top.graph[i])
 		{
-			if (mesh.phi[j][0] != old) // wrong spin, or already flipped
+			if (mesh.phi[link.to][0] != old) // wrong spin, or already flipped
 				continue;
 
 			// extend the cluster with probability p = 1 - exp(-2 beta)
 			if (dist(rng))
 			{
-				mesh.phi[j][0] = -old;
-				q.push_back(j);
+				mesh.phi[link.to][0] = -old;
+				q.push_back(link.to);
 			}
 		}
 	}
 }
 
-double ising_action::action() const
+double IsingAction::action(mesh_t &mesh) const
 {
 	double sum = 0.0;
 	for (int i = 0; i < mesh.nSites(); ++i)
-		for (auto j : mesh.g[i])
-			sum += mesh.phi[i][0] * mesh.phi[j][0];
-	return param.beta * 0.5 * sum / mesh.nSites();
+		for (auto const &link : mesh.top.graph[i])
+			sum += mesh.phi[i][0] * mesh.phi[link.to][0];
+	return params.beta * 0.5 * sum / mesh.nSites();
 }
 
-double ising_action::magnetization() const
+double IsingAction::magnetization(mesh_t &mesh) const
 {
 	double sum = 0.0;
 	for (int i = 0; i < mesh.nSites(); ++i)

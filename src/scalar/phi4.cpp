@@ -1,3 +1,5 @@
+#if 0
+
 #include "scalar/phi4.h"
 
 #include <cassert>
@@ -41,3 +43,5 @@ void phi4_action::sweep()
 		}
 	}
 }
+
+#endif

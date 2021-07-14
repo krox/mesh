@@ -1,3 +1,5 @@
+#if 0
+
 #include "scalar/sigma.h"
 
 #include <cassert>
@@ -61,6 +63,13 @@ void sigma_action::sweep()
 	}
 }
 
+void sigma_action::sweepMesh(int nSwaps)
+{
+	for (int iter = 0; iter < nSwaps; ++iter)
+	{
+	}
+}
+
 double sigma_action::action() const
 {
 	// NOTE: this assumes mu = 0
@@ -70,3 +79,5 @@ double sigma_action::action() const
 			sum += util::dot(mesh.phi[i], mesh.phi[j]);
 	return 4.0 - sum / mesh.nSites();
 }
+
+#endif

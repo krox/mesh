@@ -1,5 +1,6 @@
-#ifndef SCALAR_SIGMA_H
-#define SCALAR_SIGMA_H
+#pragma once
+
+#if 0
 
 #include "scalar/scalar.h"
 
@@ -36,6 +37,8 @@ class sigma_action
 	void sweep();
 
 	void cluster() { assert(false); }
+
+	void sweepMesh(int nSwaps);
 
 	/** real part of (negative) action */
 	double action() const;
