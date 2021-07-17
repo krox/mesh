@@ -19,7 +19,7 @@ find_package(Eigen3 3.3 REQUIRED NO_MODULE)
 
 file(GLOB modules "src/util/*.cpp" "src/mesh/*.cpp" "src/scalar/*.cpp")
 
-set(binaries "group_histogram" "phi4" "sigma" "ising" "sigma_mesh")
+set(binaries "group_histogram" "phi4" "sigma" "ising" "ising_lattice")
 
 foreach(bin ${binaries})
 	add_executable(${bin} src/${bin}.cpp ${modules})
