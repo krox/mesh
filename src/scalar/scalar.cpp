@@ -25,7 +25,8 @@ ScalarChainResult runChain(const ScalarChainParams<Action> &params)
 	util::DataFile file;
 	if (params.filename != "")
 	{
-		file = util::DataFile::create(params.filename);
+		file =
+		    util::DataFile::create(params.filename, params.overwrite_existing);
 
 		// physical parameters
 		file.setAttribute("beta", params.actionParams.beta);
@@ -38,6 +39,7 @@ ScalarChainResult runChain(const ScalarChainParams<Action> &params)
 		file.setAttribute("markov_count", params.count);
 		file.setAttribute("markov_discard", params.discard);
 		file.setAttribute("markov_sweeps", params.sweeps);
+		file.setAttribute("markov_clusters", params.clusters);
 
 		file.makeGroup("/configs");
 	}

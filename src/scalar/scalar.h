@@ -68,6 +68,7 @@ template <typename Action> struct ScalarChainParams
 
 	// output of configs
 	std::string filename = "";
+	bool overwrite_existing = false;
 };
 
 /** some measurements taken during the simulation. This may include measurements

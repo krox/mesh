@@ -7,7 +7,7 @@
 #include "util/sampler.h"
 #include <cassert>
 #include <cmath>
-#include <experimental/filesystem>
+#include <filesystem>
 #include <iostream>
 #include <random>
 #include <vector>
@@ -21,20 +21,16 @@ int main(int argc, char **argv)
 	params.sweeps = 2;
 	params.clusters = 1;
 	params.seed = (uint64_t)-1;
-	std::vector<double> betas = {};
-	double beta_min = 0.0;
-	double beta_max = 1.0;
-	int beta_count = 20;
+	params.actionParams.beta = 0.44068679350977147; // beta_crit for 2D
 	bool do_plot = false;
+	params.overwrite_existing = false;
 
-	CLI::App app{"Simulate 2D Ising model with a combination of heatbath and "
-	             "cluster updates."};
+	CLI::App app{"Simulate 1D-4D Ising model "
+	             "with a combination of heatbath and cluster updates."};
+
 	// physics options
 	app.add_option("--geom", params.geom, "geometry of the lattice");
-	app.add_option("--beta", betas, "coupling constant");
-	app.add_option("--beta-min", beta_min, "coupling constant");
-	app.add_option("--beta-max", beta_max, "coupling constant");
-	app.add_option("--beta-count", beta_count, "coupling constant");
+	app.add_option("--beta", params.actionParams.beta, "inverse temperature");
 
 	// markov options
 	app.add_option("--count", params.count, "number of configs to generate");
@@ -49,67 +45,48 @@ int main(int argc, char **argv)
 
 	// output options
 	app.add_flag("--plot", do_plot, "plot result");
-	app.add_flag("--filename", params.filename,
-	             "hdf5 output (one dataset per config)");
+	app.add_option("--filename", params.filename,
+	               "hdf5 output (one dataset per config)");
+	app.add_flag("--force", params.overwrite_existing,
+	             "overwrite existing data file");
 
 	CLI11_PARSE(app, argc, argv);
-
-	// no explicit (list of) beta values -> make a sweep
-	if (betas.empty())
-		for (int i = 0; i < beta_count; ++i)
-			betas.push_back(beta_min +
-			                1.0 * i / (beta_count - 1) * (beta_max - beta_min));
 
 	// no seed given -> get a random one
 	if (params.seed == (uint64_t)-1)
 		params.seed = std::random_device()();
 
-	if (params.filename != "" && betas.size() != 1)
+	// filename ends with "/" -> automatic filename
+	if (params.filename != "" && params.filename.back() == '/')
 	{
-		fmt::print("ERROR: HDF5 output only possible for single beta value\n");
-		return -1;
+		std::string name = fmt::format("L{}_b{:.4f}", params.geom[0],
+		                               params.actionParams.beta);
+		std::replace(name.begin(), name.end(), '.', 'p');
+		params.filename = fmt::format("{}{}.h5", params.filename, name);
 	}
 
-	std::vector<double> plotBeta, plotMag, plotMagAbs;
-
-	for (double beta : betas)
+	// file aleady exists -> abort
+	if (params.filename != "" && !params.overwrite_existing &&
+	    std::filesystem::exists(params.filename))
 	{
-		// run a chain
-		params.actionParams.beta = beta;
-		auto res = runChain(params);
-
-		if (betas.size() == 1 && do_plot)
-			util::Gnuplot().plotData(res.magHistory);
-
-		// analyze
-		double mag = util::mean(res.magHistory);
-		double magAbs = util::mean_abs(res.magHistory);
-		double tau = util::correlationTime(res.magHistory);
-		fmt::print("beta = {}, <mag> = {}, <|mag|> = {}, corr = {}\n", beta,
-		           mag, magAbs, tau);
-		plotBeta.push_back(beta);
-		plotMag.push_back(mag);
-		plotMagAbs.push_back(magAbs);
-
-		params.seed += 1; // change seed for next beta
+		fmt::print("{} already exists. aborting.\n", params.filename);
+		return 0;
 	}
 
-	if (betas.size() >= 2 && do_plot)
-	{
-		auto plot = util::Gnuplot();
-		plot.plotData(plotBeta, plotMag, "<mag>");
-		plot.plotData(plotBeta, plotMagAbs, "<|mag|>");
+	// run a chain
+	auto res = runChain(params);
 
-		// known exact formula for 2D infinite-volume
-		if (params.geom.size() == 2)
-		{
-			plot.plotFunction(
-			    [](double beta) {
-				    return pow(1 - pow(sinh(2 * beta), -4), 0.125);
-			    },
-			    0.44068679350977147, betas.back());
-			plot.plotFunction([](double) { return 0.0; }, betas.front(),
-			                  0.44068679350977147);
-		}
-	}
+	double tau = util::correlationTime(res.magHistory);
+
+	if (do_plot)
+		util::Gnuplot().plotData(res.magHistory);
+
+	// analyze
+
+	// fmt::print("beta = {}, <mag> = {}, <|mag|> = {}, corr = {}\n", beta, mag,
+	// magAbs, tau);
+
+	// known exact formula for 2D infinite-volume
+	// 2D infinite volume exact result (for ordered phase):
+	// <|mag|> = pow(1 - pow(sinh(2 * beta), -4), 0.125)
 }
