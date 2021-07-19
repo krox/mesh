@@ -18,7 +18,7 @@ class IsingAction
   public:
 	static constexpr size_t rep = 1;
 	using params_t = IsingActionParams;
-	using mesh_t = ScalarMesh<1>;
+	using mesh_t = ScalarMesh<1, int8_t>;
 
 	params_t params;
 

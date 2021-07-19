@@ -9,7 +9,7 @@ template <typename Action>
 ScalarChainResult runChain(const ScalarChainParams<Action> &params)
 {
 	/** initialize field */
-	ScalarMesh<Action::rep> mesh(Topology::lattice(params.geom));
+	typename Action::mesh_t mesh(Topology::lattice(params.geom));
 	Action action(params.actionParams);
 	rng_t rng(params.seed);
 	// Correlator corr(mesh.phi.data(), params.geom);
@@ -73,7 +73,10 @@ ScalarChainResult runChain(const ScalarChainParams<Action> &params)
 			shape.push_back(Action::rep);
 
 			std::string name = fmt::format("/configs/{}", i + 1);
-			file.createData(name, shape).write(mesh.rawConfig());
+			file.createData(name, shape,
+			                util::h5_type_id<
+			                    typename Action::mesh_t::Scalar::value_type>())
+			    .write(mesh.rawConfig());
 		}
 	}
 

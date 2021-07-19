@@ -16,10 +16,10 @@ using rng_t = util::xoshiro256;
  * ScalarMesh = Topology + Field values.
  *   - Does not know the used action, but only the size of the representation.
  */
-template <int N> class ScalarMesh
+template <int N, typename T = double> class ScalarMesh
 {
   public:
-	using Scalar = util::Vector<double, N>;
+	using Scalar = util::Vector<T, N>;
 
 	Topology top;
 	std::vector<Scalar> phi;
@@ -35,20 +35,19 @@ template <int N> class ScalarMesh
 	{
 		for (auto &x : phi)
 			for (size_t i = 0; i < N; ++i)
-				x[i] = 0.0;
+				x[i] = 0;
 	}
 
 	void initOne()
 	{
 		for (auto &x : phi)
 			for (size_t i = 0; i < N; ++i)
-				x[i] = i == 0 ? 1.0 : 0.0;
+				x[i] = i == 0 ? 1 : 0;
 	}
 
-	util::span<const double> rawConfig() const
+	util::span<const T> rawConfig() const
 	{
-		return util::span<const double>((double const *)phi.data(),
-		                                phi.size() * N);
+		return util::span<const T>((T const *)phi.data(), phi.size() * N);
 	}
 };
 
