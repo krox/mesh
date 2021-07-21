@@ -3,6 +3,7 @@
 #include "scalar/ising.h"
 #include "scalar/phi4.h"
 #include "scalar/sigma.h"
+#include "util/progressbar.h"
 #include <fmt/format.h>
 
 template <typename Action>
@@ -45,8 +46,10 @@ ScalarChainResult runChain(const ScalarChainParams<Action> &params)
 	}
 
 	mesh.initZero();
-	for (int i = -params.discard; i < params.count; ++i)
+	auto pb = util::ProgressBar(params.count + params.discard);
+	for (int i = -params.discard; i < params.count; ++i, ++pb)
 	{
+		pb.show();
 		for (int j = 0; j < params.sweeps; ++j)
 		{
 			action.sweep(mesh, rng);
@@ -79,6 +82,7 @@ ScalarChainResult runChain(const ScalarChainParams<Action> &params)
 			    .write(mesh.rawConfig());
 		}
 	}
+	pb.finish();
 
 	/** analyze measurements */
 	res.reject = (double)action.nReject / (action.nAccept + action.nReject);

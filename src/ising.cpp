@@ -74,6 +74,8 @@ int main(int argc, char **argv)
 	}
 
 	// run a chain
+	fmt::print("starting run with L={}, beta={:.4f}\n", params.geom[0],
+	           params.actionParams.beta);
 	auto res = runChain(params);
 
 	double tau = util::correlationTime(res.magHistory);
