@@ -59,9 +59,18 @@ int main(int argc, char **argv)
 	// filename ends with "/" -> automatic filename
 	if (params.filename != "" && params.filename.back() == '/')
 	{
-		std::string name = fmt::format("L{}_b{:.4f}", params.geom[0],
-		                               params.actionParams.beta);
-		std::replace(name.begin(), name.end(), '.', 'p');
+
+		std::string name;
+		if (params.actionParams.beta >= 1)
+		{
+			name = fmt::format("L{}_b{:.3f}", params.geom[0],
+			                   params.actionParams.beta);
+			std::replace(name.begin(), name.end(), '.', 'p');
+		}
+		else
+			name =
+			    fmt::format("L{}_bp{:03}", params.geom[0],
+			                int(std::round(1000 * params.actionParams.beta)));
 		params.filename = fmt::format("{}{}.h5", params.filename, name);
 	}
 
@@ -76,6 +85,8 @@ int main(int argc, char **argv)
 	// run a chain
 	fmt::print("starting run with L={}, beta={:.4f}\n", params.geom[0],
 	           params.actionParams.beta);
+	if (params.filename != "")
+		fmt::print("writing to {}\n", params.filename);
 	auto res = runChain(params);
 
 	double tau = util::correlationTime(res.magHistory);
