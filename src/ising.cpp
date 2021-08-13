@@ -25,6 +25,12 @@ int main(int argc, char **argv)
 	bool do_plot = false;
 	params.overwrite_existing = false;
 
+	// Possible values of the spins are 1,-1. There is no clean way in hdf5
+	// to encode that in a single bit, and we dont want to deviate from
+	// conventions in the analysis code. Therefore we take 2 bits.
+	params.hdf5Type = H5Tcopy(H5T_NATIVE_INT8);
+	H5Tset_precision(params.hdf5Type, 2);
+
 	CLI::App app{"Simulate 1D-4D Ising model "
 	             "with a combination of heatbath and cluster updates."};
 

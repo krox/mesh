@@ -68,6 +68,8 @@ template <typename Action> struct ScalarChainParams
 	// output of configs
 	std::string filename = "";
 	bool overwrite_existing = false;
+	hid_t hdf5Type =
+	    util::h5_type_id<typename Action::mesh_t::Scalar::value_type>();
 };
 
 /** some measurements taken during the simulation. This may include measurements

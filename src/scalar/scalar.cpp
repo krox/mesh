@@ -9,21 +9,15 @@
 template <typename Action>
 ScalarChainResult runChain(const ScalarChainParams<Action> &params)
 {
-	/** initialize field */
+	assert(params.hdf5Type > 0);
+
 	typename Action::mesh_t mesh(Topology::lattice(params.geom));
 	Action action(params.actionParams);
 	rng_t rng(params.seed);
-	// Correlator corr(mesh.phi.data(), params.geom);
-
-	/** run the Markov chain */
 	ScalarChainResult res;
-	std::vector<hsize_t> s;
-	s.push_back(params.count);
-	for (int d : params.geom)
-		s.push_back(d);
-	// res.c2pt = xt::zeros<double>(s);
 
 	util::DataFile file;
+
 	if (params.filename != "")
 	{
 		file =
@@ -76,9 +70,7 @@ ScalarChainResult runChain(const ScalarChainParams<Action> &params)
 			shape.push_back(Action::rep);
 
 			std::string name = fmt::format("/configs/{}", i + 1);
-			file.createData(name, shape,
-			                util::h5_type_id<
-			                    typename Action::mesh_t::Scalar::value_type>())
+			file.createData(name, shape, params.hdf5Type)
 			    .write(mesh.rawConfig());
 		}
 	}
