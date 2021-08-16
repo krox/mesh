@@ -1,36 +1,33 @@
 #pragma once
 
-#include "scalar/scalar.h"
+#include <cstdint>
+#include <string>
+#include <vector>
 
-struct IsingActionParams
+struct IsingParams
 {
-	double beta = 0.0 / 0.0; // nearest-neighbour coupling
-	                         // double mu = 0.0 / 0.0;   // chemical potential
+	// physical parameters
+	std::vector<int> geom = {32, 32};  // size of lattice
+	double beta = 0.44068679350977147; // nearest-neighbour coupling
+
+	// additional parameters for the Markov chain
+	// (precise meaning might depend on the simulation algorithm used)
+	int count = 100;   // number of configs to generate
+	int discard = 0;   // number of discarded configs
+	int spacing = 1;   // number of updates between configs
+	uint64_t seed = 0; // seed for random number generator
+
+	// output of configs
+	std::string filename = "";
+	bool overwrite_existing = false;
 };
 
-/*
-Ising model:
-S = -β Σ_xy ϕ_x ϕ_y
-with ϕ = ±1
-*/
-class IsingAction
+struct IsingResults
 {
-  public:
-	static constexpr size_t rep = 1;
-	using params_t = IsingActionParams;
-	using mesh_t = ScalarMesh<1, int8_t>;
-
-	params_t params;
-
-	int64_t nAccept = 0;
-	int64_t nReject = 0;
-
-	IsingAction(params_t const &params) : params(params) {}
-
-	// direct updates: heat-bath and cluster algorithm
-	void sweep(mesh_t &mesh, rng_t &rng);
-	void cluster(mesh_t &mesh, rng_t &rng);
-
-	double action(mesh_t &mesh) const;
-	double magnetization(mesh_t &mesh) const;
+	std::vector<double> actionHistory;
+	std::vector<double> magnetizationHistory;
+	std::vector<double> susceptibilityHistory;
 };
+
+IsingResults runSwendsenWang(const IsingParams &params);
+IsingResults runHeatBath(const IsingParams &params);

@@ -14,40 +14,34 @@
 
 int main(int argc, char **argv)
 {
-	ScalarChainParams<IsingAction> params;
+	IsingParams params;
 	params.geom = {32, 32};
 	params.count = 1000;
 	params.discard = 100;
-	params.sweeps = 2;
-	params.clusters = 1;
+	params.spacing = 1;
 	params.seed = (uint64_t)-1;
-	params.actionParams.beta = 0.44068679350977147; // beta_crit for 2D
+	params.beta = 0.44068679350977147; // beta_crit for 2D
 	bool do_plot = false;
 	params.overwrite_existing = false;
-
-	// Possible values of the spins are 1,-1. There is no clean way in hdf5
-	// to encode that in a single bit, and we dont want to deviate from
-	// conventions in the analysis code. Therefore we take 2 bits.
-	params.hdf5Type = H5Tcopy(H5T_NATIVE_INT8);
-	H5Tset_precision(params.hdf5Type, 2);
+	std::string algorithm = "SwendsenWang";
 
 	CLI::App app{"Simulate 1D-4D Ising model "
 	             "with a combination of heatbath and cluster updates."};
 
 	// physics options
 	app.add_option("--geom", params.geom, "geometry of the lattice");
-	app.add_option("--beta", params.actionParams.beta, "inverse temperature");
+	app.add_option("--beta", params.beta, "inverse temperature");
 
 	// markov options
 	app.add_option("--count", params.count, "number of configs to generate");
 	app.add_option("--discard", params.discard,
 	               "number of configs to discard for thermalization");
-	app.add_option("--sweeps", params.sweeps,
-	               "number of heatbath sweeps between configs");
-	app.add_option("--clusters", params.sweeps,
-	               "number of cluster flips per heatbath sweeps");
+	app.add_option("--spacing", params.spacing,
+	               "number of updates between configs");
 	app.add_option("--seed", params.seed,
 	               "seed for random number generator (default = random)");
+	app.add_option("--algorithm", algorithm,
+	               "simulation algorithm (SwendsenWang=default, HeatBath)");
 
 	// output options
 	app.add_flag("--plot", do_plot, "plot result");
@@ -67,16 +61,14 @@ int main(int argc, char **argv)
 	{
 
 		std::string name;
-		if (params.actionParams.beta >= 1)
+		if (params.beta >= 1)
 		{
-			name = fmt::format("L{}_b{:.3f}", params.geom[0],
-			                   params.actionParams.beta);
+			name = fmt::format("L{}_b{:.3f}", params.geom[0], params.beta);
 			std::replace(name.begin(), name.end(), '.', 'p');
 		}
 		else
-			name =
-			    fmt::format("L{}_bp{:03}", params.geom[0],
-			                int(std::round(1000 * params.actionParams.beta)));
+			name = fmt::format("L{}_bp{:03}", params.geom[0],
+			                   int(std::round(1000 * params.beta)));
 		params.filename = fmt::format("{}{}.h5", params.filename, name);
 	}
 
@@ -90,15 +82,28 @@ int main(int argc, char **argv)
 
 	// run a chain
 	fmt::print("starting run with L={}, beta={:.4f}\n", params.geom[0],
-	           params.actionParams.beta);
+	           params.beta);
 	if (params.filename != "")
 		fmt::print("writing to {}\n", params.filename);
-	auto res = runChain(params);
 
-	double tau = util::correlationTime(res.magHistory);
+	IsingResults res;
+	if (algorithm == "SwendsenWang")
+		res = runSwendsenWang(params);
+	else if (algorithm == "HeatBath")
+		res = runHeatBath(params);
+	else
+	{
+		fmt::print("ERROR: unknown algorithm '{}'", algorithm);
+		return -1;
+	}
+
+	double tau = util::correlationTime(res.magnetizationHistory);
 
 	if (do_plot)
-		util::Gnuplot().plotData(res.magHistory);
+	{
+		util::Gnuplot().plotData(res.magnetizationHistory, "M");
+		// util::Gnuplot().plotData(res.susceptibilityHistory, "chi");
+	}
 
 	// analyze
 
