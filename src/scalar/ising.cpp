@@ -112,7 +112,7 @@ IsingResults runHeatBath(const IsingParams &params)
 	if (params.filename != "")
 	{
 		file.writeData("action_history", res.actionHistory);
-		file.writeData("magnetization_history", res.actionHistory);
+		file.writeData("magnetization_history", res.magnetizationHistory);
 	}
 	return res;
 }
@@ -209,7 +209,7 @@ IsingResults runSwendsenWang(const IsingParams &params)
 	if (params.filename != "")
 	{
 		file.writeData("action_history", res.actionHistory);
-		file.writeData("magnetization_history", res.actionHistory);
+		file.writeData("magnetization_history", res.magnetizationHistory);
 		file.writeData("susceptibility_history", res.susceptibilityHistory);
 	}
 	return res;
