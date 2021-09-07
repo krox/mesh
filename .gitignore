@@ -1,3 +1,7 @@
 test*
 build/*
 *~
+.*
+*.ipynb
+*.h5
+__pycache__
