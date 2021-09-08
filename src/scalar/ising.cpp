@@ -140,12 +140,22 @@ IsingResults runSwendsenWang(const IsingParams &params)
 
 	if (params.filename != "")
 	{
+
+		auto links = std::vector<int>(2 * top.nLinks());
+		for (int i = 0; i < top.nLinks(); ++i)
+		{
+			links[2 * i] = top.links[i].from;
+			links[2 * i + 1] = top.links[i].to;
+		}
+
 		file =
 		    util::DataFile::create(params.filename, params.overwrite_existing);
 
 		// physical parameters
 		file.setAttribute("beta", params.beta);
 		file.setAttribute("geometry", params.geom);
+		file.createData("topology", {(hsize_t)top.nLinks(), 2}, H5T_NATIVE_INT)
+		    .write(links);
 
 		// simulation parameters
 		file.setAttribute("markov_count", params.count);
