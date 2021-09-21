@@ -91,9 +91,11 @@ int main(int argc, char **argv)
 		res = runSwendsenWang(params);
 	else if (algorithm == "HeatBath")
 		res = runHeatBath(params);
+	else if (algorithm == "ProppWilson")
+		res = runProppWilson(params);
 	else
 	{
-		fmt::print("ERROR: unknown algorithm '{}'", algorithm);
+		fmt::print("ERROR: unknown algorithm '{}'\n", algorithm);
 		return -1;
 	}
 

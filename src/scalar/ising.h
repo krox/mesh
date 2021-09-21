@@ -31,3 +31,4 @@ struct IsingResults
 
 IsingResults runSwendsenWang(const IsingParams &params);
 IsingResults runHeatBath(const IsingParams &params);
+IsingResults runProppWilson(const IsingParams &params);
