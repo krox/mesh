@@ -11,12 +11,14 @@
 #include <vector>
 
 namespace {
-double isingAction(Topology const &top, std::vector<int8_t> const &field)
+
+double isingAction(std::vector<int8_t> const &field, Topology const &top,
+                   double beta)
 {
 	double sum = 0.0;
 	for (auto const &link : top.links)
 		sum += field[link.from] * field[link.to];
-	return sum;
+	return -beta * sum;
 }
 
 double isingMagnetization(std::vector<int8_t> const &field)
@@ -42,14 +44,67 @@ void heatBathSweep(std::vector<int8_t> &field, Topology const &top, double beta,
 		double p = exp(rho) / (exp(rho) + exp(-rho));
 
 		// make sure this update rule is 'monotone' (important for Propp-Wilson)
-		field[i] = rng.rand() < p ? 1.0 : -1.0;
+		field[i] = rng.uniform() < p ? 1.0 : -1.0;
 	}
 }
 
-} // namespace
+// opens hdf5 file, writes parameters, does nothing if filename==""
+util::DataFile makeFile(IsingParams const &params, Topology const &top)
+{
+	if (params.filename == "")
+		return {};
 
-// TODO: some factoring to remove some code duplication between
-//       runHeatBath() and runSwendsenWang()
+	auto file =
+	    util::DataFile::create(params.filename, params.overwrite_existing);
+
+	auto links = std::vector<int>(2 * top.nLinks());
+	for (int i = 0; i < top.nLinks(); ++i)
+	{
+		links[2 * i] = top.links[i].from;
+		links[2 * i + 1] = top.links[i].to;
+	}
+
+	// physical parameters
+	file.setAttribute("beta", params.beta);
+	file.setAttribute("geometry", params.geom);
+	file.createData("topology", {(hsize_t)top.nLinks(), 2}, H5T_NATIVE_INT)
+	    .write(links);
+
+	// simulation parameters
+	file.setAttribute("markov_count", params.count);
+	file.setAttribute("markov_discard", params.discard);
+	file.setAttribute("markov_spacing", params.spacing);
+
+	file.makeGroup("/configs");
+	return file;
+}
+
+// write configuration, does nothing if file is not valid
+void writeConfig(util::DataFile &file, std::vector<int8_t> const &field,
+                 std::vector<int> const &geom, int id)
+{
+	if (!file)
+		return;
+
+	// Possible values of the spins are 1,-1. There is no clean way in hdf5
+	// to encode that in a single bit, and we dont want to deviate from
+	// conventions in the analysis code. Therefore we take 2 bits.
+	static hid_t hdf5type = 0;
+	if (hdf5type == 0)
+	{
+		hdf5type = H5Tcopy(H5T_NATIVE_INT8);
+		H5Tset_precision(hdf5type, 2);
+	}
+
+	std::vector<hsize_t> shape;
+	for (int d : geom)
+		shape.push_back(d);
+
+	std::string name = fmt::format("/configs/{}", id);
+	file.createData(name, shape, hdf5type).write(field);
+}
+
+} // namespace
 
 IsingResults runHeatBath(const IsingParams &params)
 {
@@ -59,30 +114,8 @@ IsingResults runHeatBath(const IsingParams &params)
 	util::xoshiro256 rng(params.seed);
 
 	// results
-	util::DataFile file;
+	auto file = makeFile(params, top);
 	IsingResults res;
-	// Possible values of the spins are 1,-1. There is no clean way in hdf5
-	// to encode that in a single bit, and we dont want to deviate from
-	// conventions in the analysis code. Therefore we take 2 bits.
-	auto hdf5Type = H5Tcopy(H5T_NATIVE_INT8);
-	H5Tset_precision(hdf5Type, 2);
-
-	if (params.filename != "")
-	{
-		file =
-		    util::DataFile::create(params.filename, params.overwrite_existing);
-
-		// physical parameters
-		file.setAttribute("beta", params.beta);
-		file.setAttribute("geometry", params.geom);
-
-		// simulation parameters
-		file.setAttribute("markov_count", params.count);
-		file.setAttribute("markov_discard", params.discard);
-		file.setAttribute("markov_spacing", params.spacing);
-
-		file.makeGroup("/configs");
-	}
 
 	for (auto &x : field)
 		x = -1;
@@ -100,25 +133,17 @@ IsingResults runHeatBath(const IsingParams &params)
 		// measure observables
 		if (iter >= 0)
 		{
-			res.actionHistory.push_back(params.beta * isingAction(top, field));
+			res.actionHistory.push_back(isingAction(field, top, params.beta));
 			res.magnetizationHistory.push_back(isingMagnetization(field));
 		}
 
 		// write config to file
-		if (params.filename != "" && iter >= 0 &&
-		    (iter + 1) % params.spacing == 0)
-		{
-			std::vector<hsize_t> shape;
-			for (int d : params.geom)
-				shape.push_back(d);
-
-			std::string name = fmt::format("/configs/{}", iter + 1);
-			file.createData(name, shape, hdf5Type).write(field);
-		}
+		if (iter >= 0 && (iter + 1) % params.spacing == 0)
+			writeConfig(file, field, params.geom, iter + 1);
 	}
 	pb.finish();
 
-	if (params.filename != "")
+	if (file)
 	{
 		file.writeData("action_history", res.actionHistory);
 		file.writeData("magnetization_history", res.magnetizationHistory);
@@ -134,45 +159,12 @@ IsingResults runSwendsenWang(const IsingParams &params)
 	util::xoshiro256 rng(params.seed);
 
 	// stuff needed specifically for Swendsen-Wang
-	auto dist = std::bernoulli_distribution(1.0 - exp(-2 * params.beta));
-	auto coin = std::bernoulli_distribution(0.5);
+	double p = 1.0 - exp(-2 * params.beta);
 	util::UnionFind uf(top.nSites());
 
 	// results
-	util::DataFile file;
+	auto file = makeFile(params, top);
 	IsingResults res;
-	// Possible values of the spins are 1,-1. There is no clean way in hdf5
-	// to encode that in a single bit, and we dont want to deviate from
-	// conventions in the analysis code. Therefore we take 2 bits.
-	auto hdf5Type = H5Tcopy(H5T_NATIVE_INT8);
-	H5Tset_precision(hdf5Type, 2);
-
-	if (params.filename != "")
-	{
-
-		auto links = std::vector<int>(2 * top.nLinks());
-		for (int i = 0; i < top.nLinks(); ++i)
-		{
-			links[2 * i] = top.links[i].from;
-			links[2 * i + 1] = top.links[i].to;
-		}
-
-		file =
-		    util::DataFile::create(params.filename, params.overwrite_existing);
-
-		// physical parameters
-		file.setAttribute("beta", params.beta);
-		file.setAttribute("geometry", params.geom);
-		file.createData("topology", {(hsize_t)top.nLinks(), 2}, H5T_NATIVE_INT)
-		    .write(links);
-
-		// simulation parameters
-		file.setAttribute("markov_count", params.count);
-		file.setAttribute("markov_discard", params.discard);
-		file.setAttribute("markov_spacing", params.spacing);
-
-		file.makeGroup("/configs");
-	}
 
 	for (auto &x : field)
 		x = -1;
@@ -188,12 +180,12 @@ IsingResults runSwendsenWang(const IsingParams &params)
 
 		uf.clear();
 		for (auto &link : top.links)
-			if (field[link.from] == field[link.to] && dist(rng))
+			if (field[link.from] == field[link.to] && rng.uniform() < p)
 				uf.join(link.from, link.to);
 		for (int i = 0; i < top.nSites(); ++i)
 			if (i == uf.root(i))
 			{
-				field[i] = coin(rng) ? 1 : -1;
+				field[i] = rng.uniform() < 0.5 ? 1 : -1;
 
 				// do some cluster-based measurements
 				auto size = (double)uf.compSize(i);
@@ -205,27 +197,19 @@ IsingResults runSwendsenWang(const IsingParams &params)
 		// measure observables
 		if (iter >= 0)
 		{
-			res.actionHistory.push_back(params.beta * isingAction(top, field));
+			res.actionHistory.push_back(isingAction(field, top, params.beta));
 			res.magnetizationHistory.push_back(isingMagnetization(field));
 			susceptibility /= top.nSites();
 			res.susceptibilityHistory.push_back(susceptibility);
 		}
 
 		// write config to file
-		if (params.filename != "" && iter >= 0 &&
-		    (iter + 1) % params.spacing == 0)
-		{
-			std::vector<hsize_t> shape;
-			for (int d : params.geom)
-				shape.push_back(d);
-
-			std::string name = fmt::format("/configs/{}", iter + 1);
-			file.createData(name, shape, hdf5Type).write(field);
-		}
+		if (iter >= 0 && (iter + 1) % params.spacing == 0)
+			writeConfig(file, field, params.geom, iter + 1);
 	}
 	pb.finish();
 
-	if (params.filename != "")
+	if (file)
 	{
 		file.writeData("action_history", res.actionHistory);
 		file.writeData("magnetization_history", res.magnetizationHistory);
@@ -243,37 +227,14 @@ IsingResults runProppWilson(const IsingParams &params)
 	util::xoshiro256 rng_master(params.seed);
 
 	// results
-	util::DataFile file;
+	util::DataFile file = makeFile(params, top);
 	IsingResults res;
-	// Possible values of the spins are 1,-1. There is no clean way in hdf5
-	// to encode that in a single bit, and we dont want to deviate from
-	// conventions in the analysis code. Therefore we take 2 bits.
-	auto hdf5Type = H5Tcopy(H5T_NATIVE_INT8);
-	H5Tset_precision(hdf5Type, 2);
 
 	// The Propp-Wilson algorithm is exact (no thermalization/autocorrelation).
 	// Therefore discarding any configs is pointless
-	assert(params.discard == 0);
-	assert(params.spacing == 1);
+	assert(params.discard == 0 && params.spacing == 1);
 
 	std::vector<double> T_history;
-
-	if (params.filename != "")
-	{
-		file =
-		    util::DataFile::create(params.filename, params.overwrite_existing);
-
-		// physical parameters
-		file.setAttribute("beta", params.beta);
-		file.setAttribute("geometry", params.geom);
-
-		// simulation parameters
-		file.setAttribute("markov_count", params.count);
-		file.setAttribute("markov_discard", params.discard);
-		file.setAttribute("markov_spacing", params.spacing);
-
-		file.makeGroup("/configs");
-	}
 
 	auto pb =
 	    util::ProgressBar((params.count + params.discard) * params.spacing);
@@ -332,22 +293,14 @@ IsingResults runProppWilson(const IsingParams &params)
 		// measure observables
 		if (iter >= 0)
 		{
-			res.actionHistory.push_back(params.beta *
-			                            isingAction(top, fieldMinus));
+			res.actionHistory.push_back(
+			    isingAction(fieldMinus, top, params.beta));
 			res.magnetizationHistory.push_back(isingMagnetization(fieldMinus));
 		}
 
 		// write config to file
-		if (params.filename != "" && iter >= 0 &&
-		    (iter + 1) % params.spacing == 0)
-		{
-			std::vector<hsize_t> shape;
-			for (int d : params.geom)
-				shape.push_back(d);
-
-			std::string name = fmt::format("/configs/{}", iter + 1);
-			file.createData(name, shape, hdf5Type).write(fieldMinus);
-		}
+		if (iter >= 0 && (iter + 1) % params.spacing == 0)
+			writeConfig(file, fieldMinus, params.geom, iter + 1);
 	}
 	pb.finish();
 
