@@ -3,15 +3,19 @@
 #include "lattice/gauge.h"
 #include "util/gnuplot.h"
 #include "util/linalg.h"
+#include "util/progressbar.h"
 #include "util/random.h"
 using namespace mesh;
 using namespace mesh::QCD;
 
 int main(int argc, char **argv)
 {
-	std::array<size_t, 4> geom = {4, 4, 4, 4};
+	std::array<size_t, 4> geom = {8, 8, 8, 8};
+	int count = 100;
 	double beta = 6.0;
 	int seed = -1;
+	double delta = 0.1;
+	bool doPlot = false;
 
 	CLI::App app{"Simulate SU(3) pure gauge theory"};
 
@@ -21,6 +25,11 @@ int main(int argc, char **argv)
 
 	// simulation options
 	app.add_option("--seed", seed, "seed for the rng (default=random)");
+	app.add_option("--count", count, "number of Markov steps");
+	app.add_option("--delta", delta, "delta-t for the HMC update");
+
+	// misc
+	app.add_flag("--plot", doPlot, "do some plots summarizing the trajectory");
 	CLI11_PARSE(app, argc, argv);
 
 	if (seed == -1)
@@ -29,9 +38,9 @@ int main(int argc, char **argv)
 
 	auto U = randomGaugeField(geom, rng);
 	auto vol = U[0].size();
-	double delta = 0.1;
+
 	std::vector<double> plaqHistory;
-	for (int iter = 0; iter < 2000; ++iter)
+	for (size_t iter : util::ProgressRange(count))
 	{
 		// NOTE on conventions:
 		//     * H = S(U) + 1/2 P^i P^i = S(U) - tr(P*P) = S(U) + norm2(P)
@@ -59,5 +68,9 @@ int main(int argc, char **argv)
 		plaqHistory.push_back(plaquette(U));
 	}
 
-	util::Gnuplot().plotData(plaqHistory);
+	fmt::print("plaquette = {} +- {}\n", util::mean(plaqHistory),
+	           sqrt(util::variance(plaqHistory) / plaqHistory.size()));
+
+	if (doPlot)
+		util::Gnuplot().plotData(plaqHistory);
 }
