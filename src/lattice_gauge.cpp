@@ -5,6 +5,8 @@
 #include "util/linalg.h"
 #include "util/progressbar.h"
 #include "util/random.h"
+#include "util/simd.h"
+
 using namespace mesh;
 using namespace mesh::QCD;
 
@@ -36,8 +38,9 @@ int main(int argc, char **argv)
 		seed = std::random_device()();
 	auto rng = util::xoshiro256(seed);
 
-	auto U = randomGaugeField(geom, rng);
-	auto vol = U[0].size();
+	auto const &g = Grid::make(Coordinate(geom.begin(), geom.end()), 4);
+	auto U = randomGaugeField(g, rng);
+	auto vol = g.size();
 
 	std::vector<double> plaqHistory;
 	for (size_t iter : util::ProgressRange(count))
@@ -45,7 +48,7 @@ int main(int argc, char **argv)
 		// NOTE on conventions:
 		//     * H = S(U) + 1/2 P^i P^i = S(U) - tr(P*P) = S(U) + norm2(P)
 		//     * U' = P, P' = -S'(U)
-		auto P = randomAlgebraField(geom, rng);
+		auto P = randomAlgebraField(g, rng);
 
 		double H_old = wilsonAction(U, beta);
 		for (int mu = 0; mu < Nd; ++mu)
@@ -55,7 +58,7 @@ int main(int argc, char **argv)
 		for (int mu = 0; mu < Nd; ++mu)
 			U_new[mu] = exp(P[mu] * (0.5 * delta)) * U[mu];
 		for (int mu = 0; mu < Nd; ++mu)
-			P[mu]() -= (wilsonDeriv(U_new, mu, beta) * delta)();
+			P[mu] -= wilsonDeriv(U_new, mu, beta) * delta;
 		for (int mu = 0; mu < Nd; ++mu)
 			U_new[mu] = exp(P[mu] * (0.5 * delta)) * U_new[mu];
 		double H_new = wilsonAction(U_new, beta);
