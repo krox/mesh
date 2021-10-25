@@ -5,6 +5,7 @@
  * Might be split into multiple files in the future.
  */
 
+#include "groups/su3.h"
 #include "lattice/lattice.h"
 #include "util/complex.h"
 #include "util/linalg.h"
@@ -24,35 +25,11 @@ using vComplex = util::complex<vReal>;
 static constexpr int Nd = 4;
 static constexpr int Nc = 3;
 
-using ColorMatrix = util::Matrix<Complex, Nc>;
-using vColorMatrix = util::Matrix<vComplex, Nc>;
+using ColorMatrix = SU3<Real>;
+using vColorMatrix = SU3<vReal>;
 
 using LatticeColorMatrix = Lattice<vColorMatrix>;
 using GaugeField = std::array<LatticeColorMatrix, Nd>;
-
-ColorMatrix randomGroupElement(util::xoshiro256 &rng)
-{
-	// Idea: * create normal distributed entries
-	//       * compute QR decomposition, then Q is uniform in U(N)
-	//       * divide out determinant, then Q is uniform in SU(N)
-	ColorMatrix r;
-	for (int i = 0; i < Nc; ++i)
-		for (int j = 0; j < Nc; ++j)
-			r(i, j) = Complex(rng.normal(), rng.normal());
-	r = gramSchmidt(r);
-	r(0) /= determinant(r);
-	return r;
-}
-
-/** returns i λ_a T^a with λ_a~N(0,1) and tr(T^aT^b) = 1/2 δ^ab */
-ColorMatrix randomAlgebraElement(util::xoshiro256 &rng)
-{
-	ColorMatrix r;
-	for (int i = 0; i < Nc; ++i)
-		for (int j = 0; j < Nc; ++j)
-			r(i, j) = Complex(rng.normal(), rng.normal());
-	return antiHermitianTraceless(r * sqrt(0.5));
-}
 
 GaugeField randomGaugeField(Grid const &g, util::xoshiro256 &rng)
 {
@@ -62,7 +39,8 @@ GaugeField randomGaugeField(Grid const &g, util::xoshiro256 &rng)
 		U[mu] = LatticeColorMatrix(g);
 		for (size_t i = 0; i < g.osize(); ++i)
 			for (size_t j = 0; j < TensorTraits<vColorMatrix>::simdWidth; ++j)
-				vinsert(U[mu].data()[i], j, randomGroupElement(rng));
+				vinsert(U[mu].data()[i], j,
+				        ColorMatrix::randomGroupElement(rng));
 	}
 	return U;
 }
@@ -75,7 +53,8 @@ GaugeField randomAlgebraField(Grid const &g, util::xoshiro256 &rng)
 		F[mu] = LatticeColorMatrix(g);
 		for (size_t i = 0; i < g.osize(); ++i)
 			for (size_t j = 0; j < TensorTraits<vColorMatrix>::simdWidth; ++j)
-				vinsert(F[mu].data()[i], j, randomAlgebraElement(rng));
+				vinsert(F[mu].data()[i], j,
+				        ColorMatrix::randomAlgebraElement(rng));
 	}
 	return F;
 }
@@ -119,7 +98,7 @@ double wilsonAction(GaugeField const &U, double beta)
 
 LatticeColorMatrix wilsonDeriv(GaugeField const &U, int mu, double beta)
 {
-	return antiHermitianTraceless(U[mu] * stapleSum(U, mu) * (beta / (2 * Nc)));
+	return projectOnAlgebra(U[mu] * stapleSum(U, mu) * (beta / (2 * Nc)));
 }
 
 } // namespace QCD

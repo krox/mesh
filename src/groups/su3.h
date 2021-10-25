@@ -1,192 +1,171 @@
-#ifndef GROUPS_SU3_H
-#define GROUPS_SU3_H
+#pragma once
 
-#include <Eigen/Dense>
 #include <cmath>
 #include <random>
-#include <unsupported/Eigen/MatrixFunctions>
 
-#include "groups/su2.h"
+#include "util/linalg.h"
 #include "util/random.h"
 
-/** Special unitary group SU(3) */
-struct SU3
+namespace mesh {
+
+/**
+ * Special unitary group SU(3)
+ *     - Can hold both group and algebra elements
+ *     - T is expected to be one of float, double, simd<float>, simd<double>
+ */
+template <typename T> struct SU3
 {
-	Eigen::Matrix3cd v;
+	util::Matrix<util::complex<T>, 3> v_;
 
-	static constexpr size_t repSize() { return 18; }
-
-	/** constructors */
+	// constructors
 	SU3() = default;
-	explicit SU3(const Eigen::Matrix3cd &v) : v(v) {}
-
-	/** random group element */
-	template <typename Rng> static SU3 random(Rng &rng);
-	// template <typename Rng> static SU3 random(Rng &rng, double alpha);
-
-	/** special elements */
-	static SU3 zero() { return SU3(Eigen::Matrix3cd::Zero()); }
-	static SU3 one() { return SU3(Eigen::Matrix3cd::Identity()); }
-
-	/** scalar operators */
-	SU3 operator*(double b) const { return SU3(v * b); }
-	SU3 operator/(double b) const { return SU3(v / b); }
-	void operator*=(double b) { *this = *this * b; }
-	void operator/=(double b) { *this = *this / b; }
-
-	/** group operators */
-	SU3 operator*(const SU3 &b) const { return SU3(v * b.v); }
-	SU3 operator+(const SU3 &b) const { return SU3(v + b.v); }
-	SU3 operator-(const SU3 &b) const { return SU3(v - b.v); }
-	void operator*=(const SU3 &b) { *this = *this * b; }
-	void operator+=(const SU3 &b) { *this = *this + b; }
-	void operator-=(const SU3 &b) { *this = *this - b; }
-
-	/** SU(2) subgroups */
-	SU2 sub1() const
+	explicit SU3(util::Matrix<util::complex<T>, 3> const &v) : v_(v) {}
+	explicit SU3(T const &v) : v_(v) {}
+	static SU3 zero() { return SU3(util::Matrix<util::complex<T>, 3>::zero()); }
+	static SU3 one()
 	{
-		// 2x2 sub-matrix
-		std::complex<double> a = v(0, 0);
-		std::complex<double> b = v(0, 1);
-		std::complex<double> c = v(1, 0);
-		std::complex<double> d = v(1, 1);
-
-		// project to multiples of SU(2)
-		return SU2(0.5 * (a.real() + d.real()), 0.5 * (b.imag() + c.imag()),
-		           0.5 * (b.real() - c.real()), 0.5 * (a.imag() - d.imag()));
+		return SU3(util::Matrix<util::complex<T>, 3>::identity());
 	}
 
-	SU2 sub2() const
-	{
-		// 2x2 sub-matrix
-		std::complex<double> a = v(1, 1);
-		std::complex<double> b = v(1, 2);
-		std::complex<double> c = v(2, 1);
-		std::complex<double> d = v(2, 2);
-
-		// project to multiples of SU(2)
-		return SU2(0.5 * (a.real() + d.real()), 0.5 * (b.imag() + c.imag()),
-		           0.5 * (b.real() - c.real()), 0.5 * (a.imag() - d.imag()));
-	}
-
-	SU2 sub3() const
-	{
-		// 2x2 sub-matrix
-		std::complex<double> a = v(0, 0);
-		std::complex<double> b = v(0, 2);
-		std::complex<double> c = v(2, 0);
-		std::complex<double> d = v(2, 2);
-
-		// project to multiples of SU(2)
-		return SU2(0.5 * (a.real() + d.real()), 0.5 * (b.imag() + c.imag()),
-		           0.5 * (b.real() - c.real()), 0.5 * (a.imag() - d.imag()));
-	}
-
-	/** compute a * this, for b in subgroup */
-	SU3 leftMul1(SU2 a)
-	{
-		SU3 sub = SU3::one();
-		sub.v(0, 0) = std::complex<double>(a[0], a[3]);
-		sub.v(0, 1) = std::complex<double>(a[2], a[1]);
-		sub.v(1, 0) = std::complex<double>(-a[2], a[1]);
-		sub.v(1, 1) = std::complex<double>(a[0], -a[3]);
-		return sub * *this;
-	}
-
-	SU3 leftMul2(SU2 a)
-	{
-		SU3 sub = SU3::one();
-		sub.v(1, 1) = std::complex<double>(a[0], a[3]);
-		sub.v(1, 2) = std::complex<double>(a[2], a[1]);
-		sub.v(2, 1) = std::complex<double>(-a[2], a[1]);
-		sub.v(2, 2) = std::complex<double>(a[0], -a[3]);
-		return sub * *this;
-	}
-
-	SU3 leftMul3(SU2 a)
-	{
-		SU3 sub = SU3::one();
-		sub.v(0, 0) = std::complex<double>(a[0], a[3]);
-		sub.v(0, 2) = std::complex<double>(a[2], a[1]);
-		sub.v(2, 0) = std::complex<double>(-a[2], a[1]);
-		sub.v(2, 2) = std::complex<double>(a[0], -a[3]);
-		return sub * *this;
-	}
-
-	/** misc */
-	SU3 adjoint() const { return SU3(v.adjoint()); }
-
-	double norm() const { return v.norm(); } // Frobenius norm
-
-	/** projection to SU(3) (slow) */
-	SU3 normalize() const
+	// uniform random group element
+	template <typename Rng> static SU3 randomGroupElement(Rng &rng)
 	{
 		SU3 r;
-		// NOTE: .pow(-0.5) is much slower than .inverse().sqrt()
-		r.v = v * (v.adjoint() * v).inverse().sqrt();
-		r.v *= std::pow(r.v.determinant(), -1.0 / 3);
+		for (int i = 0; i < 3; ++i)
+			for (int j = 0; j < 3; ++j)
+				r.v_(i, j) = {rng.normal(), rng.normal()};
+		r.v_ = gramSchmidt(r.v_);
+		r.v_(0) /= determinant(r.v_);
 		return r;
 	}
 
-	/** approximate projection to SU(3) (faster, valid if already close) */
-	SU3 normalizeFast() const
+	// algebra element with normal-random coefficnets and tr(T^aT^b) = 1/2 δ^ab
+	template <typename Rng> static SU3 randomAlgebraElement(Rng &rng)
 	{
+		// TODO: this could be made faster (only 8 independent numbers, not 18)
 		SU3 r;
-		r.v = v * 1.5 - v * v.adjoint() * v * 0.5;
-		r.v *= 1.0 - (1 / 3.0) * (r.v.determinant() - 1.0);
-		return r;
+		for (int i = 0; i < 3; ++i)
+			for (int j = 0; j < 3; ++j)
+				r.v_(i, j) = {rng.normal(), rng.normal()};
+		return projectOnAlgebra(r) * sqrt(0.5);
 	}
-
-	/** distance from group */
-	double error() const
-	{
-		return std::fabs(v.determinant() - 1.0) +
-		       (*this * adjoint() - one()).norm();
-	}
-
-	double action() const { return (1.0 / 3.0) * v.trace().real(); }
-
-	SU3 algebra() const
-	{
-		SU3 a = *this;
-		a = (a + a.adjoint()) * 0.5;
-		a.v -= one().v * (a.v.trace() / 3.0);
-		return a;
-	}
-
-	SU3 traceless() const
-	{
-		SU3 a = *this;
-		a.v -= one().v * (a.v.trace() / 3.0);
-		return a;
-	}
-
-	SU3 sym() const { return (*this + this->adjoint()) * 0.5; }
-	SU3 antisym() const { return (*this - this->adjoint()) * 0.5; }
-
-	/** statistics on random element generation */
-	static inline uint64_t nAccepts = 0, nTries = 0;
-	static void clearStats()
-	{
-		nAccepts = 0;
-		nTries = 0;
-	}
-	static double accProb() { return (double)nAccepts / nTries; }
 };
 
-template <typename Rng> SU3 SU3::random(Rng &rng)
+// unary SU3
+
+// trace in defining (fundamental) representation
+template <typename T> util::complex<T> trace(SU3<T> const &a)
 {
-	// Idea: * create normal distributed entries
-	//       * compute QR decomposition
-	//       * Q is now uniform in U(3)
-	std::normal_distribution d;
-	Eigen::Matrix3cd m;
-	for (size_t i = 0; i < 3; ++i)
-		for (size_t j = 0; j < 3; ++j)
-			m(i, j) = std::complex(d(rng), d(rng));
-	m = m.householderQr().householderQ();
-	m.col(0) /= m.determinant();
-	return SU3(m);
+	return trace(a.v_);
 }
 
-#endif
+// adjoint of group element
+template <typename T> SU3<T> adj(SU3<T> const &a) { return SU3<T>(adj(a.v_)); }
+
+// projection to su(3) algebra (traceless anti-hermitian matrices)
+template <typename T> SU3<T> projectOnAlgebra(SU3<T> const &a)
+{
+	auto b = (a - adj(a)) * 0.5;
+	util::complex<T> tmp = trace(b) * T(1.0 / 3.0);
+	for (int i = 0; i < 3; ++i)
+		b.v_(i, i) -= tmp;
+	return b;
+}
+
+// TODO: remove this, not really cleanly defined
+template <typename T> T norm2(SU3<T> const &a) { return norm2(a.v_); }
+
+// projection to SU(3) (only valid if already close)
+template <typename T> SU3<T> projectOnGroup(SU3<T> const &a)
+{
+	// exact version
+	// auto r = a * (adj(a) * a).inverse().sqrt();
+	// return r * std::pow(r.determinant(), -1.0 / 3);
+
+	// approximate version (if a is already close to SU(3))
+	auto r = a * 1.5 - a * adj(a) * a * 0.5;
+	return r * (4.0 / 3.0 - (1 / 3.0) * determinant(r.v_));
+}
+
+// exponential map su(3) algebra -> SU(3) group
+template <typename T> SU3<T> exp(SU3<T> const &a)
+{
+	// TODO: could be improved by assuming that a is indeed in the algebra
+	return SU3<T>(exp(a.v_));
+}
+
+// binary SU3 <-> SU3
+
+template <typename T, typename U>
+auto operator*(SU3<T> const &a, SU3<U> const &b)
+{
+	return SU3(a.v_ * b.v_);
+}
+
+template <typename T, typename U>
+auto operator+(SU3<T> const &a, SU3<U> const &b)
+{
+	return SU3(a.v_ + b.v_);
+}
+
+template <typename T, typename U>
+auto operator-(SU3<T> const &a, SU3<U> const &b)
+{
+	return SU3(a.v_ - b.v_);
+}
+
+// binary SU3 <-> scalar
+
+template <typename T>
+SU3<T> operator*(SU3<T> const &a, util::complex<T> const &b)
+{
+	return SU3(a.v_ * b);
+}
+
+template <typename T> SU3<T> operator*(SU3<T> const &a, double b)
+{
+	return SU3(a.v_ * b);
+}
+
+// op-assign
+template <typename T> SU3<T> &operator+=(SU3<T> &a, SU3<T> const &b)
+{
+	a.v_ += b.v_;
+	return a;
+}
+template <typename T> SU3<T> &operator-=(SU3<T> &a, SU3<T> const &b)
+{
+	a.v_ -= b.v_;
+	return a;
+}
+template <typename T> SU3<T> &operator*=(SU3<T> &a, SU3<T> const &b)
+{
+	a.v_ *= b.v_;
+	return a;
+}
+
+// simd operations
+
+template <typename T> auto vsum(SU3<T> const &a) { return SU3(vsum(a.v_)); }
+template <typename T, typename U> auto vshuffle(SU3<T> const &a, U const &mask)
+{
+	return SU3(vshuffle(a.v_, mask));
+}
+template <typename T> auto vextract(SU3<T> const &a, size_t lane)
+{
+	return SU3(vextract(a.v_, lane));
+}
+template <typename T, typename U>
+void vinsert(SU3<T> &a, size_t lane, SU3<U> const &b)
+{
+	vinsert(a.v_, lane, b.v_);
+}
+
+template <typename> struct TensorTraits;
+template <typename T> struct TensorTraits<SU3<T>>
+{
+	using ScalarType = SU3<typename TensorTraits<T>::ScalarType>;
+	static constexpr size_t simdWidth = TensorTraits<T>::simdWidth;
+};
+
+} // namespace mesh
