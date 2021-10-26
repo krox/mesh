@@ -1,6 +1,7 @@
 #include "CLI/CLI.hpp"
 #include "fmt/format.h"
 #include "lattice/gauge.h"
+#include "lattice/hmc.h"
 #include "util/gnuplot.h"
 #include "util/linalg.h"
 #include "util/progressbar.h"
@@ -12,12 +13,14 @@ using namespace mesh::QCD;
 
 int main(int argc, char **argv)
 {
-	std::array<size_t, 4> geom = {8, 8, 8, 8};
+	std::array<size_t, 4> geom = {6, 6, 6, 6};
 	int count = 100;
 	double beta = 6.0;
 	int seed = -1;
-	double delta = 0.1;
+	int substeps = 4;
+	double epsilon = 0.5;
 	bool doPlot = false;
+	std::string scheme = "4mn";
 
 	CLI::App app{"Simulate SU(3) pure gauge theory"};
 
@@ -28,7 +31,9 @@ int main(int argc, char **argv)
 	// simulation options
 	app.add_option("--seed", seed, "seed for the rng (default=random)");
 	app.add_option("--count", count, "number of Markov steps");
-	app.add_option("--delta", delta, "delta-t for the HMC update");
+	app.add_option("--scheme", scheme, "integrator (2lf, 2mn, 4mn)");
+	app.add_option("--epsilon", epsilon, "steps size for the HMC update");
+	app.add_option("--substeps", substeps, "subdivison of delta");
 
 	// misc
 	app.add_flag("--plot", doPlot, "do some plots summarizing the trajectory");
@@ -40,7 +45,10 @@ int main(int argc, char **argv)
 
 	auto const &g = Grid::make(Coordinate(geom.begin(), geom.end()), 4);
 	auto U = randomGaugeField(g, rng);
+	auto U_new = U;
 	auto vol = g.size();
+	auto deltas = makeDeltas(scheme, epsilon, substeps);
+	int64_t nAccept = 0, nReject = 0;
 
 	std::vector<double> plaqHistory;
 	for (size_t iter : util::ProgressRange(count))
@@ -54,25 +62,26 @@ int main(int argc, char **argv)
 		for (int mu = 0; mu < Nd; ++mu)
 			H_old += norm2(P[mu]);
 
-		GaugeField U_new;
-		for (int mu = 0; mu < Nd; ++mu)
-			U_new[mu] = exp(P[mu] * (0.5 * delta)) * U[mu];
-		for (int mu = 0; mu < Nd; ++mu)
-			P[mu] -= wilsonDeriv(U_new, mu, beta) * delta;
-		for (int mu = 0; mu < Nd; ++mu)
-			U_new[mu] = exp(P[mu] * (0.5 * delta)) * U_new[mu];
+		U_new = U;
+		runHMD(U, P, beta, deltas);
 		double H_new = wilsonAction(U_new, beta);
 		for (int mu = 0; mu < Nd; ++mu)
 			H_new += norm2(P[mu]);
 
 		if (rng.uniform() < exp(H_old - H_new))
+		{
+			++nAccept;
 			std::swap(U, U_new);
+		}
+		else
+			++nReject;
 
 		plaqHistory.push_back(plaquette(U));
 	}
 
 	fmt::print("plaquette = {} +- {}\n", util::mean(plaqHistory),
 	           sqrt(util::variance(plaqHistory) / plaqHistory.size()));
+	fmt::print("acceptance = {:.2f}\n", nAccept / double(nAccept + nReject));
 
 	if (doPlot)
 		util::Gnuplot().plotData(plaqHistory);
