@@ -13,6 +13,8 @@
 
 namespace mesh {
 
+inline int64_t latticeAllocCount = 0;
+
 template <typename vT> class Lattice
 {
   public:
@@ -35,6 +37,7 @@ template <typename vT> class Lattice
 	explicit Lattice(Grid const &g) : grid_(&g)
 	{
 		assert(grid().isize() == simdWidth);
+		++latticeAllocCount;
 		data_ = new vector_type[grid().osize()];
 	}
 
@@ -61,6 +64,7 @@ template <typename vT> class Lattice
 	Lattice(Lattice const &other)
 	    : grid_(&other.grid()), data_(new vector_type[grid().osize()])
 	{
+		++latticeAllocCount;
 		std::memcpy(data(), other.data(), grid().osize() * sizeof(vector_type));
 	}
 	Lattice(Lattice &&other) : grid_{&other.grid()}, data_{other.data()}
@@ -73,6 +77,7 @@ template <typename vT> class Lattice
 		if (grid().size() != other.grid().size())
 		{
 			delete[] data_;
+			++latticeAllocCount;
 			data_ = new vector_type[other.grid().osize()];
 		}
 		grid_ = &other.grid();
@@ -137,6 +142,27 @@ bool compatible(Lattice<T> const &a, Lattice<U> const &b)
 			r.data()[i] = a.data()[i] op b.data()[i];                          \
 		return r;                                                              \
 	}                                                                          \
+	template <typename T>                                                      \
+	Lattice<T> operator op(Lattice<T> &&a, Lattice<T> const &b)                \
+	{                                                                          \
+		assert(compatible(a, b));                                              \
+		for (size_t i = 0; i < a.grid().osize(); ++i)                          \
+			a.data()[i] op## = b.data()[i];                                    \
+		return std::move(a);                                                   \
+	}                                                                          \
+	template <typename T>                                                      \
+	Lattice<T> operator op(Lattice<T> const &a, Lattice<T> &&b)                \
+	{                                                                          \
+		assert(compatible(a, b));                                              \
+		for (size_t i = 0; i < a.grid().osize(); ++i)                          \
+			b.data()[i] = a.data()[i] op b.data()[i];                          \
+		return std::move(b);                                                   \
+	}                                                                          \
+	template <typename T>                                                      \
+	Lattice<T> operator op(Lattice<T> &&a, Lattice<T> &&b)                     \
+	{                                                                          \
+		return operator op(std::move(a), b);                                   \
+	}                                                                          \
 	template <typename T, typename U>                                          \
 	Lattice<T> &operator op##=(Lattice<T> &a, Lattice<U> const &b)             \
 	{                                                                          \
@@ -170,6 +196,12 @@ bool compatible(Lattice<T> const &a, Lattice<U> const &b)
 		for (size_t i = 0; i < a.grid().osize(); ++i)                          \
 			r.data()[i] = fun(a.data()[i]);                                    \
 		return r;                                                              \
+	}                                                                          \
+	template <typename T> Lattice<T> fun(Lattice<T> &&a)                       \
+	{                                                                          \
+		for (size_t i = 0; i < a.grid().osize(); ++i)                          \
+			a.data()[i] = fun(a.data()[i]);                                    \
+		return std::move(a);                                                   \
 	}
 
 #define UTIL_DEFINE_LATTICE_REDUCTION(name, fun)                               \
@@ -206,6 +238,12 @@ template <typename T> Lattice<T> operator*(Lattice<T> const &a, double b)
 	for (size_t i = 0; i < a.grid().osize(); ++i)
 		r.data()[i] = a.data()[i] * b;
 	return r;
+}
+template <typename T> Lattice<T> operator*(Lattice<T> &&a, double b)
+{
+	for (size_t i = 0; i < a.grid().osize(); ++i)
+		a.data()[i] *= b;
+	return std::move(a);
 }
 
 template <typename T>

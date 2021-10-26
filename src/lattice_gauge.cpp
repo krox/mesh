@@ -82,6 +82,7 @@ int main(int argc, char **argv)
 	fmt::print("plaquette = {} +- {}\n", util::mean(plaqHistory),
 	           sqrt(util::variance(plaqHistory) / plaqHistory.size()));
 	fmt::print("acceptance = {:.2f}\n", nAccept / double(nAccept + nReject));
+	fmt::print("lattice allocs: {}\n", latticeAllocCount);
 
 	if (doPlot)
 		util::Gnuplot().plotData(plaqHistory);
