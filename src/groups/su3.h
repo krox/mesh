@@ -154,10 +154,6 @@ template <typename T> SU3<T> &operator*=(SU3<T> &a, double b)
 // simd operations
 
 template <typename T> auto vsum(SU3<T> const &a) { return SU3(vsum(a.v_)); }
-template <typename T, typename U> auto vshuffle(SU3<T> const &a, U const &mask)
-{
-	return SU3(vshuffle(a.v_, mask));
-}
 template <typename T> auto vextract(SU3<T> const &a, size_t lane)
 {
 	return SU3(vextract(a.v_, lane));
@@ -173,6 +169,7 @@ template <typename T> struct TensorTraits<SU3<T>>
 {
 	using ScalarType = SU3<typename TensorTraits<T>::ScalarType>;
 	static constexpr size_t simdWidth = TensorTraits<T>::simdWidth;
+	using BaseType = typename TensorTraits<T>::BaseType;
 };
 
 } // namespace mesh

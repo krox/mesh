@@ -23,6 +23,7 @@ template <> struct TensorTraits<float>
 	using ComplexType = util::complex<float>;
 	using ScalarType = float;
 	static constexpr size_t simdWidth = 1;
+	using BaseType = float;
 };
 
 template <> struct TensorTraits<double>
@@ -31,6 +32,7 @@ template <> struct TensorTraits<double>
 	using ComplexType = util::complex<double>;
 	using ScalarType = double;
 	static constexpr size_t simdWidth = 1;
+	using BaseType = double;
 };
 
 template <typename T, size_t W> struct TensorTraits<util::simd<T, W>>
@@ -39,6 +41,7 @@ template <typename T, size_t W> struct TensorTraits<util::simd<T, W>>
 	using ComplexType = util::simd<typename TensorTraits<T>::ComplexType, W>;
 	using ScalarType = T;
 	static constexpr size_t simdWidth = W;
+	using BaseType = util::simd<T, W>;
 };
 
 template <typename T> struct TensorTraits<util::complex<T>>
@@ -47,6 +50,7 @@ template <typename T> struct TensorTraits<util::complex<T>>
 	using ComplexType = util::complex<T>;
 	using ScalarType = util::complex<typename TensorTraits<T>::ScalarType>;
 	static constexpr size_t simdWidth = TensorTraits<T>::simdWidth;
+	using BaseType = typename TensorTraits<T>::BaseType;
 };
 
 template <typename T, size_t N> struct TensorTraits<util::Vector<T, N>>
@@ -55,6 +59,7 @@ template <typename T, size_t N> struct TensorTraits<util::Vector<T, N>>
 	using ComplexType = util::Vector<typename TensorTraits<T>::ComplexType, N>;
 	using ScalarType = util::Vector<typename TensorTraits<T>::ScalarType, N>;
 	static constexpr size_t simdWidth = TensorTraits<T>::simdWidth;
+	using BaseType = typename TensorTraits<T>::BaseType;
 };
 
 template <typename T, size_t N> struct TensorTraits<util::Matrix<T, N>>
@@ -63,6 +68,7 @@ template <typename T, size_t N> struct TensorTraits<util::Matrix<T, N>>
 	using ComplexType = util::Matrix<typename TensorTraits<T>::ComplexType, N>;
 	using ScalarType = util::Matrix<typename TensorTraits<T>::ScalarType, N>;
 	static constexpr size_t simdWidth = TensorTraits<T>::simdWidth;
+	using BaseType = typename TensorTraits<T>::BaseType;
 };
 
 } // namespace mesh

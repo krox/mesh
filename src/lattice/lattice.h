@@ -5,6 +5,7 @@
 #include "lattice/tensor.h"
 #include "util/ndarray.h"
 #include "util/span.h"
+#include "util/stopwatch.h"
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -21,6 +22,7 @@ template <typename vT> class Lattice
 	static constexpr size_t simdWidth = TensorTraits<vT>::simdWidth;
 	using scalar_type = typename TensorTraits<vT>::ScalarType;
 	using vector_type = vT;
+	using base_type = typename TensorTraits<vT>::BaseType;
 
 	// sanity checks on the types
 	static_assert(std::is_same_v<vT, std::decay_t<vT>>);
@@ -208,7 +210,7 @@ bool compatible(Lattice<T> const &a, Lattice<U> const &b)
 	template <typename T>                                                      \
 	auto name(Lattice<T> const &a)->decltype(vsum(fun(std::declval<T>())))     \
 	{                                                                          \
-		auto s = decltype(fun(std::declval<T>()))(0);                          \
+		decltype(fun(std::declval<T>())) s = {};                               \
 		for (size_t i = 0; i < a.grid().osize(); ++i)                          \
 			s += fun(a.data()[i]);                                             \
 		return vsum(s);                                                        \
@@ -246,9 +248,13 @@ template <typename T> Lattice<T> operator*(Lattice<T> &&a, double b)
 	return std::move(a);
 }
 
+inline util::Stopwatch swCshift;
+
 template <typename T>
 Lattice<T> cshift(Lattice<T> const &a, int dir, int offset)
 {
+	util::StopwatchGuard swg{swCshift};
+
 	auto const &g = a.grid();
 	assert(0 <= dir && dir < g.ndim());
 	assert(abs(offset) < g.oshape(1));
@@ -268,9 +274,10 @@ Lattice<T> cshift(Lattice<T> const &a, int dir, int offset)
 		osFast *= g.oshape(i);
 		isFast *= g.ishape(i);
 	}
+	osFast *= sizeof(T) / sizeof(typename Lattice<T>::base_type);
 
 	// simd shuffle
-	util::simd<int, Lattice<T>::simdWidth> mask;
+	typename Lattice<T>::base_type::int_type mask;
 	for (int x = 0; x < isSlow; ++x)
 		for (int y = 0; y < is; ++y)
 			for (int z = 0; z < isFast; ++z)
@@ -280,8 +287,9 @@ Lattice<T> cshift(Lattice<T> const &a, int dir, int offset)
 
 	auto r = Lattice<T>(a.grid());
 
-	T *rp;
-	T const *ap;
+	using base_type = typename Lattice<T>::base_type;
+	base_type *rp;
+	base_type const *ap;
 
 	// non-wrapped part
 	for (int x = 0; x < osSlow; ++x)
@@ -289,16 +297,16 @@ Lattice<T> cshift(Lattice<T> const &a, int dir, int offset)
 
 		if (offset >= 0)
 		{
-			rp = r.data() + x * os * osFast;
-			ap = a.data() + (x * os + offset) * osFast;
+			rp = (base_type *)r.data() + x * os * osFast;
+			ap = (base_type const *)a.data() + (x * os + offset) * osFast;
 		}
 		else
 		{
-			rp = r.data() + (x * os - offset) * osFast;
-			ap = a.data() + x * os * osFast;
+			rp = (base_type *)r.data() + (x * os - offset) * osFast;
+			ap = (base_type const *)a.data() + x * os * osFast;
 		}
 
-		std::memcpy(rp, ap, sizeof(T) * osFast * (os - abs(offset)));
+		std::memcpy(rp, ap, sizeof(base_type) * osFast * (os - abs(offset)));
 	}
 
 	// wrapped part
@@ -306,13 +314,14 @@ Lattice<T> cshift(Lattice<T> const &a, int dir, int offset)
 	{
 		if (offset >= 0)
 		{
-			rp = r.data() + (x * os - offset + os) * osFast;
-			ap = a.data() + x * os * osFast;
+			rp = (base_type *)r.data() + (x * os - offset + os) * osFast;
+			ap = (base_type const *)a.data() + x * os * osFast;
 		}
 		else // offset < 0
 		{
-			rp = r.data() + (x * os) * osFast;
-			ap = a.data() + (x * os + (offset + os)) * osFast;
+			rp = (base_type *)r.data() + (x * os) * osFast;
+			ap =
+			    (base_type const *)a.data() + (x * os + (offset + os)) * osFast;
 		}
 
 		// NOTE: Right here, we could also implement other boundary conditions.

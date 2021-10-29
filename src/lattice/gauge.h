@@ -59,6 +59,14 @@ GaugeField randomAlgebraField(Grid const &g, util::xoshiro256 &rng)
 	return F;
 }
 
+void reunitize(GaugeField &U)
+{
+	size_t osites = U[0].grid().osize();
+	for (int mu = 0; mu < Nd; ++mu)
+		for (size_t i = 0; i < osites; ++i)
+			U[mu].data()[i] = projectOnGroup(U[mu].data()[i]);
+}
+
 /** normalized to [0,1] */
 double plaquette(GaugeField const &U)
 {

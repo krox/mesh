@@ -17,8 +17,8 @@ int main(int argc, char **argv)
 	int count = 100;
 	double beta = 6.0;
 	int seed = -1;
-	int substeps = 4;
-	double epsilon = 0.5;
+	int substeps = 8;
+	double epsilon = 1.0;
 	bool doPlot = false;
 	std::string scheme = "4mn";
 
@@ -49,6 +49,9 @@ int main(int argc, char **argv)
 	auto vol = g.size();
 	auto deltas = makeDeltas(scheme, epsilon, substeps);
 	int64_t nAccept = 0, nReject = 0;
+	std::optional<util::Gnuplot> plot;
+	if (doPlot)
+		plot.emplace();
 
 	std::vector<double> plaqHistory;
 	for (size_t iter : util::ProgressRange(count))
@@ -63,7 +66,8 @@ int main(int argc, char **argv)
 			H_old += norm2(P[mu]);
 
 		U_new = U;
-		runHMD(U, P, beta, deltas);
+		runHMD(U_new, P, beta, deltas);
+		reunitize(U_new);
 		double H_new = wilsonAction(U_new, beta);
 		for (int mu = 0; mu < Nd; ++mu)
 			H_new += norm2(P[mu]);
@@ -77,13 +81,25 @@ int main(int argc, char **argv)
 			++nReject;
 
 		plaqHistory.push_back(plaquette(U));
+
+		if ((iter + 1) % (100 / substeps) == 0 && plot)
+		{
+			plot->clear();
+			plot->plotData(
+			    util::span(plaqHistory)
+			        .slice(plaqHistory.size() / 10, plaqHistory.size()));
+		}
 	}
 
 	fmt::print("plaquette = {} +- {}\n", util::mean(plaqHistory),
 	           sqrt(util::variance(plaqHistory) / plaqHistory.size()));
 	fmt::print("acceptance = {:.2f}\n", nAccept / double(nAccept + nReject));
 	fmt::print("lattice allocs: {}\n", latticeAllocCount);
+	fmt::print("time in cshift: {:.2f}\n", swCshift.secs());
 
-	if (doPlot)
-		util::Gnuplot().plotData(plaqHistory);
+	if (plot)
+	{
+		plot->clear();
+		plot->plotData(plaqHistory);
+	}
 }
