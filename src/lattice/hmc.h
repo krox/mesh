@@ -5,7 +5,6 @@
 #include <vector>
 
 namespace mesh {
-namespace QCD {
 
 std::vector<double> makeDeltas(std::string_view scheme, double epsilon,
                                int substeps)
@@ -53,10 +52,13 @@ std::vector<double> makeDeltas(std::string_view scheme, double epsilon,
 	return deltas;
 }
 
-void runHMD(GaugeField &U, GaugeField &P, double beta,
+template <typename vG>
+void runHMD(GaugeField<vG> &U, GaugeField<vG> &P, double beta,
             std::vector<double> const &deltas)
 {
 	assert(deltas.size() % 2 == 1);
+	assert(U.size() == P.size() && !U.empty());
+	int Nd = U[0].grid().ndim();
 
 	for (size_t i = 0; i < deltas.size(); ++i)
 		if (i % 2 == 0)
@@ -71,5 +73,4 @@ void runHMD(GaugeField &U, GaugeField &P, double beta,
 		}
 }
 
-} // namespace QCD
 } // namespace mesh

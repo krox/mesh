@@ -9,11 +9,13 @@
 #include "util/simd.h"
 
 using namespace mesh;
-using namespace mesh::QCD;
+
+// vectorized gauge group
+using vG = SU3<util::simd<double>>;
 
 int main(int argc, char **argv)
 {
-	std::array<size_t, 4> geom = {6, 6, 6, 6};
+	std::vector<int32_t> geom = {6, 6, 6, 6};
 	int count = 100;
 	double beta = 6.0;
 	int seed = -1;
@@ -44,7 +46,12 @@ int main(int argc, char **argv)
 	auto rng = util::xoshiro256(seed);
 
 	auto const &g = Grid::make(Coordinate(geom.begin(), geom.end()), 4);
-	auto U = randomGaugeField(g, rng);
+	int Nd = g.ndim();
+
+	auto U = makeGaugeField<vG>(g);
+	randomGaugeField(U, rng);
+	auto P = makeGaugeField<vG>(g);
+
 	auto U_new = U;
 	auto vol = g.size();
 	auto deltas = makeDeltas(scheme, epsilon, substeps);
@@ -59,7 +66,7 @@ int main(int argc, char **argv)
 		// NOTE on conventions:
 		//     * H = S(U) + 1/2 P^i P^i = S(U) - tr(P*P) = S(U) + norm2(P)
 		//     * U' = P, P' = -S'(U)
-		auto P = randomAlgebraField(g, rng);
+		randomAlgebraField(P, rng);
 
 		double H_old = wilsonAction(U, beta);
 		for (int mu = 0; mu < Nd; ++mu)

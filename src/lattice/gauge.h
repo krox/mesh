@@ -9,69 +9,69 @@
 #include "lattice/lattice.h"
 #include "util/complex.h"
 #include "util/linalg.h"
-#include "util/ndarray.h"
 #include "util/random.h"
-#include "util/span.h"
+#include <vector>
 
 namespace mesh {
 
-namespace QCD {
+template <typename vG> using GaugeField = std::vector<Lattice<vG>>;
 
-using Real = double;
-using vReal = util::simd<double>;
-using Complex = util::complex<Real>;
-using vComplex = util::complex<vReal>;
-
-static constexpr int Nd = 4;
-static constexpr int Nc = 3;
-
-using ColorMatrix = SU3<Real>;
-using vColorMatrix = SU3<vReal>;
-
-using LatticeColorMatrix = Lattice<vColorMatrix>;
-using GaugeField = std::array<LatticeColorMatrix, Nd>;
-
-GaugeField randomGaugeField(Grid const &g, util::xoshiro256 &rng)
+template <typename vG> GaugeField<vG> makeGaugeField(Grid const &g)
 {
-	GaugeField U;
-	for (int mu = 0; mu < Nd; ++mu)
-	{
-		U[mu] = LatticeColorMatrix(g);
-		for (size_t i = 0; i < g.osize(); ++i)
-			for (size_t j = 0; j < TensorTraits<vColorMatrix>::simdWidth; ++j)
-				vinsert(U[mu].data()[i], j,
-				        ColorMatrix::randomGroupElement(rng));
-	}
-	return U;
+	GaugeField<vG> r;
+	for (int mu = 0; mu < g.ndim(); ++mu)
+		r.emplace_back(g);
+	return r;
 }
 
-GaugeField randomAlgebraField(Grid const &g, util::xoshiro256 &rng)
+template <typename T>
+void randomGaugeField(Lattice<T> &U, util::xoshiro256 &rng)
 {
-	GaugeField F;
-	for (int mu = 0; mu < Nd; ++mu)
-	{
-		F[mu] = LatticeColorMatrix(g);
-		for (size_t i = 0; i < g.osize(); ++i)
-			for (size_t j = 0; j < TensorTraits<vColorMatrix>::simdWidth; ++j)
-				vinsert(F[mu].data()[i], j,
-				        ColorMatrix::randomAlgebraElement(rng));
-	}
-	return F;
+	auto osize = U.grid().osize();
+	for (size_t i = 0; i < osize; ++i)
+		for (size_t j = 0; j < TensorTraits<T>::simdWidth; ++j)
+			vinsert(U.data()[i], j,
+			        TensorTraits<T>::ScalarType::randomGroupElement(rng));
 }
 
-void reunitize(GaugeField &U)
+template <typename T>
+void randomAlgebraField(Lattice<T> &F, util::xoshiro256 &rng)
+{
+	auto osize = F.grid().osize();
+	for (size_t i = 0; i < osize; ++i)
+		for (size_t j = 0; j < TensorTraits<T>::simdWidth; ++j)
+			vinsert(F.data()[i], j,
+			        TensorTraits<T>::ScalarType::randomAlgebraElement(rng));
+}
+
+template <typename T>
+void randomGaugeField(std::vector<T> &U, util::xoshiro256 &rng)
+{
+	for (auto &Umu : U)
+		randomGaugeField(Umu, rng);
+}
+
+template <typename T>
+void randomAlgebraField(std::vector<T> &F, util::xoshiro256 &rng)
+{
+	for (auto &Fmu : F)
+		randomAlgebraField(Fmu, rng);
+}
+
+template <typename vG> void reunitize(GaugeField<vG> &U)
 {
 	size_t osites = U[0].grid().osize();
-	for (int mu = 0; mu < Nd; ++mu)
+	for (auto &Umu : U)
 		for (size_t i = 0; i < osites; ++i)
-			U[mu].data()[i] = projectOnGroup(U[mu].data()[i]);
+			Umu.data()[i] = projectOnGroup(Umu.data()[i]);
 }
 
 /** normalized to [0,1] */
-double plaquette(GaugeField const &U)
+template <typename vG> double plaquette(GaugeField<vG> const &U)
 {
 	double vol = U[0].grid().size();
 	double s = 0;
+	int Nd = U[0].grid().ndim();
 	for (int mu = 0; mu < Nd; ++mu)
 		for (int nu = mu + 1; nu < Nd; ++nu)
 		{
@@ -79,15 +79,17 @@ double plaquette(GaugeField const &U)
 			           adj(cshift(U[mu], nu, 1)) * adj(U[nu]);
 			s += real(sumTrace(tmp));
 		}
-	return s / (vol * Nd * (Nd - 1) / 2) / Nc;
+	return s / (vol * Nd * (Nd - 1) / 2) / vG::Nc();
 }
+
 /**
  * Compute sum of 2*Nd staples written such that
  * plaquette(U) = const * sum_mu Real Trace U[mu] * staple(U, mu)
  */
-LatticeColorMatrix stapleSum(GaugeField const &U, int mu)
+template <typename vG> Lattice<vG> stapleSum(GaugeField<vG> const &U, int mu)
 {
-	auto S = LatticeColorMatrix::zeros(U[0].grid());
+	auto S = Lattice<vG>::zeros(U[0].grid());
+	int Nd = U[0].grid().ndim();
 	for (int nu = 0; nu < Nd; ++nu)
 	{
 		if (nu == mu)
@@ -98,17 +100,17 @@ LatticeColorMatrix stapleSum(GaugeField const &U, int mu)
 	return S;
 }
 
-double wilsonAction(GaugeField const &U, double beta)
+template <typename vG> double wilsonAction(GaugeField<vG> const &U, double beta)
 {
+	int Nd = U[0].grid().ndim();
 	double vol = U[0].grid().size();
 	return (1.0 - plaquette(U)) * (beta * Nd * (Nd - 1) / 2 * vol);
 }
 
-LatticeColorMatrix wilsonDeriv(GaugeField const &U, int mu, double beta)
+template <typename vG>
+Lattice<vG> wilsonDeriv(GaugeField<vG> const &U, int mu, double beta)
 {
-	return projectOnAlgebra(U[mu] * stapleSum(U, mu) * (beta / (2 * Nc)));
+	return projectOnAlgebra(U[mu] * stapleSum(U, mu) * (beta / (2 * vG::Nc())));
 }
-
-} // namespace QCD
 
 } // namespace mesh

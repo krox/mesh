@@ -17,6 +17,8 @@ template <typename T> struct SU3
 {
 	util::Matrix<util::complex<T>, 3> v_;
 
+	static constexpr int Nc() { return 3; }
+
 	// constructors
 	SU3() = default;
 	explicit SU3(util::Matrix<util::complex<T>, 3> const &v) : v_(v) {}
