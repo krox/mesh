@@ -2,6 +2,7 @@
 
 #include "util/span.h"
 #include "util/static_vector.h"
+#include <map>
 
 namespace mesh {
 

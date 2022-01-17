@@ -16,7 +16,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -march=native -Wall -Wextra -Wno-unu
 find_package(HDF5 REQUIRED)
 find_package(Eigen3 3.3 REQUIRED NO_MODULE)
 
-file(GLOB modules "src/util/*.cpp" "src/mesh/*.cpp" "src/scalar/*.cpp")
+file(GLOB modules "src/util/*.cpp" "src/mesh/*.cpp" "src/scalar/*.cpp" "src/lattice/*.cpp")
 
 set(binaries "group_histogram" "phi4" "sigma" "ising" "lattice_gauge")
 
