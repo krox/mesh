@@ -1,89 +1,129 @@
-#ifndef GROUPS_U1_H
-#define GROUPS_U1_H
+#pragma once
 
+#include "util/complex.h"
+#include "util/random.h"
 #include <cassert>
 #include <cmath>
 #include <random>
 
-#include "util/random.h"
+namespace mesh {
 
-/** unitary group U(1) */
-struct U1
+// unitary group U(1)
+template <typename T> struct U1
 {
-	// represents v0 + i*v1
-	double v[2];
+	util::complex<T> v_;
 
-	static constexpr size_t repSize() { return 2; }
+	static constexpr int Nc() { return 1; }
 
-	double &operator[](size_t i) { return v[i]; }
-	const double &operator[](size_t i) const { return v[i]; }
-
-	/** constructors */
+	// constructors
 	U1() = default;
-	explicit U1(double a, double b) : v{a, b} {}
+	explicit U1(util::complex<T> const &v) : v_(v) {}
+	static U1 zero() { return U1(T(0)); }
+	static U1 one() { return U1(T(1)); }
 
-	/** random group element */
-	static U1 random(rng_t &rng);
-	static U1 random(rng_t &rng, double alpha);
-	static U1 random(rng_t &rng, double alpha, double alpha2);
-
-	/** special elements */
-	static U1 zero() { return U1(0, 0); }
-	static U1 one() { return U1(1, 0); }
-
-	/** (unnormalized) probability distribution */
-	static double dist(double alpha, double alpha2, double tr)
+	template <typename Rng> static U1<T> randomGroupElement(Rng &rng)
 	{
-		return exp(alpha * tr + alpha2 * tr * tr) * pow(1 - tr * tr, -0.5);
+		auto t = rng.uniform() * (2 * M_PI);
+		return U1({std::cos(t), std::sin(t)});
 	}
 
-	/** scalar operators */
-	U1 operator*(double b) const { return U1(v[0] * b, v[1] * b); }
-	U1 operator/(double b) const { return U1(v[0] / b, v[1] / b); }
-	void operator*=(double b) { *this = *this * b; }
-	void operator/=(double b) { *this = *this / b; }
-
-	/** group operators */
-	U1 operator*(const U1 &b) const
+	// algebra element with normal-random coeffs and tr(T^aT^b) = 1/2 δ^ab
+	template <typename Rng> static U1<T> randomAlgebraElement(Rng &rng)
 	{
-		U1 r;
-		r[0] = v[0] * b[0] - v[1] * b[1];
-		r[1] = v[0] * b[1] + v[1] * b[0];
-		return r;
+		// the sole generator of U(1) is iT = "1/sqrt(2) i"
+		return U1<T>({T(0), rng.normal() * M_SQRT1_2});
 	}
-	U1 operator+(const U1 &b) const { return U1(v[0] + b[0], v[1] + b[1]); }
-	U1 operator-(const U1 &b) const { return U1(v[0] - b[0], v[1] - b[1]); }
-
-	void operator*=(const U1 &b) { *this = *this * b; }
-	void operator+=(const U1 &b) { *this = *this + b; }
-	void operator-=(const U1 &b) { *this = *this - b; }
-
-	/** misc */
-	U1 adjoint() const { return U1(v[0], -v[1]); }
-
-	double norm() const { return sqrt(v[0] * v[0] + v[1] * v[1]); }
-
-	U1 normalize() const { return *this / norm(); }
-
-	/** distance from group */
-	double error() const { return std::fabs(norm() - 1.0); }
-
-	double action() const { return v[0]; }
-
-	U1 traceless() const { return U1(0, 0); }
-	U1 algebra() const { return U1(0, v[1]); }
-	U1 sym() const { return U1(v[0], 0); }
-	U1 antisym() const { return U1(0, v[1]); }
-
-	/** statistics on random element generation */
-	static inline uint64_t nAccepts = 0, nTries = 0;
-	static void clearStats()
-	{
-		nAccepts = 0;
-		nTries = 0;
-	}
-	static double accProb() { return (double)nAccepts / nTries; }
 };
+
+// TODO: either remove this, or define it more clearly
+template <typename T> T norm2(U1<T> const &a) { return norm2(a.v_); }
+
+template <typename T> util::complex<T> trace(U1<T> const &a) { return a.v_; }
+template <typename T> U1<T> adj(U1<T> const &a) { return U1(conj(a.v_)); }
+template <typename T> U1<T> projectOnAlgebra(U1<T> const &a)
+{
+	return U1<T>({T(0), a.v_.im});
+}
+
+template <typename T> U1<T> projectOnGroup(U1<T> const &a)
+{
+	return U1<T>(a.v_ / sqrt(norm2(a.v_)));
+}
+
+// scalar operator
+template <typename T> U1<T> operator*(U1<T> const &a, double b)
+{
+	return U1<T>(a.v_ * b);
+}
+template <typename T> U1<T> operator/(U1<T> const &a, double b)
+{
+	return U1<T>(a.b_ / b);
+}
+template <typename T> void operator*=(U1<T> &a, double b) { a.v_ *= b; }
+template <typename T> void operator/=(U1<T> &a, double b) { a.v_ /= b; }
+
+// group/algebra operations
+template <typename T> U1<T> operator+(U1<T> const &a, U1<T> const &b)
+{
+	return U1<T>(a.v_ + b.v_);
+}
+template <typename T> U1<T> operator-(U1<T> const &a, U1<T> const &b)
+{
+	return U1<T>(a.v_ - b.v_);
+}
+template <typename T> U1<T> operator*(U1<T> const &a, U1<T> const &b)
+{
+	return U1<T>(a.v_ * b.v_);
+}
+
+template <typename T> void operator+=(U1<T> &a, U1<T> const &b)
+{
+	a.v_ += b.v_;
+}
+template <typename T> void operator-=(U1<T> &a, U1<T> const &b)
+{
+	a.v_ -= b.v_;
+}
+template <typename T> void operator*=(U1<T> &a, U1<T> const &b)
+{
+	a.v_ *= b.v_;
+}
+
+// exponential map u(1) algebra -> U(1) group
+template <typename T> U1<T> exp(U1<T> const &a)
+{
+	// we assume that a is indeed in the algebra, i.e. a.v_.real = 0
+	return U1<T>({cos(a.v_.im), sin(a.v_.im)});
+}
+
+// simd operations
+
+template <typename T> auto vsum(U1<T> const &a) { return U1(vsum(a.v_)); }
+template <typename T> auto vextract(U1<T> const &a, size_t lane)
+{
+	return U1(vextract(a.v_, lane));
+}
+template <typename T, typename U>
+void vinsert(U1<T> &a, size_t lane, U1<U> const &b)
+{
+	vinsert(a.v_, lane, b.v_);
+}
+
+template <typename> struct TensorTraits;
+template <typename T> struct TensorTraits<U1<T>>
+{
+	using ScalarType = U1<typename TensorTraits<T>::ScalarType>;
+	static constexpr size_t simdWidth = TensorTraits<T>::simdWidth;
+	using BaseType = typename TensorTraits<T>::BaseType;
+};
+
+#if 0 // old stuff for heatbath algorithms
+
+/** (unnormalized) probability distribution */
+static double dist(double alpha, double alpha2, double tr)
+{
+	return exp(alpha * tr + alpha2 * tr * tr) * pow(1 - tr * tr, -0.5);
+}
 
 inline U1 U1::random(rng_t &rng)
 {
@@ -185,5 +225,6 @@ inline U1 U1::random(rng_t &rng, double alpha, double alpha2)
 		}
 	}
 }
-
 #endif
+
+} // namespace mesh

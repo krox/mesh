@@ -6,6 +6,7 @@
  */
 
 #include "groups/su3.h"
+#include "groups/u1.h"
 #include "lattice/lattice.h"
 #include "util/complex.h"
 #include "util/linalg.h"
@@ -79,7 +80,7 @@ template <typename vG> double plaquette(GaugeField<vG> const &U)
 			           adj(cshift(U[mu], nu, 1)) * adj(U[nu]);
 			s += real(sumTrace(tmp));
 		}
-	return s / (vol * Nd * (Nd - 1) / 2) / vG::Nc();
+	return s / (vol * Nd * (Nd - 1) * 0.5) / vG::Nc();
 }
 
 /**
@@ -104,7 +105,7 @@ template <typename vG> double wilsonAction(GaugeField<vG> const &U, double beta)
 {
 	int Nd = U[0].grid().ndim();
 	double vol = U[0].grid().size();
-	return (1.0 - plaquette(U)) * (beta * Nd * (Nd - 1) / 2 * vol);
+	return (1.0 - plaquette(U)) * (beta * Nd * (Nd - 1) * 0.5 * vol);
 }
 
 template <typename vG>

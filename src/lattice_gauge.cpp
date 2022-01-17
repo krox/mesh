@@ -12,6 +12,8 @@ int main(int argc, char **argv)
 	CLI::App app{"Simulate SU(3) pure gauge theory"};
 
 	// physics options
+	app.add_option("--group", params.group,
+	               "gauge group (u1, su2, su3=default)");
 	app.add_option("--geom", params.geom, "geometry of the lattice");
 	app.add_option("--beta", params.beta, "(inverse) coupling constant");
 
