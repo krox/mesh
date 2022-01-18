@@ -5,6 +5,7 @@
  * Might be split into multiple files in the future.
  */
 
+#include "groups/su2.h"
 #include "groups/su3.h"
 #include "groups/u1.h"
 #include "lattice/lattice.h"
@@ -14,6 +15,8 @@
 #include <vector>
 
 namespace mesh {
+
+using util::real;
 
 template <typename vG> using GaugeField = std::vector<Lattice<vG>>;
 

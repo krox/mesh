@@ -71,8 +71,8 @@ inline void runHmc(HmcParams const &params)
 {
 	if (params.group == "u1")
 		runHmc_impl<U1<util::simd<double>>>(params);
-	// else if (params.group == "su2")
-	//	runHmc_impl<SU2<util::simd<double>>>(params);
+	else if (params.group == "su2")
+		runHmc_impl<SU2<util::simd<double>>>(params);
 	else if (params.group == "su3")
 		runHmc_impl<SU3<util::simd<double>>>(params);
 	else
