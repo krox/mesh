@@ -18,6 +18,10 @@ namespace mesh {
 
 using util::real;
 
+// TODO: We should use a different container than std::vector here. Its not
+//       very convenient to explicit overload all operations to handle the
+//       Lorentz-parallel case. And operator-overloading (in lattice.h) is
+//       probably even forbidden by the C++ standard.
 template <typename vG> using GaugeField = std::vector<Lattice<vG>>;
 
 template <typename vG> GaugeField<vG> makeGaugeField(Grid const &g)

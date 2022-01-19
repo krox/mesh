@@ -17,6 +17,8 @@ template <typename T> struct SU3
 {
 	util::Matrix<util::complex<T>, 3> v_;
 
+	static constexpr std::string_view name() { return "SU(3)"; }
+	static constexpr int dim() { return 8; }
 	static constexpr int Nc() { return 3; }
 
 	// constructors

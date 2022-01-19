@@ -64,12 +64,16 @@ template <typename vG> void runHmc_impl(HmcParams const &params)
 	auto U_new = U;
 	auto vol = g.size();
 	auto deltas = makeDeltas(params.scheme, params.epsilon, params.substeps);
+
+	// tracking some observables
 	int64_t nAccept = 0, nReject = 0;
+	std::vector<double> plaqHistory;
+	std::vector<double> deltaHHistory;
+
 	std::optional<util::Gnuplot> plot;
 	if (params.doPlot)
 		plot.emplace();
 
-	std::vector<double> plaqHistory;
 	for (size_t iter : util::ProgressRange(params.count))
 	{
 		// NOTE on conventions:
@@ -87,8 +91,10 @@ template <typename vG> void runHmc_impl(HmcParams const &params)
 		double H_new = wilsonAction(U_new, params.beta);
 		for (int mu = 0; mu < Nd; ++mu)
 			H_new += norm2(P[mu]);
+		auto deltaH = H_new - H_old;
 
-		if (rng.uniform() < exp(H_old - H_new))
+		// metropolis step
+		if (rng.uniform() < exp(-deltaH))
 		{
 			++nAccept;
 			std::swap(U, U_new);
@@ -97,6 +103,7 @@ template <typename vG> void runHmc_impl(HmcParams const &params)
 			++nReject;
 
 		plaqHistory.push_back(plaquette(U));
+		deltaHHistory.push_back(deltaH);
 
 		if ((iter + 1) % (100 / params.substeps) == 0 && plot)
 		{
@@ -110,6 +117,8 @@ template <typename vG> void runHmc_impl(HmcParams const &params)
 	fmt::print("plaquette = {} +- {}\n", util::mean(plaqHistory),
 	           sqrt(util::variance(plaqHistory) / plaqHistory.size()));
 	fmt::print("acceptance = {:.2f}\n", nAccept / double(nAccept + nReject));
+	fmt::print("<exp(-dH)> = {:.4f}\n",
+	           util::mean(deltaHHistory, [](double x) { return exp(-x); }));
 	fmt::print("lattice allocs: {}\n", latticeAllocCount);
 	fmt::print("time in cshift: {:.2f}\n", swCshift.secs());
 

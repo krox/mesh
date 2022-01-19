@@ -8,6 +8,9 @@ namespace mesh {
 // Special unitary group SU(2), stored with just 4 real numbers
 template <typename T> struct SU2
 {
+	// human-readable name of the group
+	static constexpr std::string_view name() { return "SU(2)"; }
+
 	// dimension of the Lie group
 	//   = number of generators
 	//   = dimension of adjoint representation
@@ -67,8 +70,7 @@ template <typename T> T trace(SU2<T> const &a)
 
 template <typename T> T norm2(SU2<T> const &a)
 {
-	// TODO: is this correct?
-	return a[0] * a[0] + a[1] * a[1] + a[2] * a[2] + a[3] * a[3];
+	return 2.0 * (a[0] * a[0] + a[1] * a[1] + a[2] * a[2] + a[3] * a[3]);
 }
 
 template <typename T> SU2<T> exp(SU2<T> const &a)

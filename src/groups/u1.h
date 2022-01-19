@@ -13,6 +13,8 @@ template <typename T> struct U1
 {
 	util::complex<T> v_;
 
+	static constexpr std::string_view name() { return "U(1)"; }
+	static constexpr int dim() { return 1; }
 	static constexpr int Nc() { return 1; }
 
 	// constructors

@@ -165,6 +165,16 @@ bool compatible(Lattice<T> const &a, Lattice<U> const &b)
 	{                                                                          \
 		return operator op(std::move(a), b);                                   \
 	}                                                                          \
+	template <typename T>                                                      \
+	std::vector<Lattice<T>> operator op(std::vector<Lattice<T>> const &a,      \
+	                                    std::vector<Lattice<T>> const &b)      \
+	{                                                                          \
+		assert(a.size() == b.size());                                          \
+		auto c = std::vector<Lattice<T>>(a.size());                            \
+		for (size_t i = 0; i < c.size(); ++i)                                  \
+			c[i] = a[i] op b[i];                                               \
+		return c;                                                              \
+	}                                                                          \
 	template <typename T, typename U>                                          \
 	Lattice<T> &operator op##=(Lattice<T> &a, Lattice<U> const &b)             \
 	{                                                                          \
@@ -214,6 +224,15 @@ bool compatible(Lattice<T> const &a, Lattice<U> const &b)
 		for (size_t i = 0; i < a.grid().osize(); ++i)                          \
 			s += fun(a.data()[i]);                                             \
 		return vsum(s);                                                        \
+	}                                                                          \
+	template <typename T>                                                      \
+	auto name(std::vector<Lattice<T>> const &a)                                \
+	    ->decltype(vsum(fun(std::declval<T>())))                               \
+	{                                                                          \
+		decltype(vsum(fun(std::declval<T>()))) s = {};                         \
+		for (size_t i = 0; i < a.size(); ++i)                                  \
+			s += name(a[i]);                                                   \
+		return s;                                                              \
 	}
 
 UTIL_DEFINE_LATTICE_BINARY(+)
