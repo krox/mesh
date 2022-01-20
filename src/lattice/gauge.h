@@ -71,7 +71,7 @@ template <typename vG> void reunitize(GaugeField<vG> &U)
 	size_t osites = U[0].grid().osize();
 	for (auto &Umu : U)
 		for (size_t i = 0; i < osites; ++i)
-			Umu.data()[i] = projectOnGroup(Umu.data()[i]);
+			Umu.data()[i] = projectOnGroupFast(Umu.data()[i]);
 }
 
 /** normalized to [0,1] */

@@ -15,9 +15,9 @@ template <typename vG> void testImpl(Coordinate geom)
 	auto F = makeGaugeField<vG>(g);
 	randomAlgebraField(F, rng);
 	fmt::print("normalizaiton of norm2(random algebra): {}\n",
-	           norm2(F) / (double)(g.size() * g.ndim() * vG::dim()) / 0.5);
+	           norm2(F) * (1.0 / (g.size() * g.ndim() * vG::dim())) / 0.5);
 	fmt::print("normalizaiton of trace(random algebra^2): {}\n",
-	           sumTrace(F * F) / (double)(g.size() * g.ndim() * vG::dim()) /
+	           sumTrace(F * F) * (1.0 / (g.size() * g.ndim() * vG::dim())) /
 	               (-0.5));
 }
 
@@ -28,7 +28,13 @@ int main(int argc, char **argv)
 	    "normalizations and sign-conventions and such are consistent."};
 	CLI11_PARSE(app, argc, argv);
 
-	testImpl<U1<util::simd<double>>>({8, 8, 8, 8});
-	testImpl<SU2<util::simd<double>>>({8, 8, 8, 8});
-	testImpl<SU3<util::simd<double>>>({8, 8, 8, 8});
+	for (auto &geom : {Coordinate{8, 8, 8, 8}, Coordinate{8, 8, 8}})
+	{
+		testImpl<U1<util::simd<double>>>(geom);
+		testImpl<SU2<util::simd<double>>>(geom);
+		testImpl<SU3<util::simd<double>>>(geom);
+		testImpl<U1<util::simd<float>>>(geom);
+		testImpl<SU2<util::simd<float>>>(geom);
+		testImpl<SU3<util::simd<float>>>(geom);
+	}
 }

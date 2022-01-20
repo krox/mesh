@@ -1,11 +1,14 @@
 #pragma once
 
 #include "util/random.h"
+#include "util/simd.h"
 #include <cmath>
 
 namespace mesh {
 
-// Special unitary group SU(2), stored with just 4 real numbers
+using util::simd;
+
+// Special unitary group SU(2), stored with just 4 real numbers.
 template <typename T> struct SU2
 {
 	// human-readable name of the group
@@ -20,6 +23,28 @@ template <typename T> struct SU2
 	//   = dimension of defining/fundamental representation
 	static constexpr int Nc() { return 2; }
 
+	// constructors
+	SU2() = default;
+	explicit SU2(T a) : v_{a, 0, 0, 0} {}
+	SU2(T a, T b, T c, T d) : v_{a, b, c, d} {}
+
+	// special elements
+	static SU2 zero() { return SU2(T(0), T(0), T(0), T(0)); }
+	static SU2 one() { return SU2(T(1), T(0), T(0), T(0)); }
+
+	// random elements
+	template <typename Rng> static SU2 randomGroupElement(Rng &rng)
+	{
+		return projectOnGroup(
+		    SU2{rng.normal(), rng.normal(), rng.normal(), rng.normal()});
+	}
+	template <typename Rng> static SU2 randomAlgebraElement(Rng &rng)
+	{
+		return SU2(0, rng.template normal<T>(), rng.template normal<T>(),
+		           rng.template normal<T>()) *
+		       0.5;
+	}
+
 	// represents v0 + i*v_k*sigma_k
 	// which is equal to  v0 + i v3   v2 + i v1
 	//                   -v2 + i v1   v0 - i v3
@@ -31,89 +56,15 @@ template <typename T> struct SU2
 
 	T &operator[](int i) { return v_[i]; }
 	T const &operator[](int i) const { return v_[i]; }
-
-	// constructors
-	SU2() = default;
-	explicit SU2(T a) : v_{a, 0, 0, 0} {}
-	SU2(T a, T b, T c, T d) : v_{a, b, c, d} {}
-	static SU2 zero() { return SU2(T(0), T(0), T(0), T(0)); }
-	static SU2 one() { return SU2(T(1), T(0), T(0), T(0)); }
-	template <typename Rng> static SU2 randomGroupElement(Rng &rng)
-	{
-		return projectOnGroup(
-		    SU2{rng.normal(), rng.normal(), rng.normal(), rng.normal()});
-	}
-	template <typename Rng> static SU2 randomAlgebraElement(Rng &rng)
-	{
-		return {0, rng.normal() * 0.5, rng.normal() * 0.5, rng.normal() * 0.5};
-	}
 };
 
-// Unary SU2
+///////////////////////////////////////////////////////////////////////////////
+// ring structure of (a subset of) 2x2 matrices
 
 template <typename T> SU2<T> operator-(SU2<T> const &a)
 {
 	return {-a[0], -a[1], -a[2], -a[3]};
 }
-
-template <typename T> SU2<T> adj(SU2<T> const &a)
-{
-	return {a[0], -a[1], -a[2], -a[3]};
-}
-
-// trace in defining representation
-template <typename T> T trace(SU2<T> const &a)
-{
-	// trace of SU(2) matrices is always real. This is not true for larger SU(N)
-	return a[0] * 2.0;
-}
-
-template <typename T> T norm2(SU2<T> const &a)
-{
-	return 2.0 * (a[0] * a[0] + a[1] * a[1] + a[2] * a[2] + a[3] * a[3]);
-}
-
-template <typename T> SU2<T> exp(SU2<T> const &a)
-{
-	// exact version (only valid for a[0] = 0)
-	/*
-	auto alpha = sqrt(a[1] * a[1] + a[2] * a[2] + a[3] * a[3]);
-	auto f = sin(alpha) / alpha;
-	SU2<T> r;
-	r[0] = cos(alpha);
-	r[1] = a[1] * f;
-	r[2] = a[2] * f;
-	r[3] = a[3] * f;
-	*/
-
-	// explicit taylor version
-	auto b = a * (1.0 / 16.0);
-	auto inc = b;
-	auto r = SU2<T>::one() + b;
-	for (int n = 2; n <= 12; ++n)
-	{
-		inc = inc * b * (1.0 / n);
-		r += inc;
-	}
-	for (int i = 0; i < 4; ++i)
-		r = r * r;
-	return r;
-}
-
-template <typename T> SU2<T> projectOnGroup(SU2<T> const &a)
-{
-	auto s = a[0] * a[0] + a[1] * a[1] + a[2] * a[2] + a[3] * a[3];
-
-	return a * (1.0 / sqrt(s)); // exact version
-	// return a * (1.5 - 0.5 * s); // fast, but only if a is already close
-}
-
-template <typename T> SU2<T> projectOnAlgebra(SU2<T> const &a)
-{
-	return {T(0), a[1], a[2], a[3]};
-}
-
-// binary SU2 <-> SU2
 
 template <typename T> SU2<T> operator+(SU2<T> const &a, SU2<T> const &b)
 {
@@ -151,20 +102,20 @@ template <typename T> void operator-=(SU2<T> &a, SU2<T> const &b)
 
 template <typename T> void operator*=(SU2<T> &a, SU2<T> const &b) { a = a * b; }
 
-// binary SU2 <-> scalar
-
-template <typename T> SU2<T> operator*(SU2<T> const &a, T b)
+template <typename T>
+SU2<T> operator*(SU2<T> const &a, util::type_identity_t<T> const &b)
 {
 	return {a[0] * b, a[1] * b, a[2] * b, a[3] * b};
 }
 
-template <typename T, std::enable_if_t<!std::is_same_v<T, double>, bool> = true>
-SU2<T> operator*(SU2<T> const &a, double b)
+template <typename T, size_t W>
+SU2<simd<T, W>> operator*(SU2<simd<T, W>> const &a,
+                          util::type_identity_t<T> const &b)
 {
 	return {a[0] * b, a[1] * b, a[2] * b, a[3] * b};
 }
 
-template <typename T> void operator*=(SU2<T> &a, T b)
+template <typename T> void operator*=(SU2<T> &a, util::type_identity_t<T> b)
 {
 	a[0] *= b;
 	a[1] *= b;
@@ -172,13 +123,84 @@ template <typename T> void operator*=(SU2<T> &a, T b)
 	a[3] *= b;
 }
 
-template <typename T> void operator*=(SU2<T> &a, double b)
+template <typename T, size_t W>
+void operator*=(SU2<simd<T, W>> &a, util::type_identity_t<T> b)
 {
 	a[0] *= b;
 	a[1] *= b;
 	a[2] *= b;
 	a[3] *= b;
 }
+
+///////////////////////////////////////////////////////////////////////////////
+// additional operations for the Lie group/algebra
+
+// adjoint (= inverser for SU(2) matrices)
+template <typename T> SU2<T> adj(SU2<T> const &a)
+{
+	return {a[0], -a[1], -a[2], -a[3]};
+}
+
+// trace in defining/fundamental representation
+template <typename T> T trace(SU2<T> const &a)
+{
+	// trace of SU(2) matrices is always real. This is not true for most
+	// other Lie groups.
+	return a[0] * 2.0;
+}
+
+// not completely sure if this is completely well-defined
+template <typename T> T norm2(SU2<T> const &a)
+{
+	return 2.0 * (a[0] * a[0] + a[1] * a[1] + a[2] * a[2] + a[3] * a[3]);
+}
+
+// exponential map from su(2) algebra to SU(2) group
+template <typename T> SU2<T> exp(SU2<T> const &a)
+{
+	// exact version (only valid for a[0] = 0)
+	/*
+	auto alpha = sqrt(a[1] * a[1] + a[2] * a[2] + a[3] * a[3]);
+	auto f = sin(alpha) / alpha;
+	SU2<T> r;
+	r[0] = cos(alpha);
+	r[1] = a[1] * f;
+	r[2] = a[2] * f;
+	r[3] = a[3] * f;
+	*/
+
+	// explicit taylor version
+	auto b = a * (1.0 / 16.0);
+	auto inc = b;
+	auto r = SU2<T>::one() + b;
+	for (int n = 2; n <= 12; ++n)
+	{
+		inc = inc * b * (1.0 / n);
+		r += inc;
+	}
+	for (int i = 0; i < 4; ++i)
+		r = r * r;
+	return r;
+}
+
+template <typename T> SU2<T> projectOnGroup(SU2<T> const &a)
+{
+	auto s = a[0] * a[0] + a[1] * a[1] + a[2] * a[2] + a[3] * a[3];
+	return a * (1.0 / sqrt(s));
+}
+
+template <typename T> SU2<T> projectOnGroupFast(SU2<T> const &a)
+{
+	auto s = a[0] * a[0] + a[1] * a[1] + a[2] * a[2] + a[3] * a[3];
+	return a * (1.5 - s * 0.5);
+}
+
+template <typename T> SU2<T> projectOnAlgebra(SU2<T> const &a)
+{
+	return {T(0), a[1], a[2], a[3]};
+}
+
+// utilities for horizontal simd
 
 template <typename T> auto vsum(SU2<T> const &a)
 {

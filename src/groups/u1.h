@@ -2,11 +2,14 @@
 
 #include "util/complex.h"
 #include "util/random.h"
+#include "util/simd.h"
 #include <cassert>
 #include <cmath>
 #include <random>
 
 namespace mesh {
+
+using util::simd;
 
 // unitary group U(1)
 template <typename T> struct U1
@@ -33,7 +36,7 @@ template <typename T> struct U1
 	template <typename Rng> static U1<T> randomAlgebraElement(Rng &rng)
 	{
 		// the sole generator of U(1) is iT = "1/sqrt(2) i"
-		return U1<T>({T(0), rng.normal() * M_SQRT1_2});
+		return U1<T>({T(0), rng.template normal<T>() * T(M_SQRT1_2)});
 	}
 };
 
@@ -49,20 +52,31 @@ template <typename T> U1<T> projectOnAlgebra(U1<T> const &a)
 
 template <typename T> U1<T> projectOnGroup(U1<T> const &a)
 {
-	return U1<T>(a.v_ / sqrt(norm2(a.v_)));
+	return a * (1.0 / sqrt(norm2(a.v_)));
+}
+
+template <typename T> U1<T> projectOnGroupFast(U1<T> const &a)
+{
+	return a * (1.5 - norm2(a) * 0.5);
 }
 
 // scalar operator
-template <typename T> U1<T> operator*(U1<T> const &a, double b)
+
+template <typename T> U1<T> operator*(U1<T> const &a, T const &b)
 {
 	return U1<T>(a.v_ * b);
 }
-template <typename T> U1<T> operator/(U1<T> const &a, double b)
+template <typename T> void operator*=(U1<T> &a, T b) { a.v_ *= b; }
+
+template <typename T, size_t W>
+U1<simd<T, W>> operator*(U1<simd<T, W>> const &a, T const &b)
 {
-	return U1<T>(a.b_ / b);
+	return U1<simd<T, W>>(a.v_ * b);
 }
-template <typename T> void operator*=(U1<T> &a, double b) { a.v_ *= b; }
-template <typename T> void operator/=(U1<T> &a, double b) { a.v_ /= b; }
+template <typename T, size_t W> void operator*=(U1<simd<T, W>> &a, T b)
+{
+	a.v_ *= b;
+}
 
 // group/algebra operations
 template <typename T> U1<T> operator+(U1<T> const &a, U1<T> const &b)
