@@ -24,6 +24,8 @@ int main(int argc, char **argv)
 	app.add_option("--epsilon", params.epsilon,
 	               "steps size for the HMC update");
 	app.add_option("--substeps", params.substeps, "subdivison of delta");
+	app.add_option("--precision", params.precision,
+	               "FP precision (1=single, 2=double=default)");
 
 	// misc
 	app.add_flag("--plot", params.doPlot,

@@ -130,6 +130,9 @@ template <typename vG> void runHmc_impl(HmcParams const &params)
 }
 
 // explicit instantiations
+template void runHmc_impl<U1<util::simd<float>>>(HmcParams const &);
+template void runHmc_impl<SU2<util::simd<float>>>(HmcParams const &);
+template void runHmc_impl<SU3<util::simd<float>>>(HmcParams const &);
 template void runHmc_impl<U1<util::simd<double>>>(HmcParams const &);
 template void runHmc_impl<SU2<util::simd<double>>>(HmcParams const &);
 template void runHmc_impl<SU3<util::simd<double>>>(HmcParams const &);

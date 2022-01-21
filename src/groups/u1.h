@@ -28,7 +28,7 @@ template <typename T> struct U1
 
 	template <typename Rng> static U1<T> randomGroupElement(Rng &rng)
 	{
-		auto t = rng.uniform() * (2 * M_PI);
+		T t = rng.uniform() * (2 * M_PI);
 		return U1({std::cos(t), std::sin(t)});
 	}
 
@@ -62,18 +62,24 @@ template <typename T> U1<T> projectOnGroupFast(U1<T> const &a)
 
 // scalar operator
 
-template <typename T> U1<T> operator*(U1<T> const &a, T const &b)
+template <typename T>
+U1<T> operator*(U1<T> const &a, util::type_identity_t<T> const &b)
 {
 	return U1<T>(a.v_ * b);
 }
-template <typename T> void operator*=(U1<T> &a, T b) { a.v_ *= b; }
+template <typename T> void operator*=(U1<T> &a, util::type_identity_t<T> b)
+{
+	a.v_ *= b;
+}
 
 template <typename T, size_t W>
-U1<simd<T, W>> operator*(U1<simd<T, W>> const &a, T const &b)
+U1<simd<T, W>> operator*(U1<simd<T, W>> const &a,
+                         util::type_identity_t<T> const &b)
 {
 	return U1<simd<T, W>>(a.v_ * b);
 }
-template <typename T, size_t W> void operator*=(U1<simd<T, W>> &a, T b)
+template <typename T, size_t W>
+void operator*=(U1<simd<T, W>> &a, util::type_identity_t<T> b)
 {
 	a.v_ *= b;
 }

@@ -36,7 +36,8 @@ template <typename T> struct SU2
 	template <typename Rng> static SU2 randomGroupElement(Rng &rng)
 	{
 		return projectOnGroup(
-		    SU2{rng.normal(), rng.normal(), rng.normal(), rng.normal()});
+		    SU2{rng.template normal<T>(), rng.template normal<T>(),
+		        rng.template normal<T>(), rng.template normal<T>()});
 	}
 	template <typename Rng> static SU2 randomAlgebraElement(Rng &rng)
 	{

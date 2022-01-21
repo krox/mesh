@@ -119,8 +119,12 @@ SU3<simd<T, W>> operator*(SU3<simd<T, W>> const &a, util::type_identity_t<T> b)
 	return SU3(a.v_ * b);
 }
 
-template <typename T> void operator*=(SU3<T> &a, T b) { a.v_ *= b; }
-template <typename T, size_t W> void operator*=(SU3<simd<T, W>> &a, T b)
+template <typename T> void operator*=(SU3<T> &a, util::type_identity_t<T> b)
+{
+	a.v_ *= b;
+}
+template <typename T, size_t W>
+void operator*=(SU3<simd<T, W>> &a, util::type_identity_t<T> b)
 {
 	for (int i = 0; i < 3; ++i)
 		for (int j = 0; j < 3; ++j)

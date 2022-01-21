@@ -58,6 +58,7 @@ struct HmcParams
 	int substeps = 8;
 	int count = 100;
 	int seed = -1;
+	int precision = 2; // 1=float, 2=double
 
 	// others
 	bool doPlot = false;
@@ -69,15 +70,33 @@ template <typename vG> void runHmc_impl(HmcParams const &params);
 
 inline void runHmc(HmcParams const &params)
 {
-	if (params.group == "u1")
-		runHmc_impl<U1<util::simd<double>>>(params);
-	else if (params.group == "su2")
-		runHmc_impl<SU2<util::simd<double>>>(params);
-	else if (params.group == "su3")
-		runHmc_impl<SU3<util::simd<double>>>(params);
+	if (params.precision == 1)
+	{
+		if (params.group == "u1")
+			runHmc_impl<U1<util::simd<float>>>(params);
+		else if (params.group == "su2")
+			runHmc_impl<SU2<util::simd<float>>>(params);
+		else if (params.group == "su3")
+			runHmc_impl<SU3<util::simd<float>>>(params);
+		else
+			throw std::runtime_error(
+			    fmt::format("unknown gauge group '{}'", params.group));
+	}
+	else if (params.precision == 2)
+	{
+		if (params.group == "u1")
+			runHmc_impl<U1<util::simd<double>>>(params);
+		else if (params.group == "su2")
+			runHmc_impl<SU2<util::simd<double>>>(params);
+		else if (params.group == "su3")
+			runHmc_impl<SU3<util::simd<double>>>(params);
+		else
+			throw std::runtime_error(
+			    fmt::format("unknown gauge group '{}'", params.group));
+	}
 	else
 		throw std::runtime_error(
-		    fmt::format("unknown gauge group ''", params.group));
+		    fmt::format("invlid precision level '{}'", params.precision));
 }
 
 } // namespace mesh
