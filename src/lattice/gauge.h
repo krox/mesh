@@ -121,4 +121,37 @@ Lattice<vG> wilsonDeriv(GaugeField<vG> const &U, int mu, double beta)
 	return projectOnAlgebra(U[mu] * stapleSum(U, mu) * (beta / (2 * vG::Nc())));
 }
 
+// calls f<vG>() with vG determined at runtime based on gauge group and FP prec
+template <typename F>
+void dispatchByGroup(F f, std::string const &group, int precision)
+{
+	if (precision == 1)
+	{
+		if (group == "u1")
+			f.template operator()<U1<util::simd<float>>>();
+		else if (group == "su2")
+			f.template operator()<SU2<util::simd<float>>>();
+		else if (group == "su3")
+			f.template operator()<SU3<util::simd<float>>>();
+		else
+			throw std::runtime_error(
+			    fmt::format("unknown gauge group '{}'", group));
+	}
+	else if (precision == 2)
+	{
+		if (group == "u1")
+			f.template operator()<U1<util::simd<double>>>();
+		else if (group == "su2")
+			f.template operator()<SU2<util::simd<double>>>();
+		else if (group == "su3")
+			f.template operator()<SU3<util::simd<double>>>();
+		else
+			throw std::runtime_error(
+			    fmt::format("unknown gauge group '{}'", group));
+	}
+	else
+		throw std::runtime_error(
+		    fmt::format("invlid precision level '{}'", precision));
+}
+
 } // namespace mesh

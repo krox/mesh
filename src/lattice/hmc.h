@@ -22,7 +22,7 @@ using std::exp;
 std::vector<double> makeDeltas(std::string_view scheme, double epsilon,
                                int substeps);
 
-// run a single HMD trajectory with basic Wilson-action
+// evolve (U,P) in Hamiltonian dynamics basic Wilson-action
 //   * should be generalized to other actions
 template <typename vG>
 void runHmd(GaugeField<vG> &U, GaugeField<vG> &P, double beta,
@@ -45,58 +45,69 @@ void runHmd(GaugeField<vG> &U, GaugeField<vG> &P, double beta,
 		}
 }
 
-struct HmcParams
+// This holds the state of the simulation and some tracked statistics.
+// Does not neccessarily hold all the parameters which might change a lot during
+// a complicated simulation setup.
+//     * 'beta' should be generalized to an arbitrary action
+//     * 'deltas' should be generalized to an arbitrary integration scheme
+template <typename vG> struct Hmc
 {
-	// physics parameters
-	std::string group = "su3";
-	std::vector<int32_t> geom = {6, 6, 6, 6};
-	double beta = 6.0;
+	// state of the simulation
+	Grid const &g;        // lattice grid
+	GaugeField<vG> U;     // gauge field
+	GaugeField<vG> P;     // conjugate momenta
+	util::xoshiro256 rng; // random number generator
 
-	// simulation parameters
-	std::string scheme = "4mn";
-	double epsilon = 1.0;
-	int substeps = 8;
-	int count = 100;
-	int seed = -1;
-	int precision = 2; // 1=float, 2=double
+	// observables (reset any time using .clear_observables())
+	std::vector<double> plaq_history;
+	std::vector<double> deltaH_history, accept_history;
 
-	// others
-	bool doPlot = false;
+	GaugeField<vG> U_new; // temporary
+
+	Hmc(Grid const &g)
+	    : g(g), U(makeGaugeField<vG>(g)), P(makeGaugeField<vG>(g))
+	{}
+
+	// reset the gauge field to a random config
+	void randomizeGaugeField() { randomGaugeField(U, rng); }
+
+	// new gaussian momenta
+	void randomizeMomenta()
+	{
+		// NOTE on conventions:
+		//     * H = S(U) + 1/2 P^i P^i = S(U) - tr(P*P) = S(U) + norm2(P)
+		//     * U' = P, P' = -S'(U)
+		randomAlgebraField(P, rng);
+	}
+
+	// generate momenta -> run a trajectory -> accept/reject it -> measure
+	// (NOTE: even if rejected, old momenta are destroyed)
+	void runHmcUpdate(double beta, std::vector<double> const &deltas)
+	{
+		// generate new momenta
+		randomizeMomenta();
+
+		// make proposal
+		double H_old = wilsonAction(U, beta) + norm2(P);
+		U_new = U;
+		runHmd(U_new, P, beta, deltas);
+		reunitize(U_new); // no idea if this is the best place to put it
+		double H_new = wilsonAction(U_new, beta) + norm2(P);
+		auto deltaH = H_new - H_old;
+
+		// metropolis step
+		if (rng.uniform() < exp(-deltaH))
+		{
+			accept_history.push_back(1.0);
+			std::swap(U, U_new);
+		}
+		else
+			accept_history.push_back(0.0);
+
+		// track some observables
+		plaq_history.push_back(plaquette(U));
+		deltaH_history.push_back(deltaH);
+	}
 };
-
-// explicitly instantiated for all reasonable combinations of
-// gauge group, simd-width, floating point precision
-template <typename vG> void runHmc_impl(HmcParams const &params);
-
-inline void runHmc(HmcParams const &params)
-{
-	if (params.precision == 1)
-	{
-		if (params.group == "u1")
-			runHmc_impl<U1<util::simd<float>>>(params);
-		else if (params.group == "su2")
-			runHmc_impl<SU2<util::simd<float>>>(params);
-		else if (params.group == "su3")
-			runHmc_impl<SU3<util::simd<float>>>(params);
-		else
-			throw std::runtime_error(
-			    fmt::format("unknown gauge group '{}'", params.group));
-	}
-	else if (params.precision == 2)
-	{
-		if (params.group == "u1")
-			runHmc_impl<U1<util::simd<double>>>(params);
-		else if (params.group == "su2")
-			runHmc_impl<SU2<util::simd<double>>>(params);
-		else if (params.group == "su3")
-			runHmc_impl<SU3<util::simd<double>>>(params);
-		else
-			throw std::runtime_error(
-			    fmt::format("unknown gauge group '{}'", params.group));
-	}
-	else
-		throw std::runtime_error(
-		    fmt::format("invlid precision level '{}'", params.precision));
-}
 
 } // namespace mesh

@@ -8,8 +8,8 @@ add_subdirectory(util)
 include_directories(CLI11/include)
 include_directories(util/src)
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED OFF)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -march=native -Wall -Wextra -Wno-unused-variable -Wno-register -Werror -pedantic -Wno-stringop-overflow")
 
@@ -18,7 +18,7 @@ find_package(Eigen3 3.3 REQUIRED NO_MODULE)
 
 file(GLOB modules "src/util/*.cpp" "src/mesh/*.cpp" "src/scalar/*.cpp" "src/lattice/*.cpp")
 
-set(binaries "group_histogram" "phi4" "sigma" "ising" "lattice_gauge" "test_lattice_gauge")
+set(binaries "group_histogram" "phi4" "sigma" "ising" "hmc" "test_lattice_gauge")
 
 foreach(bin ${binaries})
 	add_executable(${bin} src/${bin}.cpp ${modules})
