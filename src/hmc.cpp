@@ -1,7 +1,8 @@
+#include "lattice/hmc.h"
 #include "CLI/CLI.hpp"
 #include "fmt/format.h"
 #include "lattice/gauge.h"
-#include "lattice/hmc.h"
+#include "util/hash.h"
 
 using namespace mesh;
 
@@ -17,7 +18,7 @@ int main(int argc, char **argv)
 	double epsilon = 1.0;
 	int substeps = 8;
 	int count = 100;
-	int seed = -1;
+	std::optional<std::string> seed = {};
 	int precision = 2; // 1=float, 2=double
 
 	// others
@@ -43,6 +44,8 @@ int main(int argc, char **argv)
 	app.add_flag("--plot", doPlot, "do some plots summarizing the trajectory");
 	CLI11_PARSE(app, argc, argv);
 
+	if (!seed)
+		seed = fmt::format("{}", std::random_device()());
 	auto deltas = makeDeltas(scheme, epsilon, substeps);
 
 	std::optional<util::Gnuplot> plot;
@@ -54,7 +57,7 @@ int main(int argc, char **argv)
 		    auto const &g = Grid::make(Coordinate(geom.begin(), geom.end()),
 		                               TensorTraits<vG>::simdWidth);
 		    auto hmc = Hmc<vG>(g);
-		    hmc.rng.seed(seed == -1 ? std::random_device()() : seed);
+		    hmc.rng.seed(util::sha3<256>(seed.value()));
 		    hmc.randomizeGaugeField();
 
 		    for (size_t iter : util::ProgressRange(count))
