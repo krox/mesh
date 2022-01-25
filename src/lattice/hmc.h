@@ -58,56 +58,30 @@ template <typename vG> struct Hmc
 	GaugeField<vG> P;     // conjugate momenta
 	util::xoshiro256 rng; // random number generator
 
-	// observables (reset any time using .clear_observables())
+	// observables (reset any time using .reset_observables())
 	std::vector<double> plaq_history;
 	std::vector<double> deltaH_history, accept_history;
 
+	void reset_observables()
+	{
+		plaq_history.clear();
+		deltaH_history.clear();
+		accept_history.clear();
+	}
+
 	GaugeField<vG> U_new; // temporary
 
-	Hmc(Grid const &g)
-	    : g(g), U(makeGaugeField<vG>(g)), P(makeGaugeField<vG>(g))
-	{}
+	Hmc(Grid const &g);
 
 	// reset the gauge field to a random config
-	void randomizeGaugeField() { randomGaugeField(U, rng); }
+	void randomizeGaugeField();
 
 	// new gaussian momenta
-	void randomizeMomenta()
-	{
-		// NOTE on conventions:
-		//     * H = S(U) + 1/2 P^i P^i = S(U) - tr(P*P) = S(U) + norm2(P)
-		//     * U' = P, P' = -S'(U)
-		randomAlgebraField(P, rng);
-	}
+	void randomizeMomenta();
 
 	// generate momenta -> run a trajectory -> accept/reject it -> measure
 	// (NOTE: even if rejected, old momenta are destroyed)
-	void runHmcUpdate(double beta, std::vector<double> const &deltas)
-	{
-		// generate new momenta
-		randomizeMomenta();
-
-		// make proposal
-		double H_old = wilsonAction(U, beta) + norm2(P);
-		U_new = U;
-		runHmd(U_new, P, beta, deltas);
-		reunitize(U_new); // no idea if this is the best place to put it
-		double H_new = wilsonAction(U_new, beta) + norm2(P);
-		auto deltaH = H_new - H_old;
-
-		// metropolis step
-		if (rng.uniform() < exp(-deltaH))
-		{
-			accept_history.push_back(1.0);
-			std::swap(U, U_new);
-		}
-		else
-			accept_history.push_back(0.0);
-
-		// track some observables
-		plaq_history.push_back(plaquette(U));
-		deltaH_history.push_back(deltaH);
-	}
+	void runHmcUpdate(double beta, std::vector<double> const &deltas);
 };
 
 } // namespace mesh
