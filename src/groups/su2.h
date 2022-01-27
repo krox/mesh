@@ -6,11 +6,11 @@
 
 namespace mesh {
 
-using util::simd;
-
 // Special unitary group SU(2), stored with just 4 real numbers.
 template <typename T> struct SU2
 {
+	using value_type = T;
+
 	// human-readable name of the group
 	static constexpr std::string_view name() { return "SU(2)"; }
 
@@ -109,9 +109,8 @@ SU2<T> operator*(SU2<T> const &a, util::type_identity_t<T> const &b)
 	return {a[0] * b, a[1] * b, a[2] * b, a[3] * b};
 }
 
-template <typename T, size_t W>
-SU2<simd<T, W>> operator*(SU2<simd<T, W>> const &a,
-                          util::type_identity_t<T> const &b)
+template <typename T>
+SU2<T> operator*(SU2<T> const &a, typename T::value_type const &b)
 {
 	return {a[0] * b, a[1] * b, a[2] * b, a[3] * b};
 }
@@ -124,8 +123,7 @@ template <typename T> void operator*=(SU2<T> &a, util::type_identity_t<T> b)
 	a[3] *= b;
 }
 
-template <typename T, size_t W>
-void operator*=(SU2<simd<T, W>> &a, util::type_identity_t<T> b)
+template <typename T> void operator*=(SU2<T> &a, typename T::value_type b)
 {
 	a[0] *= b;
 	a[1] *= b;

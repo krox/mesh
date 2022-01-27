@@ -59,7 +59,8 @@ int main(int argc, char **argv)
 		    auto hmc = Hmc<vG>(g);
 		    hmc.rng.seed(util::sha3<256>(seed.value()));
 		    hmc.randomizeGaugeField();
-
+		    util::Stopwatch sw;
+		    sw.start();
 		    for (size_t iter : util::ProgressRange(count))
 		    {
 			    hmc.runHmcUpdate(beta, deltas);
@@ -67,11 +68,14 @@ int main(int argc, char **argv)
 			    if ((iter + 1) % (100 / substeps) == 0 && plot)
 			    {
 				    plot->clear();
-				    plot->plotData(util::span(hmc.plaq_history)
+				    plot->plotData(util::span<double>(hmc.plaq_history)
 				                       .slice(hmc.plaq_history.size() / 10,
 				                              hmc.plaq_history.size()));
 			    }
 		    }
+		    sw.stop();
+		    fmt::print("time per substep = {:.3f}\n",
+		               sw.secs() / (count * substeps));
 
 		    fmt::print("plaquette = {} +- {}\n", util::mean(hmc.plaq_history),
 		               sqrt(util::variance(hmc.plaq_history) /

@@ -50,8 +50,9 @@ void runHmd(GaugeField<vG> &U, GaugeField<vG> &P, double beta,
 // a complicated simulation setup.
 //     * 'beta' should be generalized to an arbitrary action
 //     * 'deltas' should be generalized to an arbitrary integration scheme
-template <typename vG> struct Hmc
+template <typename vG> class Hmc
 {
+  public:
 	// state of the simulation
 	Grid const &g;        // lattice grid
 	GaugeField<vG> U;     // gauge field

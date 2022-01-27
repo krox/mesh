@@ -35,7 +35,7 @@ template <typename vT> class Lattice
 	vector_type *data_ = nullptr; // can be null if grid is the empty lattice
 
   public:
-	Lattice() : grid_(&Grid::make({0}, {simdWidth})) {}
+	Lattice() : grid_(&Grid::make({0}, simdWidth)) {}
 	explicit Lattice(Grid const &g) : grid_(&g)
 	{
 		assert(grid().isize() == simdWidth);
@@ -71,7 +71,7 @@ template <typename vT> class Lattice
 	}
 	Lattice(Lattice &&other) : grid_{&other.grid()}, data_{other.data()}
 	{
-		other.grid_ = &Grid::make({0}, {simdWidth});
+		other.grid_ = &Grid::make({0}, simdWidth);
 		other.data_ = nullptr;
 	}
 	Lattice &operator=(Lattice const &other)

@@ -8,8 +8,6 @@
 
 namespace mesh {
 
-using util::simd;
-
 /**
  * Special unitary group SU(3)
  *     - Can hold both group and algebra elements
@@ -17,6 +15,8 @@ using util::simd;
  */
 template <typename T> struct SU3
 {
+	using value_type = T;
+
 	// human-readable name of the group
 	static constexpr std::string_view name() { return "SU(3)"; }
 
@@ -113,8 +113,8 @@ SU3<T> operator*(SU3<T> const &a, util::type_identity_t<T> b)
 	return SU3(a.v_ * b);
 }
 
-template <typename T, size_t W>
-SU3<simd<T, W>> operator*(SU3<simd<T, W>> const &a, util::type_identity_t<T> b)
+template <typename T>
+SU3<T> operator*(SU3<T> const &a, typename T::value_type b)
 {
 	return SU3(a.v_ * b);
 }
@@ -123,8 +123,7 @@ template <typename T> void operator*=(SU3<T> &a, util::type_identity_t<T> b)
 {
 	a.v_ *= b;
 }
-template <typename T, size_t W>
-void operator*=(SU3<simd<T, W>> &a, util::type_identity_t<T> b)
+template <typename T> void operator*=(SU3<T> &a, typename T::value_type b)
 {
 	for (int i = 0; i < 3; ++i)
 		for (int j = 0; j < 3; ++j)

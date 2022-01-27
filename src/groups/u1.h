@@ -9,12 +9,10 @@
 
 namespace mesh {
 
-using util::simd;
-
 // unitary group U(1)
 template <typename T> struct U1
 {
-	util::complex<T> v_;
+	using value_type = T;
 
 	static constexpr std::string_view name() { return "U(1)"; }
 	static constexpr int dim() { return 1; }
@@ -38,6 +36,8 @@ template <typename T> struct U1
 		// the sole generator of U(1) is iT = "1/sqrt(2) i"
 		return U1<T>({T(0), rng.template normal<T>() * T(M_SQRT1_2)});
 	}
+
+	util::complex<T> v_;
 };
 
 // TODO: either remove this, or define it more clearly
@@ -72,14 +72,12 @@ template <typename T> void operator*=(U1<T> &a, util::type_identity_t<T> b)
 	a.v_ *= b;
 }
 
-template <typename T, size_t W>
-U1<simd<T, W>> operator*(U1<simd<T, W>> const &a,
-                         util::type_identity_t<T> const &b)
+template <typename T>
+U1<T> operator*(U1<T> const &a, typename T::value_type const &b)
 {
-	return U1<simd<T, W>>(a.v_ * b);
+	return U1<T>(a.v_ * b);
 }
-template <typename T, size_t W>
-void operator*=(U1<simd<T, W>> &a, util::type_identity_t<T> b)
+template <typename T> void operator*=(U1<T> &a, typename T::value_type b)
 {
 	a.v_ *= b;
 }
