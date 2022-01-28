@@ -14,6 +14,8 @@ namespace mesh {
 
 using std::exp;
 
+inline util::Stopwatch swExp;
+
 // create an array of delta values for a single Hamiltonian dynamics trajectory
 //   * epsilon is in Langevin-units, result is in HMD units
 //   * resulting deltas should be interpreted alternating between
@@ -21,6 +23,16 @@ using std::exp;
 //   * supported schemes are: 2lf, 2mn, 4mn
 std::vector<double> makeDeltas(std::string_view scheme, double epsilon,
                                int substeps);
+
+// same es 'U = exp(P * t) * U', but slightly faster (and no allocations)
+template <typename vG>
+void evolve(Lattice<vG> &U, Lattice<vG> const &P, double t)
+{
+	util::StopwatchGuard swg(swExp);
+	assert(compatible(U, P));
+	for (size_t i = 0; i < U.grid().osize(); ++i)
+		U.data()[i] = exp(P.data()[i] * t) * U.data()[i];
+}
 
 // evolve (U,P) in Hamiltonian dynamics basic Wilson-action
 //   * should be generalized to other actions
@@ -36,7 +48,7 @@ void runHmd(GaugeField<vG> &U, GaugeField<vG> &P, double beta,
 		if (i % 2 == 0)
 		{
 			for (int mu = 0; mu < Nd; ++mu)
-				U[mu] = exp(P[mu] * deltas[i]) * U[mu];
+				evolve(U[mu], P[mu], deltas[i]);
 		}
 		else
 		{

@@ -8,6 +8,9 @@ using namespace mesh;
 
 int main(int argc, char **argv)
 {
+	util::Stopwatch swTotal;
+	swTotal.start();
+
 	// physics parameters
 	std::string group = "su3";
 	std::vector<int32_t> geom = {6, 6, 6, 6};
@@ -93,6 +96,21 @@ int main(int argc, char **argv)
 	    },
 	    group, precision);
 
+	swTotal.stop();
+
 	fmt::print("lattice allocs: {}\n", latticeAllocCount);
-	fmt::print("time in cshift: {:.2f}\n", swCshift.secs());
+
+	fmt::print("time in cshift:    {:#6.2f} s ({:#4.1f} %)\n", swCshift.secs(),
+	           100. * swCshift.secs() / swTotal.secs());
+	fmt::print("time in staples:   {:#6.2f} s ({:#4.1f} %)\n", swStaples.secs(),
+	           100. * swStaples.secs() / swTotal.secs());
+	fmt::print("time in rng:       {:#6.2f} s ({:#4.1f} %)\n", swRandom.secs(),
+	           100. * swRandom.secs() / swTotal.secs());
+	fmt::print("time in plaquette: {:#6.2f} s ({:#4.1f} %)\n",
+	           swPlaquette.secs(), 100. * swPlaquette.secs() / swTotal.secs());
+	fmt::print("time in reunitize: {:#6.2f} s ({:#4.1f} %)\n",
+	           swReunitize.secs(), 100. * swReunitize.secs() / swTotal.secs());
+	fmt::print("time in exp:       {:#6.2f} s ({:#4.1f} %)\n", swExp.secs(),
+	           100. * swExp.secs() / swTotal.secs());
+	fmt::print("total:             {:#6.2f} s\n", swTotal.secs());
 }

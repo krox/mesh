@@ -24,6 +24,8 @@ using util::real;
 //       probably even forbidden by the C++ standard.
 template <typename vG> using GaugeField = std::vector<Lattice<vG>>;
 
+inline util::Stopwatch swRandom, swStaples, swReunitize, swPlaquette;
+
 template <typename vG> GaugeField<vG> makeGaugeField(Grid const &g)
 {
 	GaugeField<vG> r;
@@ -35,6 +37,7 @@ template <typename vG> GaugeField<vG> makeGaugeField(Grid const &g)
 template <typename T>
 void randomGaugeField(Lattice<T> &U, util::xoshiro256 &rng)
 {
+	util::StopwatchGuard swg(swRandom);
 	auto osize = U.grid().osize();
 	for (size_t i = 0; i < osize; ++i)
 		for (size_t j = 0; j < TensorTraits<T>::simdWidth; ++j)
@@ -45,6 +48,7 @@ void randomGaugeField(Lattice<T> &U, util::xoshiro256 &rng)
 template <typename T>
 void randomAlgebraField(Lattice<T> &F, util::xoshiro256 &rng)
 {
+	util::StopwatchGuard swg(swRandom);
 	auto osize = F.grid().osize();
 	for (size_t i = 0; i < osize; ++i)
 		for (size_t j = 0; j < TensorTraits<T>::simdWidth; ++j)
@@ -55,6 +59,7 @@ void randomAlgebraField(Lattice<T> &F, util::xoshiro256 &rng)
 template <typename T>
 void randomGaugeField(std::vector<T> &U, util::xoshiro256 &rng)
 {
+	util::StopwatchGuard swg(swRandom);
 	for (auto &Umu : U)
 		randomGaugeField(Umu, rng);
 }
@@ -62,12 +67,14 @@ void randomGaugeField(std::vector<T> &U, util::xoshiro256 &rng)
 template <typename T>
 void randomAlgebraField(std::vector<T> &F, util::xoshiro256 &rng)
 {
+	util::StopwatchGuard swg(swRandom);
 	for (auto &Fmu : F)
 		randomAlgebraField(Fmu, rng);
 }
 
 template <typename vG> void reunitize(GaugeField<vG> &U)
 {
+	util::StopwatchGuard swg(swReunitize);
 	size_t osites = U[0].grid().osize();
 	for (auto &Umu : U)
 		for (size_t i = 0; i < osites; ++i)
@@ -77,6 +84,7 @@ template <typename vG> void reunitize(GaugeField<vG> &U)
 /** normalized to [0,1] */
 template <typename vG> double plaquette(GaugeField<vG> const &U)
 {
+	util::StopwatchGuard swg(swPlaquette);
 	double vol = U[0].grid().size();
 	double s = 0;
 	int Nd = U[0].grid().ndim();
@@ -96,6 +104,7 @@ template <typename vG> double plaquette(GaugeField<vG> const &U)
  */
 template <typename vG> Lattice<vG> stapleSum(GaugeField<vG> const &U, int mu)
 {
+	util::StopwatchGuard swg(swStaples);
 	auto S = Lattice<vG>::zeros(U[0].grid());
 	int Nd = U[0].grid().ndim();
 	for (int nu = 0; nu < Nd; ++nu)

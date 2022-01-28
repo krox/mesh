@@ -133,13 +133,11 @@ bool compatible(Lattice<T> const &a, Lattice<U> const &b)
 }
 
 #define UTIL_DEFINE_LATTICE_BINARY(op)                                         \
-	template <typename T, typename U>                                          \
-	auto operator op(Lattice<T> const &a, Lattice<U> const &b)                 \
-	    ->Lattice<decltype(std::declval<T>() op std::declval<U>())>            \
+	template <typename T>                                                      \
+	Lattice<T> operator op(Lattice<T> const &a, Lattice<T> const &b)           \
 	{                                                                          \
 		assert(compatible(a, b));                                              \
-		auto r = Lattice<decltype(std::declval<T>() op std::declval<U>())>(    \
-		    a.grid());                                                         \
+		auto r = Lattice<T>(a.grid());                                         \
 		for (size_t i = 0; i < a.grid().osize(); ++i)                          \
 			r.data()[i] = a.data()[i] op b.data()[i];                          \
 		return r;                                                              \
@@ -184,13 +182,19 @@ bool compatible(Lattice<T> const &a, Lattice<U> const &b)
 		return a;                                                              \
 	}                                                                          \
 	template <typename T, typename U>                                          \
-	auto operator op(Lattice<T> const &a, U const &b)                          \
-	    ->Lattice<decltype(std::declval<T>() op b)>                            \
+	auto operator op(Lattice<T> const &a, U const &b)->Lattice<T>              \
 	{                                                                          \
-		auto r = Lattice<decltype(std::declval<T>() op b)>(a.grid());          \
+		auto r = Lattice<T>(a.grid());                                         \
 		for (size_t i = 0; i < a.grid().osize(); ++i)                          \
 			r.data()[i] = a.data()[i] op b;                                    \
 		return r;                                                              \
+	}                                                                          \
+	template <typename T, typename U>                                          \
+	auto operator op(Lattice<T> &&a, U const &b)->Lattice<T>                   \
+	{                                                                          \
+		for (size_t i = 0; i < a.grid().osize(); ++i)                          \
+			a.data()[i] = a.data()[i] op b;                                    \
+		return std::move(a);                                                   \
 	}                                                                          \
 	template <typename T, typename U>                                          \
 	Lattice<T> &operator op##=(Lattice<T> &a, U const &b)                      \

@@ -157,29 +157,14 @@ template <typename T> T norm2(SU2<T> const &a)
 // exponential map from su(2) algebra to SU(2) group
 template <typename T> SU2<T> exp(SU2<T> const &a)
 {
-	// exact version (only valid for a[0] = 0)
-	/*
+	// The following is exact assuming a[0] = 0. Also faster than the
+	// usual 12-order Taylor series. Sadly, this version produces
+	//     exp({0,0,0,0}) = {1, nan, nan, nan}
+	// though hopefully that does not happen in practice
+
 	auto alpha = sqrt(a[1] * a[1] + a[2] * a[2] + a[3] * a[3]);
 	auto f = sin(alpha) / alpha;
-	SU2<T> r;
-	r[0] = cos(alpha);
-	r[1] = a[1] * f;
-	r[2] = a[2] * f;
-	r[3] = a[3] * f;
-	*/
-
-	// explicit taylor version
-	auto b = a * (1.0 / 16.0);
-	auto inc = b;
-	auto r = SU2<T>::one() + b;
-	for (int n = 2; n <= 12; ++n)
-	{
-		inc = inc * b * (1.0 / n);
-		r += inc;
-	}
-	for (int i = 0; i < 4; ++i)
-		r = r * r;
-	return r;
+	return {cos(alpha), a[1] * f, a[2] * f, a[3] * f};
 }
 
 template <typename T> SU2<T> projectOnGroup(SU2<T> const &a)
