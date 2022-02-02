@@ -167,6 +167,14 @@ template <typename T> SU2<T> exp(SU2<T> const &a)
 	return {cos(alpha), a[1] * f, a[2] * f, a[3] * f};
 }
 
+// exp(t*A)
+template <typename T> SU2<T> exp(SU2<T> const &a, double t)
+{
+	auto alpha = sqrt(a[1] * a[1] + a[2] * a[2] + a[3] * a[3]);
+	auto f = sin(alpha * t) / alpha;
+	return {cos(alpha * t), a[1] * f, a[2] * f, a[3] * f};
+}
+
 template <typename T> SU2<T> projectOnGroup(SU2<T> const &a)
 {
 	auto s = a[0] * a[0] + a[1] * a[1] + a[2] * a[2] + a[3] * a[3];
