@@ -1,5 +1,6 @@
 #pragma once
 
+#include "lattice/tensor.h"
 #include "util/span.h"
 #include "util/static_vector.h"
 #include <map>
@@ -110,6 +111,16 @@ class Grid
 			simdWidth /= 2;
 		}
 		return make(shape, ishape);
+	}
+
+	static Grid const &make_single(Coordinate const &shape)
+	{
+		return make(shape, TensorTraits<util::simd<float>>::simdWidth);
+	}
+
+	static Grid const &make_double(Coordinate const &shape)
+	{
+		return make(shape, TensorTraits<util::simd<double>>::simdWidth);
 	}
 };
 
