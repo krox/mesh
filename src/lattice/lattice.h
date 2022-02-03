@@ -132,6 +132,18 @@ bool compatible(Lattice<T> const &a, Lattice<U> const &b)
 	return &a.grid() == &b.grid();
 }
 
+template <typename F, typename T, typename... Ts>
+void lattice_apply(F f, Lattice<T> &a, Lattice<Ts> const &... as)
+{
+	std::array<Grid const *, sizeof...(Ts)> grids = {&as.grid()...};
+	for (size_t i = 0; i < sizeof...(Ts); ++i)
+		assert(grids[i] == &a.grid());
+
+	size_t osize = a.grid().osize();
+	for (size_t i = 0; i < osize; ++i)
+		f(a.data()[i], as.data()[i]...);
+}
+
 #define UTIL_DEFINE_LATTICE_BINARY(op)                                         \
 	template <typename T>                                                      \
 	Lattice<T> operator op(Lattice<T> const &a, Lattice<T> const &b)           \

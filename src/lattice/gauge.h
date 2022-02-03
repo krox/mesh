@@ -111,8 +111,20 @@ template <typename vG> Lattice<vG> stapleSum(GaugeField<vG> const &U, int mu)
 	{
 		if (nu == mu)
 			continue;
-		S += cshift(U[nu], mu, 1) * adj(cshift(U[mu], nu, 1)) * adj(U[nu]);
-		S += cshift(adj(cshift(U[nu], mu, 1)) * adj(U[mu]) * U[nu], nu, -1);
+
+		// readable version
+		// S += cshift(U[nu], mu, 1) * adj(cshift(U[mu], nu, 1)) * adj(U[nu]);
+		// S += cshift(adj(cshift(U[nu], mu, 1)) * adj(U[mu]) * U[nu], nu, -1);
+
+		// optimized (fewer temporaries, fewer memory passes)
+		auto tmp = cshift(U[nu], mu, 1);
+		lattice_apply([](vG &a, vG const &b, vG const &c,
+		                 vG const &d) { a += b * adj(d * c); },
+		              S, tmp, cshift(U[mu], nu, 1), U[nu]);
+		lattice_apply(
+		    [](vG &a, vG const &b, vG const &c) { a = adj(b * a) * c; }, tmp,
+		    U[mu], U[nu]);
+		S += cshift(tmp, nu, -1);
 	}
 	return S;
 }
