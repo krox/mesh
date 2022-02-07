@@ -15,6 +15,7 @@
 namespace mesh {
 
 inline int64_t latticeAllocCount = 0;
+inline util::Stopwatch swCshift;
 
 template <typename vT> class Lattice
 {
@@ -282,8 +283,6 @@ template <typename T> Lattice<T> operator*(Lattice<T> &&a, double b)
 		a.data()[i] *= b;
 	return std::move(a);
 }
-
-inline util::Stopwatch swCshift;
 
 template <typename T>
 Lattice<T> cshift(Lattice<T> const &a, int dir, int offset)

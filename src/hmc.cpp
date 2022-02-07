@@ -62,8 +62,6 @@ int main(int argc, char **argv)
 		    auto hmc = Hmc<vG>(g);
 		    hmc.rng.seed(util::sha3<256>(seed.value()));
 		    hmc.randomizeGaugeField();
-		    util::Stopwatch sw;
-		    sw.start();
 		    for (size_t iter : util::ProgressRange(count))
 		    {
 			    hmc.runHmcUpdate(beta, deltas);
@@ -76,28 +74,22 @@ int main(int argc, char **argv)
 				                              hmc.plaq_history.size()));
 			    }
 		    }
-		    sw.stop();
-		    fmt::print("time per substep = {:.3f}\n",
-		               sw.secs() / (count * substeps));
-
-		    fmt::print("plaquette = {} +- {}\n", util::mean(hmc.plaq_history),
-		               sqrt(util::variance(hmc.plaq_history) /
-		                    hmc.plaq_history.size()));
-		    fmt::print("acceptance = {:.2f}\n", util::mean(hmc.accept_history));
-		    fmt::print("<exp(-dH)> = {:.4f}\n",
-		               util::mean(hmc.deltaH_history,
-		                          [](double x) { return exp(-x); }));
 
 		    if (plot)
 		    {
 			    plot->clear();
 			    plot->plotData(hmc.plaq_history);
+
+			    // util::Gnuplot().plotData(hmc.time_history);
 		    }
+
+		    hmc.print_summary();
 	    },
 	    group, precision);
 
 	swTotal.stop();
 
+	fmt::print("========== performance summary ==========\n");
 	fmt::print("lattice allocs: {}\n", latticeAllocCount);
 
 	fmt::print("time in cshift:    {:#6.2f} s ({:#4.1f} %)\n", swCshift.secs(),

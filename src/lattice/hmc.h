@@ -74,12 +74,28 @@ template <typename vG> class Hmc
 	// observables (reset any time using .reset_observables())
 	std::vector<double> plaq_history;
 	std::vector<double> deltaH_history, accept_history;
+	std::vector<double> time_history;
 
 	void reset_observables()
 	{
 		plaq_history.clear();
 		deltaH_history.clear();
 		accept_history.clear();
+		time_history.clear();
+	}
+
+	void print_summary()
+	{
+		using util::mean, util::variance, util::min, util::max;
+
+		fmt::print("========== HMC summary ==========\n");
+		fmt::print("time per step = {:.3f} s (min = {:.3f}, max = {:.3f})\n",
+		           mean(time_history), min(time_history), max(time_history));
+		fmt::print("plaquette = {:.4f} +- {:.4f}\n", mean(plaq_history),
+		           sqrt(variance(plaq_history) / plaq_history.size()));
+		fmt::print("acceptance = {:.2f}\n", mean(accept_history));
+		fmt::print("<exp(-dH)> = {:.4f}\n",
+		           mean(deltaH_history, [](double x) { return exp(-x); }));
 	}
 
 	GaugeField<vG> U_new; // temporary

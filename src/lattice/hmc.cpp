@@ -76,6 +76,9 @@ template <typename vG> void Hmc<vG>::randomizeMomenta()
 template <typename vG>
 void Hmc<vG>::runHmcUpdate(double beta, std::vector<double> const &deltas)
 {
+	util::Stopwatch sw;
+	sw.start();
+
 	// generate new momenta
 	randomizeMomenta();
 
@@ -96,9 +99,12 @@ void Hmc<vG>::runHmcUpdate(double beta, std::vector<double> const &deltas)
 	else
 		accept_history.push_back(0.0);
 
+	sw.stop();
+
 	// track some observables
 	plaq_history.push_back(plaquette(U));
 	deltaH_history.push_back(deltaH);
+	time_history.push_back(sw.secs());
 }
 
 template class Hmc<U1<util::simd<float>>>;
