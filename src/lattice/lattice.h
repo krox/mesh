@@ -139,8 +139,12 @@ void lattice_apply(F f, Lattice<T> &a, Lattice<Ts> const &... as)
 	std::array<Grid const *, sizeof...(Ts)> grids = {&as.grid()...};
 	for (size_t i = 0; i < sizeof...(Ts); ++i)
 		assert(grids[i] == &a.grid());
-
 	size_t osize = a.grid().osize();
+
+	// TODO: in principle, this should be the only place in the code where we
+	//       do explicit multithreadig using OMP. Though some careful tests
+	//       are in order before activating it
+	//#pragma omp parallel for schedule(static)
 	for (size_t i = 0; i < osize; ++i)
 		f(a.data()[i], as.data()[i]...);
 }
@@ -151,24 +155,22 @@ void lattice_apply(F f, Lattice<T> &a, Lattice<Ts> const &... as)
 	{                                                                          \
 		assert(compatible(a, b));                                              \
 		auto r = Lattice<T>(a.grid());                                         \
-		for (size_t i = 0; i < a.grid().osize(); ++i)                          \
-			r.data()[i] = a.data()[i] op b.data()[i];                          \
+		lattice_apply([](T &rr, T const &aa, T const &bb) { rr = aa op bb; },  \
+		              r, a, b);                                                \
 		return r;                                                              \
 	}                                                                          \
 	template <typename T>                                                      \
 	Lattice<T> operator op(Lattice<T> &&a, Lattice<T> const &b)                \
 	{                                                                          \
 		assert(compatible(a, b));                                              \
-		for (size_t i = 0; i < a.grid().osize(); ++i)                          \
-			a.data()[i] op## = b.data()[i];                                    \
+		lattice_apply([](T &aa, T const &bb) { aa op## = bb; }, a, b);         \
 		return std::move(a);                                                   \
 	}                                                                          \
 	template <typename T>                                                      \
 	Lattice<T> operator op(Lattice<T> const &a, Lattice<T> &&b)                \
 	{                                                                          \
 		assert(compatible(a, b));                                              \
-		for (size_t i = 0; i < a.grid().osize(); ++i)                          \
-			b.data()[i] = a.data()[i] op b.data()[i];                          \
+		lattice_apply([](T &bb, T const &aa) { bb = aa op bb; }, b, a);        \
 		return std::move(b);                                                   \
 	}                                                                          \
 	template <typename T>                                                      \
@@ -190,30 +192,26 @@ void lattice_apply(F f, Lattice<T> &a, Lattice<Ts> const &... as)
 	Lattice<T> &operator op##=(Lattice<T> &a, Lattice<U> const &b)             \
 	{                                                                          \
 		assert(compatible(a, b));                                              \
-		for (size_t i = 0; i < a.grid().osize(); ++i)                          \
-			a.data()[i] op## = b.data()[i];                                    \
+		lattice_apply([](T &aa, T const &bb) { aa op## = bb; }, a, b);         \
 		return a;                                                              \
 	}                                                                          \
 	template <typename T, typename U>                                          \
 	auto operator op(Lattice<T> const &a, U const &b)->Lattice<T>              \
 	{                                                                          \
 		auto r = Lattice<T>(a.grid());                                         \
-		for (size_t i = 0; i < a.grid().osize(); ++i)                          \
-			r.data()[i] = a.data()[i] op b;                                    \
+		lattice_apply([b](T &rr, T const &aa) { rr = aa op b; }, r, a);        \
 		return r;                                                              \
 	}                                                                          \
 	template <typename T, typename U>                                          \
 	auto operator op(Lattice<T> &&a, U const &b)->Lattice<T>                   \
 	{                                                                          \
-		for (size_t i = 0; i < a.grid().osize(); ++i)                          \
-			a.data()[i] = a.data()[i] op b;                                    \
+		lattice_apply([b](T &aa) { aa = aa op b; }, a);                        \
 		return std::move(a);                                                   \
 	}                                                                          \
 	template <typename T, typename U>                                          \
 	Lattice<T> &operator op##=(Lattice<T> &a, U const &b)                      \
 	{                                                                          \
-		for (size_t i = 0; i < a.grid().osize(); ++i)                          \
-			a.data()[i] op## = b;                                              \
+		lattice_apply([b](T &aa) { aa op## = b; }, a);                         \
 		return a;                                                              \
 	}
 
@@ -222,14 +220,12 @@ void lattice_apply(F f, Lattice<T> &a, Lattice<Ts> const &... as)
 	auto fun(Lattice<T> const &a)->Lattice<decltype(fun(std::declval<T>()))>   \
 	{                                                                          \
 		auto r = Lattice<decltype(fun(std::declval<T>()))>(a.grid());          \
-		for (size_t i = 0; i < a.grid().osize(); ++i)                          \
-			r.data()[i] = fun(a.data()[i]);                                    \
+		lattice_apply([](T &rr, T const &aa) { rr = fun(aa); }, r, a);         \
 		return r;                                                              \
 	}                                                                          \
 	template <typename T> Lattice<T> fun(Lattice<T> &&a)                       \
 	{                                                                          \
-		for (size_t i = 0; i < a.grid().osize(); ++i)                          \
-			a.data()[i] = fun(a.data()[i]);                                    \
+		lattice_apply([](T &aa) { aa = fun(aa); }, a);                         \
 		return std::move(a);                                                   \
 	}
 

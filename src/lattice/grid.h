@@ -11,6 +11,12 @@ using Coordinate = util::static_vector<int32_t, 4>;
 
 class Grid
 {
+	static std::string makeDescription(Coordinate const &shape)
+	{
+		auto sshape = util::span<const int32_t>(shape.begin(), shape.end());
+		return fmt::format("{}", sshape);
+	}
+
 	static std::string makeDescription(Coordinate const &shape,
 	                                   Coordinate const &ishape)
 	{
@@ -105,8 +111,12 @@ class Grid
 						best = i;
 					}
 			if (best == -1)
-				throw std::runtime_error("unable to distribute all simd lanes "
-				                         "over lattice geometry");
+			{
+				throw std::runtime_error(
+				    fmt::format("unable to distribute all simd lanes "
+				                "over lattice geometry (geom = {}, simd = {})",
+				                makeDescription(shape), simdWidth));
+			}
 			ishape[best] *= 2;
 			simdWidth /= 2;
 		}
