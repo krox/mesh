@@ -125,12 +125,12 @@ class Grid
 
 	static Grid const &make_single(Coordinate const &shape)
 	{
-		return make(shape, TensorTraits<util::simd<float>>::simdWidth);
+		return make(shape, util::simd<float>::size());
 	}
 
 	static Grid const &make_double(Coordinate const &shape)
 	{
-		return make(shape, TensorTraits<util::simd<double>>::simdWidth);
+		return make(shape, util::simd<double>::size());
 	}
 };
 

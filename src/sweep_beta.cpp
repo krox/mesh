@@ -60,7 +60,7 @@ int main(int argc, char **argv)
 	dispatchByGroup(
 	    [&]<typename vG>() {
 		    auto const &g = Grid::make(Coordinate(geom.begin(), geom.end()),
-		                               TensorTraits<vG>::simdWidth);
+		                               TensorTraits<vG>::simd_width);
 		    auto hmc = Hmc<vG>(g);
 		    hmc.rng.seed(util::sha3<256>(seed.value()));
 		    hmc.randomizeGaugeField();

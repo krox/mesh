@@ -57,6 +57,9 @@ template <typename T> struct SU2
 
 	T &operator[](int i) { return v_[i]; }
 	T const &operator[](int i) const { return v_[i]; }
+	static constexpr size_t size() { return 4; }
+	T *data() { return v_.data(); }
+	T const *data() const { return v_.data(); }
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -211,14 +214,6 @@ void vinsert(SU2<T> &a, size_t lane, SU2<U> const &b)
 	vinsert(a[2], lane, b[2]);
 	vinsert(a[3], lane, b[3]);
 }
-
-template <typename> struct TensorTraits;
-template <typename T> struct TensorTraits<SU2<T>>
-{
-	using ScalarType = SU2<typename TensorTraits<T>::ScalarType>;
-	static constexpr size_t simdWidth = TensorTraits<T>::simdWidth;
-	using BaseType = typename TensorTraits<T>::BaseType;
-};
 
 /*
 // SU2 heatbath

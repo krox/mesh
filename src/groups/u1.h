@@ -38,6 +38,9 @@ template <typename T> struct U1
 	}
 
 	util::complex<T> v_;
+	static constexpr size_t size() { return 2; }
+	T *data() { return &v_.re; }
+	T const *data() const { return &v_.re; }
 };
 
 // TODO: either remove this, or define it more clearly
@@ -128,14 +131,6 @@ void vinsert(U1<T> &a, size_t lane, U1<U> const &b)
 {
 	vinsert(a.v_, lane, b.v_);
 }
-
-template <typename> struct TensorTraits;
-template <typename T> struct TensorTraits<U1<T>>
-{
-	using ScalarType = U1<typename TensorTraits<T>::ScalarType>;
-	static constexpr size_t simdWidth = TensorTraits<T>::simdWidth;
-	using BaseType = typename TensorTraits<T>::BaseType;
-};
 
 #if 0 // old stuff for heatbath algorithms
 

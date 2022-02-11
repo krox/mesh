@@ -20,34 +20,38 @@ inline util::Stopwatch swCshift;
 template <typename vT> class Lattice
 {
   public:
-	static constexpr size_t simdWidth = TensorTraits<vT>::simdWidth;
-	using scalar_type = typename TensorTraits<vT>::ScalarType;
-	using vector_type = vT;
-	using base_type = typename TensorTraits<vT>::BaseType;
+	// in Grid, these types are called
+	//    scalar_type, vector_type, scalar_object, vector_object
+	using Real = typename TensorTraits<vT>::Real;
+	using vReal = typename TensorTraits<vT>::vReal;
+	using Object = typename TensorTraits<vT>::Object;
+	using vObject = typename TensorTraits<vT>::vObject;
+	static constexpr size_t simd_width = TensorTraits<vT>::simd_width;
 
 	// sanity checks on the types
 	static_assert(std::is_same_v<vT, std::decay_t<vT>>);
-	static_assert(std::is_trivially_copyable_v<scalar_type>);
-	static_assert(std::is_trivially_copyable_v<vector_type>);
-	static_assert(sizeof(vector_type) == simdWidth * sizeof(scalar_type));
+	static_assert(std::is_trivially_copyable_v<Object>);
+	static_assert(std::is_trivially_copyable_v<vObject>);
+	static_assert(sizeof(vObject) == simd_width * sizeof(Object));
+	static_assert(sizeof(Object) == Object::size() * sizeof(Real));
 
   private:
-	Grid const *grid_ = nullptr;  // never null
-	vector_type *data_ = nullptr; // can be null if grid is the empty lattice
+	Grid const *grid_ = nullptr; // never null
+	vObject *data_ = nullptr;    // can be null if grid is the empty lattice
 
   public:
-	Lattice() : grid_(&Grid::make({0}, simdWidth)) {}
+	Lattice() : grid_(&Grid::make({0}, simd_width)) {}
 	explicit Lattice(Grid const &g) : grid_(&g)
 	{
-		assert(grid().isize() == simdWidth);
+		assert(grid().isize() == simd_width);
 		++latticeAllocCount;
-		data_ = new vector_type[grid().osize()];
+		data_ = new vObject[grid().osize()];
 	}
 
 	static Lattice zeros(Grid const &g)
 	{
 		auto a = Lattice(g);
-		std::memset(a.data(), 0, g.size() * sizeof(scalar_type));
+		std::memset(a.data(), 0, g.size() * sizeof(Object));
 		return a;
 	}
 
@@ -55,24 +59,24 @@ template <typename vT> class Lattice
 	{
 		auto a = Lattice(g);
 		for (size_t i = 0; i < g.osize(); ++i)
-			a.data()[i] = vector_type(scalar_type(1.0));
+			a.data()[i] = vObject(Object(1.0));
 		return a;
 	}
 
 	Grid const &grid() const { return *grid_; }
-	vector_type *data() { return data_; }
-	vector_type const *data() const { return data_; }
+	vObject *data() { return data_; }
+	vObject const *data() const { return data_; }
 
 	// copy/move operations
 	Lattice(Lattice const &other)
-	    : grid_(&other.grid()), data_(new vector_type[grid().osize()])
+	    : grid_(&other.grid()), data_(new vObject[grid().osize()])
 	{
 		++latticeAllocCount;
-		std::memcpy(data(), other.data(), grid().osize() * sizeof(vector_type));
+		std::memcpy(data(), other.data(), grid().osize() * sizeof(vObject));
 	}
 	Lattice(Lattice &&other) : grid_{&other.grid()}, data_{other.data()}
 	{
-		other.grid_ = &Grid::make({0}, simdWidth);
+		other.grid_ = &Grid::make({0}, simd_width);
 		other.data_ = nullptr;
 	}
 	Lattice &operator=(Lattice const &other)
@@ -81,10 +85,10 @@ template <typename vT> class Lattice
 		{
 			delete[] data_;
 			++latticeAllocCount;
-			data_ = new vector_type[other.grid().osize()];
+			data_ = new vObject[other.grid().osize()];
 		}
 		grid_ = &other.grid();
-		std::memcpy(data(), other.data(), grid().osize() * sizeof(vector_type));
+		std::memcpy(data(), other.data(), grid().osize() * sizeof(vObject));
 		return *this;
 	}
 	Lattice &operator=(Lattice &&other)
@@ -97,25 +101,25 @@ template <typename vT> class Lattice
 	~Lattice() { delete[] data_; }
 
 	/** single-element access. Slow, but sometimes nice to have. */
-	scalar_type peekSite(Coordinate const &index) const
+	Object peekSite(Coordinate const &index) const
 	{
 		auto [oIndex, iIndex] = grid().flatIndex(index);
 		return vextract(data()[oIndex], iIndex);
 	}
 
-	void pokeSite(Coordinate const &index, scalar_type const &a)
+	void pokeSite(Coordinate const &index, Object const &a)
 	{
 		auto [oIndex, iIndex] = grid().flatIndex(index);
 		vinsert(data()[oIndex], iIndex, a);
 	}
 
 	/** convert to ndarray. slow, pretty much only for debugging */
-	template <size_t N> util::ndarray<scalar_type, N> toArray() const
+	template <size_t N> util::ndarray<Object, N> toArray() const
 	{
 		assert(N == grid().ndim());
 		if constexpr (N == 2)
 		{
-			auto r = util::ndarray<scalar_type, N>(
+			auto r = util::ndarray<Object, N>(
 			    {(size_t)grid().shape(0), (size_t)grid().shape(1)});
 			for (int x = 0; x < grid().shape(0); ++x)
 				for (int y = 0; y < grid().shape(1); ++y)
@@ -127,6 +131,69 @@ template <typename vT> class Lattice
 	}
 };
 
+// equivalent to Lattice<T>[Nd] width Nd = grid.ndim
+//     * intended for a single "outer" (Lorentz) index
+//     * all contained lattices are expected to live on the same grid
+//     * better operator overloading than std::vector<Lattice>
+template <typename vT> class LatticeStack
+{
+  public:
+	using Real = Lattice<vT>::Real;
+	using vReal = Lattice<vT>::vReal;
+	using Object = Lattice<vT>::Object;
+	using vObject = Lattice<vT>::vObject;
+
+  private:
+	std::vector<Lattice<vT>> data_;
+
+  public:
+	LatticeStack() = default;
+	LatticeStack(Grid const &g)
+	{
+		data_.reserve(g.ndim());
+		for (int i = 0; i < g.ndim(); ++i)
+			data_.push_back(Lattice<vT>(g));
+	}
+	static LatticeStack zeros(Grid const &g)
+	{
+		LatticeStack r;
+		r.data_.reserve(g.ndim());
+		for (int i = 0; i < g.ndim(); ++i)
+			r.data.push_back(Lattice<vT>::zeros(g));
+		return r;
+	}
+	static LatticeStack ones(Grid const &g)
+	{
+		LatticeStack r;
+		r.data_.reserve(g.ndim());
+		for (int i = 0; i < g.ndim(); ++i)
+			r.data.push_back(Lattice<vT>::ones(g));
+		return r;
+	}
+
+	Grid const &grid() const
+	{
+		if (data_.empty())
+		{
+			// default-lattice is 0-dimensional
+			return Lattice<vT>().grid();
+		}
+		else
+		{
+			Grid const &g = data_[0].grid();
+			assert(g.ndim() == (int)data_.size());
+			for (int i = 1; i < (int)data_.size(); ++i)
+				assert(compatible(data_[0], data_[i]));
+			return g;
+		}
+	}
+
+	bool empty() const { return data_.empty(); }
+	size_t size() const { return data_.size(); }
+	Lattice<vT> &operator[](size_t i) { return data_.at(i); }
+	Lattice<vT> const &operator[](size_t i) const { return data_.at(i); }
+};
+
 template <typename T, typename U>
 bool compatible(Lattice<T> const &a, Lattice<U> const &b)
 {
@@ -136,9 +203,8 @@ bool compatible(Lattice<T> const &a, Lattice<U> const &b)
 template <typename F, typename T, typename... Ts>
 void lattice_apply(F f, Lattice<T> &a, Lattice<Ts> const &... as)
 {
-	std::array<Grid const *, sizeof...(Ts)> grids = {&as.grid()...};
-	for (size_t i = 0; i < sizeof...(Ts); ++i)
-		assert(grids[i] == &a.grid());
+	assert((compatible(a, as) && ...));
+
 	size_t osize = a.grid().osize();
 
 	// TODO: in principle, this should be the only place in the code where we
@@ -147,6 +213,14 @@ void lattice_apply(F f, Lattice<T> &a, Lattice<Ts> const &... as)
 	//#pragma omp parallel for schedule(static)
 	for (size_t i = 0; i < osize; ++i)
 		f(a.data()[i], as.data()[i]...);
+}
+
+template <typename F, typename T, typename... Ts>
+void lattice_apply(F f, LatticeStack<T> &a, LatticeStack<Ts> const &... as)
+{
+	assert(((a.size() == as.size()) && ...));
+	for (size_t i = 0; i < a.size(); ++i)
+		lattice_apply(f, a[i], as[i]...);
 }
 
 #define UTIL_DEFINE_LATTICE_BINARY(op)                                         \
@@ -179,13 +253,13 @@ void lattice_apply(F f, Lattice<T> &a, Lattice<Ts> const &... as)
 		return operator op(std::move(a), b);                                   \
 	}                                                                          \
 	template <typename T>                                                      \
-	std::vector<Lattice<T>> operator op(std::vector<Lattice<T>> const &a,      \
-	                                    std::vector<Lattice<T>> const &b)      \
+	LatticeStack<T> operator op(LatticeStack<T> const &a,                      \
+	                            LatticeStack<T> const &b)                      \
 	{                                                                          \
 		assert(a.size() == b.size());                                          \
-		auto c = std::vector<Lattice<T>>(a.size());                            \
-		for (size_t i = 0; i < c.size(); ++i)                                  \
-			c[i] = a[i] op b[i];                                               \
+		auto c = LatticeStack<T>(a.grid());                                    \
+		lattice_apply([](T &cc, T const &aa, T const &bb) { cc = aa op bb; },  \
+		              c, a, b);                                                \
 		return c;                                                              \
 	}                                                                          \
 	template <typename T, typename U>                                          \
@@ -239,7 +313,7 @@ void lattice_apply(F f, Lattice<T> &a, Lattice<Ts> const &... as)
 		return vsum(s);                                                        \
 	}                                                                          \
 	template <typename T>                                                      \
-	auto name(std::vector<Lattice<T>> const &a)                                \
+	auto name(LatticeStack<T> const &a)                                        \
 	    ->decltype(vsum(fun(std::declval<T>())))                               \
 	{                                                                          \
 		decltype(vsum(fun(std::declval<T>()))) s = {};                         \
@@ -284,6 +358,7 @@ template <typename T>
 Lattice<T> cshift(Lattice<T> const &a, int dir, int offset)
 {
 	util::StopwatchGuard swg{swCshift};
+	using base_type = typename Lattice<T>::vReal;
 
 	auto const &g = a.grid();
 	assert(0 <= dir && dir < g.ndim());
@@ -304,10 +379,10 @@ Lattice<T> cshift(Lattice<T> const &a, int dir, int offset)
 		osFast *= g.oshape(i);
 		isFast *= g.ishape(i);
 	}
-	osFast *= sizeof(T) / sizeof(typename Lattice<T>::base_type);
+	osFast *= sizeof(T) / sizeof(base_type);
 
 	// simd shuffle
-	typename Lattice<T>::base_type::int_type mask;
+	typename base_type::int_type mask;
 	for (int x = 0; x < isSlow; ++x)
 		for (int y = 0; y < is; ++y)
 			for (int z = 0; z < isFast; ++z)
@@ -317,7 +392,6 @@ Lattice<T> cshift(Lattice<T> const &a, int dir, int offset)
 
 	auto r = Lattice<T>(a.grid());
 
-	using base_type = typename Lattice<T>::base_type;
 	base_type *rp;
 	base_type const *ap;
 

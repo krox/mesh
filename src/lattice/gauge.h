@@ -12,27 +12,18 @@
 #include "util/complex.h"
 #include "util/linalg.h"
 #include "util/random.h"
-#include <vector>
 
 namespace mesh {
 
 using util::real;
 
-// TODO: We should use a different container than std::vector here. Its not
-//       very convenient to explicit overload all operations to handle the
-//       Lorentz-parallel case. And operator-overloading (in lattice.h) is
-//       probably even forbidden by the C++ standard.
-template <typename vG> using GaugeField = std::vector<Lattice<vG>>;
+// Quite often, the Lorentz components are used separately (e.g, in order to
+// cshift them into different directions). So it should be beneficial to
+// performance to separate them, i.e., not putting the Lorentz index into
+// the inner tensor structure.
+template <typename vG> using GaugeField = LatticeStack<vG>;
 
 inline util::Stopwatch swRandom, swStaples, swReunitize, swPlaquette;
-
-template <typename vG> GaugeField<vG> makeGaugeField(Grid const &g)
-{
-	GaugeField<vG> r;
-	for (int mu = 0; mu < g.ndim(); ++mu)
-		r.emplace_back(g);
-	return r;
-}
 
 template <typename T>
 void randomGaugeField(Lattice<T> &U, util::xoshiro256 &rng)
@@ -40,9 +31,9 @@ void randomGaugeField(Lattice<T> &U, util::xoshiro256 &rng)
 	util::StopwatchGuard swg(swRandom);
 	auto osize = U.grid().osize();
 	for (size_t i = 0; i < osize; ++i)
-		for (size_t j = 0; j < TensorTraits<T>::simdWidth; ++j)
+		for (size_t j = 0; j < Lattice<T>::simd_width; ++j)
 			vinsert(U.data()[i], j,
-			        TensorTraits<T>::ScalarType::randomGroupElement(rng));
+			        Lattice<T>::Object::randomGroupElement(rng));
 }
 
 template <typename T>
@@ -51,34 +42,31 @@ void randomAlgebraField(Lattice<T> &F, util::xoshiro256 &rng)
 	util::StopwatchGuard swg(swRandom);
 	auto osize = F.grid().osize();
 	for (size_t i = 0; i < osize; ++i)
-		for (size_t j = 0; j < TensorTraits<T>::simdWidth; ++j)
+		for (size_t j = 0; j < Lattice<T>::simd_width; ++j)
 			vinsert(F.data()[i], j,
-			        TensorTraits<T>::ScalarType::randomAlgebraElement(rng));
+			        Lattice<T>::Object::randomAlgebraElement(rng));
 }
 
 template <typename T>
-void randomGaugeField(std::vector<T> &U, util::xoshiro256 &rng)
+void randomGaugeField(LatticeStack<T> &U, util::xoshiro256 &rng)
 {
 	util::StopwatchGuard swg(swRandom);
-	for (auto &Umu : U)
-		randomGaugeField(Umu, rng);
+	for (size_t mu = 0; mu < U.size(); ++mu)
+		randomGaugeField(U[mu], rng);
 }
 
 template <typename T>
-void randomAlgebraField(std::vector<T> &F, util::xoshiro256 &rng)
+void randomAlgebraField(LatticeStack<T> &F, util::xoshiro256 &rng)
 {
 	util::StopwatchGuard swg(swRandom);
-	for (auto &Fmu : F)
-		randomAlgebraField(Fmu, rng);
+	for (size_t mu = 0; mu < F.size(); ++mu)
+		randomAlgebraField(F[mu], rng);
 }
 
 template <typename vG> void reunitize(GaugeField<vG> &U)
 {
 	util::StopwatchGuard swg(swReunitize);
-	size_t osites = U[0].grid().osize();
-	for (auto &Umu : U)
-		for (size_t i = 0; i < osites; ++i)
-			Umu.data()[i] = projectOnGroupFast(Umu.data()[i]);
+	lattice_apply([](auto &a) { a = projectOnGroupFast(a); }, U);
 }
 
 /** normalized to [0,1] */

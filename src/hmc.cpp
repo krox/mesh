@@ -3,6 +3,7 @@
 #include "fmt/format.h"
 #include "lattice/gauge.h"
 #include "util/hash.h"
+#include "util/hdf5.h"
 
 using namespace mesh;
 
@@ -26,6 +27,8 @@ int main(int argc, char **argv)
 
 	// others
 	bool doPlot = false;
+	std::string filename = "";
+	bool allow_overwrite = false;
 
 	CLI::App app{"Simulate pure gauge theory."};
 
@@ -46,6 +49,9 @@ int main(int argc, char **argv)
 	// misc
 	app.add_flag("--plot", doPlot, "do some plots summarizing the trajectory");
 	CLI11_PARSE(app, argc, argv);
+	app.add_option("--filename", filename,
+	               "hdf5 file to store configs (and metadata) in");
+	app.add_flag("--force", allow_overwrite, "allow overwriting output file");
 
 	if (!seed)
 		seed = fmt::format("{}", std::random_device()());
@@ -54,11 +60,34 @@ int main(int argc, char **argv)
 	std::optional<util::Gnuplot> plot;
 	if (doPlot)
 		plot.emplace();
+	util::DataFile file;
+	if (filename != "")
+	{
+		file = util::DataFile::create(filename, allow_overwrite);
+
+		// physical parameters
+		file.setAttribute("group", group);
+		file.setAttribute("beta", beta);
+		file.setAttribute("geometry", geom);
+
+		// simulation parameters
+		file.setAttribute("hmc_scheme", scheme);
+		file.setAttribute("hmc_epsilon", epsilon);
+		file.setAttribute("hmc_substeps", substeps);
+		file.setAttribute("hmc_metropolis", 1);
+		file.setAttribute("markov_seed", seed);
+		file.setAttribute("markov_start", "random");
+		file.setAttribute("markov_discard", 0);
+		file.setAttribute("markov_count", count);
+		file.setAttribute("markov_spacing", 1);
+
+		// file.makeGroup("/configs");
+	}
 
 	dispatchByGroup(
 	    [&]<typename vG>() {
 		    auto const &g = Grid::make(Coordinate(geom.begin(), geom.end()),
-		                               TensorTraits<vG>::simdWidth);
+		                               TensorTraits<vG>::simd_width);
 		    auto hmc = Hmc<vG>(g);
 		    hmc.rng.seed(util::sha3<256>(seed.value()));
 		    hmc.randomizeGaugeField();
@@ -73,6 +102,11 @@ int main(int argc, char **argv)
 				                       .slice(hmc.plaq_history.size() / 10,
 				                              hmc.plaq_history.size()));
 			    }
+
+			    if (file)
+			    {
+				    // std::string name = fmt::format("/configs/{}", iter + 1);
+			    }
 		    }
 
 		    if (plot)
@@ -84,6 +118,14 @@ int main(int argc, char **argv)
 		    }
 
 		    hmc.print_summary();
+
+		    if (file)
+		    {
+			    file.writeData("plaq_history", hmc.plaq_history);
+			    file.writeData("accept_history", hmc.accept_history);
+			    file.writeData("deltaH_history", hmc.deltaH_history);
+			    file.writeData("time_history", hmc.time_history);
+		    }
 	    },
 	    group, precision);
 

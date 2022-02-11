@@ -51,10 +51,7 @@ std::vector<double> makeDeltas(std::string_view scheme, double epsilon,
 // NOTE: we hide the implementation behind a compilation boundary, mostly in
 //       order to improve comilation times during development
 
-template <typename vG>
-Hmc<vG>::Hmc(Grid const &g)
-    : g(g), U(makeGaugeField<vG>(g)), P(makeGaugeField<vG>(g))
-{}
+template <typename vG> Hmc<vG>::Hmc(Grid const &g) : g(g), U(g), P(g) {}
 
 // reset the gauge field to a random config
 template <typename vG> void Hmc<vG>::randomizeGaugeField()

@@ -67,6 +67,9 @@ template <typename T> struct SU3
 	}
 
 	util::Matrix<util::complex<T>, 3> v_;
+	static constexpr size_t size() { return 18; }
+	T *data() { return v_.data(); }
+	T const *data() const { return v_.data(); }
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -188,13 +191,5 @@ void vinsert(SU3<T> &a, size_t lane, SU3<U> const &b)
 {
 	vinsert(a.v_, lane, b.v_);
 }
-
-template <typename> struct TensorTraits;
-template <typename T> struct TensorTraits<SU3<T>>
-{
-	using ScalarType = SU3<typename TensorTraits<T>::ScalarType>;
-	static constexpr size_t simdWidth = TensorTraits<T>::simdWidth;
-	using BaseType = typename TensorTraits<T>::BaseType;
-};
 
 } // namespace mesh

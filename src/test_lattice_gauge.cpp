@@ -8,11 +8,11 @@ using namespace mesh;
 template <typename vG> void testImpl(Coordinate geom)
 {
 	fmt::print("\n========== testing G={}, Nd={}, simd={} ==========\n",
-	           vG::name(), geom.size(), TensorTraits<vG>::simdWidth);
+	           vG::name(), geom.size(), TensorTraits<vG>::simd_width);
 	auto rng = util::xoshiro256(0);
-	auto const &g = Grid::make(geom, TensorTraits<vG>::simdWidth);
+	auto const &g = Grid::make(geom, TensorTraits<vG>::simd_width);
 
-	auto F = makeGaugeField<vG>(g);
+	auto F = GaugeField<vG>(g);
 	randomAlgebraField(F, rng);
 	fmt::print("normalizaiton of norm2(random algebra): {}\n",
 	           norm2(F) * (1.0 / (g.size() * g.ndim() * vG::dim())) / 0.5);
