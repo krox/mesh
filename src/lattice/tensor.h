@@ -38,6 +38,16 @@ template <typename T, size_t W> struct TensorTraits<util::simd<T, W>>
 	using vObject = util::simd<T, W>;
 };
 
+template <template <typename> typename F, typename T> struct TensorTraits<F<T>>
+{
+	using Real = T;
+	using vReal = T;
+	using Object = F<T>;
+	using vObject = F<T>;
+
+	static constexpr size_t simd_width = 1;
+};
+
 template <template <typename> typename F, typename T, size_t W>
 struct TensorTraits<F<util::simd<T, W>>>
 {

@@ -197,6 +197,8 @@ template <typename T> SU2<T> projectOnAlgebra(SU2<T> const &a)
 
 // utilities for horizontal simd
 
+using util::vshuffle, util::vsum, util::vextract, util::vinsert;
+
 template <typename T> auto vsum(SU2<T> const &a)
 {
 	return SU2(vsum(a[0]), vsum(a[1]), vsum(a[2]), vsum(a[3]));

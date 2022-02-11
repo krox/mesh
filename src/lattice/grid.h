@@ -25,8 +25,8 @@ class Grid
 		return fmt::format("{{{}, {}}}", sshape, sishape);
 	}
 
-	size_t osize_, isize_;
-	Coordinate oshape_, ishape_;
+	size_t osize_, isize_, size_;
+	Coordinate oshape_, ishape_, shape_;
 	std::string desc_; // human readable description
 
 	// this is a trick to make the constructor "effectively private" and still
@@ -36,7 +36,7 @@ class Grid
 
   public:
 	Grid(Coordinate const &shape, Coordinate const &ishape, private_key)
-	    : osize_(1), isize_(1), oshape_(shape), ishape_(ishape),
+	    : osize_(1), isize_(1), oshape_(shape), ishape_(ishape), shape_(shape),
 	      desc_(makeDescription(shape, ishape))
 	{
 		assert(oshape_.size() == ishape_.size());
@@ -47,6 +47,7 @@ class Grid
 			osize_ *= oshape_[i];
 			isize_ *= ishape_[i];
 		}
+		size_ = osize_ * isize_;
 	}
 
 	/** disable copy/move. Usercode should only use pointers created by make */
@@ -57,10 +58,13 @@ class Grid
 	int ndim() const { return (int)oshape_.size(); }
 	size_t osize() const { return osize_; }
 	size_t isize() const { return isize_; }
-	size_t size() const { return osize_ * isize_; }
+	size_t size() const { return size_; }
+	Coordinate oshape() const { return oshape_; }
+	Coordinate ishape() const { return ishape_; }
+	Coordinate shape() const { return shape_; }
 	int32_t oshape(size_t i) const { return oshape_[i]; }
 	int32_t ishape(size_t i) const { return ishape_[i]; }
-	int32_t shape(size_t i) const { return oshape_[i] * ishape_[i]; }
+	int32_t shape(size_t i) const { return shape_[i]; }
 
 	/** convert coordinate into (outerInde, innerIndex) */
 	std::pair<size_t, size_t> flatIndex(Coordinate const &index) const

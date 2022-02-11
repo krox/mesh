@@ -3,6 +3,7 @@
 #include "fmt/format.h"
 #include "lattice/grid.h"
 #include "lattice/tensor.h"
+#include "util/hdf5.h"
 #include "util/ndarray.h"
 #include "util/span.h"
 #include "util/stopwatch.h"
@@ -34,6 +35,7 @@ template <typename vT> class Lattice
 	static_assert(std::is_trivially_copyable_v<vObject>);
 	static_assert(sizeof(vObject) == simd_width * sizeof(Object));
 	static_assert(sizeof(Object) == Object::size() * sizeof(Real));
+	static_assert(std::is_same_v<Real, float> || std::is_same_v<Real, double>);
 
   private:
 	Grid const *grid_ = nullptr; // never null
@@ -66,6 +68,16 @@ template <typename vT> class Lattice
 	Grid const &grid() const { return *grid_; }
 	vObject *data() { return data_; }
 	vObject const *data() const { return data_; }
+
+	util::span<Real> rawSpan()
+	{
+		return util::span(data()[0].data(), grid().size() * data()[0].size());
+	}
+	util::span<const Real> rawSpan() const
+	{
+		return util::span(data()[0].data(), grid().size() * data()[0].size());
+	}
+	auto rawSpanConst() const { return rawSpan(); }
 
 	// copy/move operations
 	Lattice(Lattice const &other)
@@ -125,6 +137,30 @@ template <typename vT> class Lattice
 				for (int y = 0; y < grid().shape(1); ++y)
 					r(x, y) = peekSite({x, y});
 			return r;
+		}
+		else
+			assert(false);
+	}
+
+	// copy to different lattice of the shape, changing simd-layout on the fly
+	template <typename vU> void transferTo(Lattice<vU> &other) const
+	{
+		assert((void *)data() != (void *)other.data());
+		assert(grid().shape() == other.grid().shape());
+		static_assert(std::is_same_v<Object, typename Lattice<vU>::Object>);
+
+		if (grid().ndim() == 4)
+		{
+			int nx = grid().shape(0);
+			int ny = grid().shape(1);
+			int nz = grid().shape(2);
+			int nt = grid().shape(3);
+			for (int x = 0; x < nx; ++x)
+				for (int y = 0; y < ny; ++y)
+					for (int z = 0; z < nz; ++z)
+						for (int t = 0; t < nt; ++t)
+							other.pokeSite({x, y, z, t},
+							               peekSite({x, y, z, t}));
 		}
 		else
 			assert(false);
@@ -193,6 +229,55 @@ template <typename vT> class LatticeStack
 	Lattice<vT> &operator[](size_t i) { return data_.at(i); }
 	Lattice<vT> const &operator[](size_t i) const { return data_.at(i); }
 };
+
+// store LatticeStack to file as [Nd,X,Y,Z,T,ncomp] array
+//     * returns resulting dataset
+template <typename vT>
+util::DataSet writeToFile(util::DataFile &file, std::string const &name,
+                          LatticeStack<vT> const &a)
+{
+	auto &g = Grid::make(a.grid().shape(), 1);
+	using Object = LatticeStack<vT>::Object;
+	using Real = LatticeStack<vT>::Real;
+	auto tmp = Lattice<Object>(g);
+
+	// type and shape of resulting HDF5 dataset
+	auto type = util::h5_type_id<Real>();
+	std::vector<hsize_t> shape;
+	shape.push_back(g.ndim());
+	for (auto s : g.shape())
+		shape.push_back(s);
+	shape.push_back(vT::size());
+
+	// create dataset and fill it
+	auto dset = file.createData(name, shape, type);
+	for (size_t i = 0; i < a.size(); ++i)
+	{
+		a[i].transferTo(tmp);
+		dset.write((hsize_t)i, tmp.rawSpanConst());
+	}
+
+	return dset;
+}
+
+template <typename vT>
+void readFromFile(util::DataFile &file, std::string const &name,
+                  LatticeStack<vT> &a)
+{
+	auto &g = Grid::make(a.grid().shape(), 1);
+	using Object = LatticeStack<vT>::Object;
+	auto tmp = Lattice<Object>(g);
+
+	auto dset = file.openData(name);
+	// TODO: check shape more carefully
+	for (size_t i = 0; i < a.size(); ++i)
+	{
+
+		dset.read((hsize_t)i, tmp.rawSpan());
+		fmt::print("{}: {}\n", i, tmp.rawSpan()[0]);
+		tmp.transferTo(a[i]);
+	}
+}
 
 template <typename T, typename U>
 bool compatible(Lattice<T> const &a, Lattice<U> const &b)

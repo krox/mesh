@@ -19,6 +19,7 @@ int main(int argc, char **argv)
 
 	// simulation parameters
 	std::string scheme = "4mn";
+	std::string start = "random";
 	double epsilon = 1.0;
 	int substeps = 8;
 	int count = 100;
@@ -38,6 +39,7 @@ int main(int argc, char **argv)
 	app.add_option("--beta", beta, "(inverse) coupling constant");
 
 	// simulation options
+	app.add_option("--start", start, "starting configuration (default=random)");
 	app.add_option("--seed", seed, "seed for the rng (default=random)");
 	app.add_option("--count", count, "number of Markov steps");
 	app.add_option("--scheme", scheme, "integrator (2lf, 2mn, 4mn)");
@@ -48,10 +50,11 @@ int main(int argc, char **argv)
 
 	// misc
 	app.add_flag("--plot", doPlot, "do some plots summarizing the trajectory");
-	CLI11_PARSE(app, argc, argv);
 	app.add_option("--filename", filename,
 	               "hdf5 file to store configs (and metadata) in");
 	app.add_flag("--force", allow_overwrite, "allow overwriting output file");
+
+	CLI11_PARSE(app, argc, argv);
 
 	if (!seed)
 		seed = fmt::format("{}", std::random_device()());
@@ -76,12 +79,12 @@ int main(int argc, char **argv)
 		file.setAttribute("hmc_substeps", substeps);
 		file.setAttribute("hmc_metropolis", 1);
 		file.setAttribute("markov_seed", seed);
-		file.setAttribute("markov_start", "random");
+		file.setAttribute("markov_start", start);
 		file.setAttribute("markov_discard", 0);
 		file.setAttribute("markov_count", count);
 		file.setAttribute("markov_spacing", 1);
 
-		// file.makeGroup("/configs");
+		file.makeGroup("/configs");
 	}
 
 	dispatchByGroup(
@@ -90,7 +93,23 @@ int main(int argc, char **argv)
 		                               TensorTraits<vG>::simd_width);
 		    auto hmc = Hmc<vG>(g);
 		    hmc.rng.seed(util::sha3<256>(seed.value()));
-		    hmc.randomizeGaugeField();
+
+		    if (start == "random")
+
+			    hmc.randomizeGaugeField();
+		    else if (auto p = start.find(".h5/"); p != std::string::npos)
+		    {
+			    auto startFilename = start.substr(0, p + 3);
+			    auto dsetName = start.substr(p + 3);
+			    fmt::print("starting with dsetname = {}\n", dsetName);
+			    auto startFile = util::DataFile::open(startFilename);
+			    // TODO: check geometry with meta-data of startFile
+			    readFromFile(startFile, dsetName, hmc.U);
+		    }
+		    else
+			    throw std::runtime_error(fmt::format(
+			        "cannot understand starting point '{}'", start));
+
 		    for (size_t iter : util::ProgressRange(count))
 		    {
 			    hmc.runHmcUpdate(beta, deltas);
@@ -105,7 +124,8 @@ int main(int argc, char **argv)
 
 			    if (file)
 			    {
-				    // std::string name = fmt::format("/configs/{}", iter + 1);
+				    std::string name = fmt::format("/configs/{}", iter + 1);
+				    writeToFile(file, name, hmc.U);
 			    }
 		    }
 

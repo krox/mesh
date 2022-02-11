@@ -68,8 +68,8 @@ template <typename T> struct SU3
 
 	util::Matrix<util::complex<T>, 3> v_;
 	static constexpr size_t size() { return 18; }
-	T *data() { return v_.data(); }
-	T const *data() const { return v_.data(); }
+	T *data() { return &v_.data()->re; }
+	T const *data() const { return &v_.data()->re; }
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -180,6 +180,8 @@ template <typename T> SU3<T> projectOnAlgebra(SU3<T> const &a)
 }
 
 // simd operations
+
+using util::vshuffle, util::vsum, util::vextract, util::vinsert;
 
 template <typename T> auto vsum(SU3<T> const &a) { return SU3(vsum(a.v_)); }
 template <typename T> auto vextract(SU3<T> const &a, size_t lane)

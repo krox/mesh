@@ -121,6 +121,8 @@ template <typename T> U1<T> exp(U1<T> const &a)
 
 // simd operations
 
+using util::vshuffle, util::vsum, util::vextract, util::vinsert;
+
 template <typename T> auto vsum(U1<T> const &a) { return U1(vsum(a.v_)); }
 template <typename T> auto vextract(U1<T> const &a, size_t lane)
 {
