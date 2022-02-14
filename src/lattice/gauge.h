@@ -10,6 +10,7 @@
 #include "groups/u1.h"
 #include "lattice/lattice.h"
 #include "util/complex.h"
+#include "util/hdf5.h"
 #include "util/linalg.h"
 #include "util/random.h"
 
@@ -61,6 +62,12 @@ void randomAlgebraField(LatticeStack<T> &F, util::xoshiro256 &rng)
 	util::StopwatchGuard swg(swRandom);
 	for (size_t mu = 0; mu < F.size(); ++mu)
 		randomAlgebraField(F[mu], rng);
+}
+
+template <typename vG> void reunitize(Lattice<vG> &U)
+{
+	util::StopwatchGuard swg(swReunitize);
+	lattice_apply([](auto &a) { a = projectOnGroupFast(a); }, U);
 }
 
 template <typename vG> void reunitize(GaugeField<vG> &U)
@@ -161,6 +168,37 @@ void dispatchByGroup(F f, std::string const &group, int precision)
 	else
 		throw std::runtime_error(
 		    fmt::format("invlid precision level '{}'", precision));
+}
+
+// if grid is specified, it will be checked to match the file
+template <typename vG>
+GaugeField<vG> readConfig(std::string const &configName,
+                          Grid const *expected_grid = nullptr)
+{
+	// "my_ensemble.h5/configs/100"
+	if (auto p = configName.find(".h5/"); p != std::string::npos)
+	{
+		auto filename = configName.substr(0, p + 3);
+		auto dset = configName.substr(p + 3);
+		auto file = util::DataFile::open(filename);
+		auto geom = file.getAttribute<std::vector<int>>("geometry");
+		auto &grid = Grid::make(Coordinate(geom.begin(), geom.end()),
+		                        (int)GaugeField<vG>::simd_width);
+		if (file.getAttribute<std::string>("group") != vG::name())
+			throw std::runtime_error(fmt::format(
+			    "group mismatch on load. Expected {}, got {}\n", vG::name(),
+			    file.getAttribute<std::string>("group")));
+		if (expected_grid && expected_grid != &grid)
+			throw std::runtime_error(
+			    fmt::format("grid mismatch on load. Expected {}, got {}\n",
+			                expected_grid->to_string(), grid.to_string()));
+		auto U = GaugeField<vG>(grid);
+		readFromFile(file, dset, U);
+		return U;
+	}
+	else
+		throw std::runtime_error(
+		    fmt::format("unknown config file format '{}'", configName));
 }
 
 } // namespace mesh

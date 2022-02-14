@@ -61,7 +61,7 @@ template <typename vT> class Lattice
 	{
 		auto a = Lattice(g);
 		for (size_t i = 0; i < g.osize(); ++i)
-			a.data()[i] = vObject(Object(1.0));
+			a.data()[i] = vObject::one();
 		return a;
 	}
 
@@ -178,6 +178,7 @@ template <typename vT> class LatticeStack
 	using vReal = Lattice<vT>::vReal;
 	using Object = Lattice<vT>::Object;
 	using vObject = Lattice<vT>::vObject;
+	static constexpr size_t simd_width = Lattice<vT>::simd_width;
 
   private:
 	std::vector<Lattice<vT>> data_;
@@ -272,9 +273,7 @@ void readFromFile(util::DataFile &file, std::string const &name,
 	// TODO: check shape more carefully
 	for (size_t i = 0; i < a.size(); ++i)
 	{
-
 		dset.read((hsize_t)i, tmp.rawSpan());
-		fmt::print("{}: {}\n", i, tmp.rawSpan()[0]);
 		tmp.transferTo(a[i]);
 	}
 }

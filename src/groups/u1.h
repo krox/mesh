@@ -14,7 +14,7 @@ template <typename T> struct U1
 {
 	using value_type = T;
 
-	static constexpr std::string_view name() { return "U(1)"; }
+	static constexpr std::string_view name() { return "u1"; }
 	static constexpr int dim() { return 1; }
 	static constexpr int Nc() { return 1; }
 

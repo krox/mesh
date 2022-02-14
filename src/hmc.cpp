@@ -3,7 +3,6 @@
 #include "fmt/format.h"
 #include "lattice/gauge.h"
 #include "util/hash.h"
-#include "util/hdf5.h"
 
 using namespace mesh;
 
@@ -95,20 +94,9 @@ int main(int argc, char **argv)
 		    hmc.rng.seed(util::sha3<256>(seed.value()));
 
 		    if (start == "random")
-
 			    hmc.randomizeGaugeField();
-		    else if (auto p = start.find(".h5/"); p != std::string::npos)
-		    {
-			    auto startFilename = start.substr(0, p + 3);
-			    auto dsetName = start.substr(p + 3);
-			    fmt::print("starting with dsetname = {}\n", dsetName);
-			    auto startFile = util::DataFile::open(startFilename);
-			    // TODO: check geometry with meta-data of startFile
-			    readFromFile(startFile, dsetName, hmc.U);
-		    }
 		    else
-			    throw std::runtime_error(fmt::format(
-			        "cannot understand starting point '{}'", start));
+			    hmc.U = readConfig<vG>(start, &g);
 
 		    for (size_t iter : util::ProgressRange(count))
 		    {

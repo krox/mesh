@@ -17,8 +17,8 @@ template <typename T> struct SU3
 {
 	using value_type = T;
 
-	// human-readable name of the group
-	static constexpr std::string_view name() { return "SU(3)"; }
+	// machine-readable name of the group
+	static constexpr std::string_view name() { return "su3"; }
 
 	// dimension of the Lie group
 	//   = number of generators
