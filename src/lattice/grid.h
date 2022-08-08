@@ -1,9 +1,10 @@
 #pragma once
 
+#include "fmt/ranges.h"
 #include "lattice/tensor.h"
-#include "util/span.h"
-#include "util/static_vector.h"
+#include "util/vector.h"
 #include <map>
+#include <span>
 
 namespace mesh {
 
@@ -13,15 +14,15 @@ class Grid
 {
 	static std::string makeDescription(Coordinate const &shape)
 	{
-		auto sshape = util::span<const int32_t>(shape.begin(), shape.end());
+		auto sshape = std::span(shape.begin(), shape.end());
 		return fmt::format("{}", sshape);
 	}
 
 	static std::string makeDescription(Coordinate const &shape,
 	                                   Coordinate const &ishape)
 	{
-		auto sshape = util::span<const int32_t>(shape.begin(), shape.end());
-		auto sishape = util::span<const int32_t>(ishape.begin(), ishape.end());
+		auto sshape = std::span(shape.begin(), shape.end());
+		auto sishape = std::span(ishape.begin(), ishape.end());
 		return fmt::format("{{{}, {}}}", sshape, sishape);
 	}
 

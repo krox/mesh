@@ -69,15 +69,15 @@ template <typename vT> class Lattice
 	vObject *data() { return data_; }
 	vObject const *data() const { return data_; }
 
-	util::span<Real> rawSpan()
+	std::span<Real> rawSpan()
 	{
-		return util::span(data()[0].data(), grid().size() * data()[0].size());
+		return std::span(data()[0].data(), grid().size() * data()[0].size());
 	}
-	util::span<const Real> rawSpan() const
+	std::span<const Real> rawSpan() const
 	{
-		return util::span(data()[0].data(), grid().size() * data()[0].size());
+		return std::span(data()[0].data(), grid().size() * data()[0].size());
 	}
-	auto rawSpanConst() const { return rawSpan(); }
+	std::span<const Real> rawSpanConst() const { return rawSpan(); }
 
 	// copy/move operations
 	Lattice(Lattice const &other)
@@ -174,10 +174,10 @@ template <typename vT> class Lattice
 template <typename vT> class LatticeStack
 {
   public:
-	using Real = Lattice<vT>::Real;
-	using vReal = Lattice<vT>::vReal;
-	using Object = Lattice<vT>::Object;
-	using vObject = Lattice<vT>::vObject;
+	using Real = typename Lattice<vT>::Real;
+	using vReal = typename Lattice<vT>::vReal;
+	using Object = typename Lattice<vT>::Object;
+	using vObject = typename Lattice<vT>::vObject;
 	static constexpr size_t simd_width = Lattice<vT>::simd_width;
 
   private:
@@ -238,8 +238,8 @@ util::DataSet writeToFile(util::DataFile &file, std::string const &name,
                           LatticeStack<vT> const &a)
 {
 	auto &g = Grid::make(a.grid().shape(), 1);
-	using Object = LatticeStack<vT>::Object;
-	using Real = LatticeStack<vT>::Real;
+	using Object = typename LatticeStack<vT>::Object;
+	using Real = typename LatticeStack<vT>::Real;
 	auto tmp = Lattice<Object>(g);
 
 	// type and shape of resulting HDF5 dataset
@@ -266,7 +266,7 @@ void readFromFile(util::DataFile &file, std::string const &name,
                   LatticeStack<vT> &a)
 {
 	auto &g = Grid::make(a.grid().shape(), 1);
-	using Object = LatticeStack<vT>::Object;
+	using Object = typename LatticeStack<vT>::Object;
 	auto tmp = Lattice<Object>(g);
 
 	auto dset = file.openData(name);
@@ -285,7 +285,7 @@ bool compatible(Lattice<T> const &a, Lattice<U> const &b)
 }
 
 template <typename F, typename T, typename... Ts>
-void lattice_apply(F f, Lattice<T> &a, Lattice<Ts> const &... as)
+void lattice_apply(F f, Lattice<T> &a, Lattice<Ts> const &...as)
 {
 	assert((compatible(a, as) && ...));
 
@@ -300,7 +300,7 @@ void lattice_apply(F f, Lattice<T> &a, Lattice<Ts> const &... as)
 }
 
 template <typename F, typename T, typename... Ts>
-void lattice_apply(F f, LatticeStack<T> &a, LatticeStack<Ts> const &... as)
+void lattice_apply(F f, LatticeStack<T> &a, LatticeStack<Ts> const &...as)
 {
 	assert(((a.size() == as.size()) && ...));
 	for (size_t i = 0; i < a.size(); ++i)

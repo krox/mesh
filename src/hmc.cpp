@@ -105,9 +105,8 @@ int main(int argc, char **argv)
 			    if ((iter + 1) % (100 / substeps) == 0 && plot)
 			    {
 				    plot->clear();
-				    plot->plotData(util::span<double>(hmc.plaq_history)
-				                       .slice(hmc.plaq_history.size() / 10,
-				                              hmc.plaq_history.size()));
+				    plot->plotData(std::span<double>(hmc.plaq_history)
+				                       .subspan(hmc.plaq_history.size() / 10));
 			    }
 
 			    if (file)
