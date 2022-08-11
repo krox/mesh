@@ -1,6 +1,7 @@
 #include "scalar/ising.h"
 
 #include "mesh/topology.h"
+#include "util/hash.h"
 #include "util/hdf5.h"
 #include "util/progressbar.h"
 #include "util/random.h"
@@ -11,6 +12,31 @@
 #include <vector>
 
 namespace {
+
+// math notes:
+//     * action in Gibbs space: S = -beta * sum_(a,b) s[a] * s[b]
+//	     (our convention: unordered links appear only once in sum)
+//     * For cluster algorithms, this leads to
+//           p = 1 - exp(-2*beta)
+//     * action in Cluster space: S =
+//       probability of a config: q^c (1 - p)^(1-w(e))
+//     * random cluster measure:
+//           prod_e p^w(e) * (1-p)^(1-w(e)) q^c(w)
+//	     where
+//	       w(e) = 1 indicates a bond, 0 the absence
+//	       c(w) = number of components
+//         for Ising, set q=2 and p=1-e^-beta
+//     * action for cluster-ising:
+//       S = - ln(exp(2*beta)-1) * #links - ln(2) * #components
+//     * Gibbs -> Cluster: create links between sites with probability p
+//       only between neighbouring sites with equal values
+//     * Cluster -> Gibbs: assign each cluster an independent random value
+//     * Swandson-Wang algorithm: Just alternate between between Cluster and
+//       Gibbs. This does not suffer from the slowing down close to criticality
+//       as basic single-link heatbath does.
+//     * Wolff algorithm: similar to Swandson-Wang, but instead of finding all
+//       clusters and flipping each with p=0.5, it finds a flips only a single
+//       cluster with p=1.0 (allegedly this improves autocorrelation)
 
 double isingAction(std::vector<int8_t> const &field, Topology const &top,
                    double beta)
@@ -41,7 +67,9 @@ void heatBathSweep(std::vector<int8_t> &field, Topology const &top, double beta,
 		for (auto const &link : top.graph[i])
 			rho += field[link.to];
 		rho *= beta;
-		double p = exp(rho) / (exp(rho) + exp(-rho));
+
+		// double p = exp(rho) / (exp(rho) + exp(-rho));
+		double p = 1.0 / (1 + exp(-2 * rho));
 
 		// make sure this update rule is 'monotone' (important for Propp-Wilson)
 		field[i] = rng.uniform() < p ? 1.0 : -1.0;
@@ -111,7 +139,7 @@ IsingResults runHeatBath(const IsingParams &params)
 	// state of the simulation
 	auto top = Topology::lattice(params.geom);
 	auto field = std::vector<int8_t>(top.nSites());
-	util::xoshiro256 rng(params.seed);
+	util::xoshiro256 rng(util::fnv1a(params.seed));
 
 	// results
 	auto file = makeFile(params, top);
@@ -156,7 +184,7 @@ IsingResults runSwendsenWang(const IsingParams &params)
 	// state of the simulation
 	auto top = Topology::lattice(params.geom);
 	auto field = std::vector<int8_t>(top.nSites());
-	util::xoshiro256 rng(params.seed);
+	util::xoshiro256 rng(util::fnv1a(params.seed));
 
 	// stuff needed specifically for Swendsen-Wang
 	double p = 1.0 - exp(-2 * params.beta);
@@ -224,7 +252,7 @@ IsingResults runProppWilson(const IsingParams &params)
 	auto top = Topology::lattice(params.geom);
 	auto fieldPlus = std::vector<int8_t>(top.nSites());
 	auto fieldMinus = std::vector<int8_t>(top.nSites());
-	util::xoshiro256 rng_master(params.seed);
+	auto rng_master = util::Blake3(params.seed);
 
 	// results
 	util::DataFile file = makeFile(params, top);
@@ -249,7 +277,7 @@ IsingResults runProppWilson(const IsingParams &params)
 		for (;; T *= 2)
 		{
 			while (rngs.size() < T)
-				rngs.push_back(rng_master.split());
+				rngs.push_back(util::xoshiro256(rng_master()));
 
 			// run markov from time -T to 0, starting from
 			// all-plus and all-minus states
@@ -287,7 +315,7 @@ IsingResults runProppWilson(const IsingParams &params)
 			}
 		}
 
-		// fmt::print("found solution going back {} time-steps\n", T);
+		fmt::print("found solution going back {} time-steps\n", T);
 		T_history.push_back(T);
 
 		// measure observables

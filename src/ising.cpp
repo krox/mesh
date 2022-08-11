@@ -17,9 +17,6 @@ int main(int argc, char **argv)
 	IsingParams params;
 	params.geom = {32, 32};
 	params.count = 1000;
-	params.discard = 100;
-	params.spacing = 1;
-	params.seed = (uint64_t)-1;
 	params.beta = 0.44068679350977147; // beta_crit for 2D
 	bool do_plot = false;
 	params.overwrite_existing = false;
@@ -38,8 +35,9 @@ int main(int argc, char **argv)
 	               "number of configs to discard for thermalization");
 	app.add_option("--spacing", params.spacing,
 	               "number of updates between configs");
-	app.add_option("--seed", params.seed,
-	               "seed for random number generator (default = random)");
+	app.add_option(
+	    "--seed", params.seed,
+	    "seed for random number generator (default = empty = random)");
 	app.add_option("--algorithm", algorithm,
 	               "simulation algorithm (SwendsenWang=default, HeatBath)");
 
@@ -53,8 +51,8 @@ int main(int argc, char **argv)
 	CLI11_PARSE(app, argc, argv);
 
 	// no seed given -> get a random one
-	if (params.seed == (uint64_t)-1)
-		params.seed = std::random_device()();
+	if (params.seed.empty())
+		params.seed = fmt::format("{}", std::random_device()());
 
 	// filename ends with "/" -> automatic filename
 	if (params.filename != "" && params.filename.back() == '/')

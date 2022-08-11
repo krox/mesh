@@ -12,10 +12,10 @@ struct IsingParams
 
 	// additional parameters for the Markov chain
 	// (precise meaning might depend on the simulation algorithm used)
-	int count = 100;   // number of configs to generate
-	int discard = 0;   // number of discarded configs
-	int spacing = 1;   // number of updates between configs
-	uint64_t seed = 0; // seed for random number generator
+	int count = 100;       // number of configs to generate
+	int discard = 0;       // number of discarded configs
+	int spacing = 1;       // number of updates between configs
+	std::string seed = ""; // seed for random number generator
 
 	// output of configs
 	std::string filename = "";
