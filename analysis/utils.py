@@ -119,13 +119,14 @@ def get_correlator(filename, mom2max=6):
         print(f"computing correlator(s) for {filename}, nc={len(config_list)}, mom2max={mom2max}")
 
         c2pt = np.zeros((len(mom_list), len(config_list), geom[-1]))
-        pb.streams.flush()
-        for i, config in pb.progressbar(list(enumerate(config_list))):
+        #pb.streams.flush()
+        #for i, config in pb.progressbar(list(enumerate(config_list))):
+        for i, config in enumerate(config_list):
             data = file["configs"][config][:].squeeze()
             corr = np.fft.ifft(np.abs(np.fft.fftn(data))**2, axis=-1) / data.size
             for momi, mom in enumerate(mom_list):
                 c2pt[momi,i,:] = corr[mom].real
-        pb.streams.flush()
+        #pb.streams.flush()
 
     print(f"writing result into hdf5")
     with h5py.File(filename, "r+") as file:

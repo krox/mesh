@@ -29,6 +29,7 @@ struct IsingResults
 	std::vector<double> susceptibilityHistory;
 };
 
-IsingResults runSwendsenWang(const IsingParams &params);
-IsingResults runHeatBath(const IsingParams &params);
-IsingResults runProppWilson(const IsingParams &params);
+IsingResults run_heat_bath(IsingParams const &);
+IsingResults run_exact_heat_bath(IsingParams const &);
+IsingResults run_swendsen_wang(IsingParams const &);
+IsingResults run_exact_swendsen_wang(IsingParams const &);

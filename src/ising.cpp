@@ -20,7 +20,7 @@ int main(int argc, char **argv)
 	params.beta = 0.44068679350977147; // beta_crit for 2D
 	bool do_plot = false;
 	params.overwrite_existing = false;
-	std::string algorithm = "SwendsenWang";
+	std::string algorithm = "swendsen-wang";
 
 	CLI::App app{"Simulate 1D-4D Ising model "
 	             "with a combination of heatbath and cluster updates."};
@@ -85,12 +85,14 @@ int main(int argc, char **argv)
 		fmt::print("writing to {}\n", params.filename);
 
 	IsingResults res;
-	if (algorithm == "SwendsenWang")
-		res = runSwendsenWang(params);
-	else if (algorithm == "HeatBath")
-		res = runHeatBath(params);
-	else if (algorithm == "ProppWilson")
-		res = runProppWilson(params);
+	if (algorithm == "heat-bath")
+		res = run_heat_bath(params);
+	else if (algorithm == "exact-heat-bath")
+		res = run_exact_heat_bath(params);
+	else if (algorithm == "swendsen-wang")
+		res = run_swendsen_wang(params);
+	else if (algorithm == "exact-swendsen-wang")
+		res = run_exact_swendsen_wang(params);
 	else
 	{
 		fmt::print("ERROR: unknown algorithm '{}'\n", algorithm);

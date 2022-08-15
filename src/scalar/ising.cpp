@@ -134,7 +134,7 @@ void writeConfig(util::DataFile &file, std::vector<int8_t> const &field,
 
 } // namespace
 
-IsingResults runHeatBath(const IsingParams &params)
+IsingResults run_heat_bath(const IsingParams &params)
 {
 	// state of the simulation
 	auto top = Topology::lattice(params.geom);
@@ -179,7 +179,102 @@ IsingResults runHeatBath(const IsingParams &params)
 	return res;
 }
 
-IsingResults runSwendsenWang(const IsingParams &params)
+IsingResults run_exact_heat_bath(const IsingParams &params)
+{
+	// state of the simulation
+	auto top = Topology::lattice(params.geom);
+	auto fieldPlus = std::vector<int8_t>(top.nSites());
+	auto fieldMinus = std::vector<int8_t>(top.nSites());
+	util::Blake3 rng_master(params.seed);
+
+	// results
+	util::DataFile file = makeFile(params, top);
+	IsingResults res;
+
+	// The Propp-Wilson algorithm is exact (no thermalization/autocorrelation).
+	// Therefore discarding any configs is pointless
+	assert(params.discard == 0 && params.spacing == 1);
+
+	std::vector<double> T_history;
+
+	auto pb =
+	    util::ProgressBar((params.count + params.discard) * params.spacing);
+	for (int iter = -params.discard * params.spacing;
+	     iter < params.count * params.spacing; ++iter, ++pb)
+	{
+		pb.show();
+
+		std::vector<util::xoshiro256> rngs;
+
+		size_t T = 1;
+		for (;; T *= 2)
+		{
+			while (rngs.size() < T)
+				rngs.push_back(util::xoshiro256(rng_master()));
+
+			// run markov from time -T to 0, starting from
+			// all-plus and all-minus states
+			for (auto &x : fieldPlus)
+				x = 1;
+			for (size_t i = 0; i < T; ++i)
+			{
+				auto rng = rngs[T - i]; // important: copy the RNG
+				heatBathSweep(fieldPlus, top, params.beta, rng);
+			}
+			for (auto &x : fieldMinus)
+				x = -1;
+			for (size_t i = 0; i < T; ++i)
+			{
+				auto rng = rngs[T - i]; // important: copy the RNG
+				heatBathSweep(fieldMinus, top, params.beta, rng);
+			}
+
+			// if the two results are equal, we are done
+			bool done = true;
+			for (size_t i = 0; i < fieldPlus.size(); ++i)
+				if (fieldPlus[i] != fieldMinus[i])
+				{
+					done = false;
+					break;
+				}
+
+			if (done)
+				break;
+			if (T >= 100000)
+			{
+				fmt::print("ERROR: Propp-Wilson did not find a solution with "
+				           "100k steps. aborting.\n");
+				exit(-1);
+			}
+		}
+
+		// fmt::print("found solution going back {} time-steps\n", T);
+		T_history.push_back(T);
+
+		// measure observables
+		if (iter >= 0)
+		{
+			res.actionHistory.push_back(
+			    isingAction(fieldMinus, top, params.beta));
+			res.magnetizationHistory.push_back(isingMagnetization(fieldMinus));
+		}
+
+		// write config to file
+		if (iter >= 0 && (iter + 1) % params.spacing == 0)
+			writeConfig(file, fieldMinus, params.geom, iter + 1);
+	}
+	pb.finish();
+
+	if (params.filename != "")
+	{
+		file.writeData("action_history", res.actionHistory);
+		file.writeData("magnetization_history", res.magnetizationHistory);
+		file.writeData("T_history", T_history);
+	}
+	return res;
+}
+
+IsingResults run_swendsen_wang(const IsingParams &params)
 {
 	// state of the simulation
 	auto top = Topology::lattice(params.geom);
@@ -246,28 +341,114 @@ IsingResults runSwendsenWang(const IsingParams &params)
 	return res;
 }
 
-IsingResults runProppWilson(const IsingParams &params)
+IsingResults run_exact_swendsen_wang(const IsingParams &params)
 {
 	// state of the simulation
 	auto top = Topology::lattice(params.geom);
-	auto fieldPlus = std::vector<int8_t>(top.nSites());
-	auto fieldMinus = std::vector<int8_t>(top.nSites());
+	auto field = std::vector<int8_t>(top.nSites());
 	auto rng_master = util::Blake3(params.seed);
+	util::xoshiro256 rng;
+	auto bonds = std::vector<int8_t>(top.nLinks());
+
+	// stuff needed specifically for Swendsen-Wang
+	double p = 1.0 - exp(-2 * params.beta);
 
 	// results
 	util::DataFile file = makeFile(params, top);
 	IsingResults res;
 
-	// The Propp-Wilson algorithm is exact (no thermalization/autocorrelation).
-	// Therefore discarding any configs is pointless
+	// This algorithm is exact. Discarding anything would be pointless
 	assert(params.discard == 0 && params.spacing == 1);
 
 	std::vector<double> T_history;
 
-	auto pb =
-	    util::ProgressBar((params.count + params.discard) * params.spacing);
-	for (int iter = -params.discard * params.spacing;
-	     iter < params.count * params.spacing; ++iter, ++pb)
+	// field -> bonds
+	auto make_bonds = [&]() {
+		for (int i = 0; i < top.nLinks(); ++i)
+		{
+			bool coin = rng.uniform() <= p;
+			auto a = field[top.links[i].from];
+			auto b = field[top.links[i].to];
+			if (coin && (a & b))
+			{
+				if (a < 3 && b < 3)
+					bonds[i] = 2; // definitely linked
+				else
+					bonds[i] = 1; // maybe linked
+			}
+			else
+				bonds[i] = 0; // definitely not linked
+		}
+	};
+
+	// bonds -> field
+	auto make_field = [&]() {
+		for (auto &x : field)
+			x = 0;
+
+		for (int root = 0; root < top.nSites(); ++root)
+		{
+			int8_t root_color = rng.bernoulli() ? 1 : 2;
+			// already part of a component -> skip
+			// important: always sample the rng for consistent bounding chain
+			if (field[root])
+				continue;
+
+			// start a new component
+			auto possible_colors = root_color;
+			std::vector<int> stack;
+			stack.push_back(root);
+			field[root] = root_color;
+			while (!stack.empty())
+			{
+				int a = stack.back();
+				stack.pop_back();
+
+				for (auto link : top.graph[a])
+				{
+					if (bonds[link.link.i] == 1)
+					{
+						possible_colors |= field[link.to];
+						if (possible_colors == 3)
+							goto contaminated;
+					}
+					if (bonds[link.link.i] == 2)
+					{
+						if (!field[link.to])
+						{
+							field[link.to] = root_color;
+							stack.push_back(link.to);
+							continue;
+						}
+						// else must be in this component already
+					}
+				}
+			}
+
+		contaminated:
+			//  possible link to different-colored previous component
+			if (possible_colors != root_color)
+			{
+				field[root] = possible_colors;
+				stack.push_back(root);
+				while (!stack.empty())
+				{
+					int a = stack.back();
+					stack.pop_back();
+					for (auto link : top.graph[a])
+						if (bonds[link.link.i] == 2 &&
+						    field[link.to] != possible_colors)
+						{
+							field[link.to] = possible_colors;
+							stack.push_back(link.to);
+						}
+				}
+			}
+		}
+	};
+
+	auto pb = util::ProgressBar(params.count);
+	for (int iter = 0; iter < params.count; ++iter, ++pb)
 	{
 		pb.show();
 
@@ -281,25 +462,19 @@ IsingResults runProppWilson(const IsingParams &params)
 
 			// run markov from time -T to 0, starting from
 			// all-plus and all-minus states
-			for (auto &x : fieldPlus)
-				x = 1;
+			for (auto &x : field)
+				x = 1 | 2;
 			for (size_t i = 0; i < T; ++i)
 			{
-				auto rng = rngs[T - i]; // important: copy the RNG
-				heatBathSweep(fieldPlus, top, params.beta, rng);
-			}
-			for (auto &x : fieldMinus)
-				x = -1;
-			for (size_t i = 0; i < T; ++i)
-			{
-				auto rng = rngs[T - i]; // important: copy the RNG
-				heatBathSweep(fieldMinus, top, params.beta, rng);
+				rng = rngs[T - 1 - i];
+				make_bonds();
+				make_field();
 			}
 
 			// if the two results are equal, we are done
 			bool done = true;
-			for (size_t i = 0; i < fieldPlus.size(); ++i)
-				if (fieldPlus[i] != fieldMinus[i])
+			for (size_t i = 0; i < field.size(); ++i)
+				if (field[i] == 3)
 				{
 					done = false;
 					break;
@@ -315,20 +490,24 @@ IsingResults runProppWilson(const IsingParams &params)
 			}
 		}
 
-		fmt::print("found solution going back {} time-steps\n", T);
+		// fmt::print("found solution going back {} time-steps\n", T);
+
+		// transform 1/2 to 1/-1
+		for (auto &x : field)
+			x = int8_t(-2 * x + 3);
+
 		T_history.push_back(T);
 
 		// measure observables
 		if (iter >= 0)
 		{
-			res.actionHistory.push_back(
-			    isingAction(fieldMinus, top, params.beta));
-			res.magnetizationHistory.push_back(isingMagnetization(fieldMinus));
+			res.actionHistory.push_back(isingAction(field, top, params.beta));
+			res.magnetizationHistory.push_back(isingMagnetization(field));
 		}
 
 		// write config to file
 		if (iter >= 0 && (iter + 1) % params.spacing == 0)
-			writeConfig(file, fieldMinus, params.geom, iter + 1);
+			writeConfig(file, field, params.geom, iter + 1);
 	}
 	pb.finish();
 
