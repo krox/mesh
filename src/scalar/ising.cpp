@@ -5,6 +5,7 @@
 #include "util/hdf5.h"
 #include "util/progressbar.h"
 #include "util/random.h"
+#include "util/stopwatch.h"
 #include "util/unionfind.h"
 #include <cassert>
 #include <fmt/format.h>
@@ -340,84 +341,80 @@ IsingResults run_swendsen_wang(const IsingParams &params)
 	}
 	return res;
 }
+namespace {
 
-IsingResults run_exact_swendsen_wang(const IsingParams &params)
+class ExactSwendsenWang
 {
-	// state of the simulation
-	auto top = Topology::lattice(params.geom);
-	auto field = std::vector<int8_t>(top.nSites());
-	auto rng_master = util::Blake3(params.seed);
-	util::xoshiro256 rng;
-	auto bonds = std::vector<int8_t>(top.nLinks());
+	Topology top_;
 
-	// stuff needed specifically for Swendsen-Wang
-	double p = 1.0 - exp(-2 * params.beta);
+	// no information is kept in these between calls to .run(), only the storage
+	std::vector<int8_t> field_;
+	std::vector<int8_t> bonds_;
+	std::vector<int> stack_;
+	std::vector<int> sites_;
 
-	// results
-	util::DataFile file = makeFile(params, top);
-	IsingResults res;
+	// make bonds out of the field
+	void make_bonds(double beta, util::xoshiro256 &rng)
+	{
+		double p = 1.0 - exp(-2 * beta);
 
-	// This algorithm is exact. Discarding anything would be pointless
-	assert(params.discard == 0 && params.spacing == 1);
-
-	std::vector<double> T_history;
-
-	// field -> bonds
-	auto make_bonds = [&]() {
-		for (int i = 0; i < top.nLinks(); ++i)
+		for (int i = 0; i < top_.nLinks(); ++i)
 		{
 			bool coin = rng.uniform() <= p;
-			auto a = field[top.links[i].from];
-			auto b = field[top.links[i].to];
+			auto a = field_[top_.links[i].from];
+			auto b = field_[top_.links[i].to];
 			if (coin && (a & b))
 			{
 				if (a < 3 && b < 3)
-					bonds[i] = 2; // definitely linked
+					bonds_[i] = 2; // definitely linked
 				else
-					bonds[i] = 1; // maybe linked
+					bonds_[i] = 1; // maybe linked
 			}
 			else
-				bonds[i] = 0; // definitely not linked
+				bonds_[i] = 0; // definitely not linked
 		}
-	};
+	}
 
-	// bonds -> field
-	auto make_field = [&]() {
-		for (auto &x : field)
+	// make field out of the bonds
+	void make_field(util::xoshiro256 &rng)
+	{
+		for (auto &x : field_)
 			x = 0;
 
-		for (int root = 0; root < top.nSites(); ++root)
+		// sites_ is a permutation of [0, nSites)
+		// for (int root = 0; root < top.nSites(); ++root)
+		for (int root : sites_)
 		{
 			int8_t root_color = rng.bernoulli() ? 1 : 2;
 			// already part of a component -> skip
 			// important: always sample the rng for consistent bounding chain
-			if (field[root])
+			if (field_[root])
 				continue;
 
 			// start a new component
 			auto possible_colors = root_color;
-			std::vector<int> stack;
-			stack.push_back(root);
-			field[root] = root_color;
-			while (!stack.empty())
-			{
-				int a = stack.back();
-				stack.pop_back();
 
-				for (auto link : top.graph[a])
+			stack_.push_back(root);
+			field_[root] = root_color;
+			while (!stack_.empty())
+			{
+				int a = stack_.back();
+				stack_.pop_back();
+
+				for (auto &link : top_.graph[a])
 				{
-					if (bonds[link.link.i] == 1)
+					if (bonds_[link.link.i] == 1)
 					{
-						possible_colors |= field[link.to];
+						possible_colors |= field_[link.to];
 						if (possible_colors == 3)
 							goto contaminated;
 					}
-					if (bonds[link.link.i] == 2)
+					if (bonds_[link.link.i] == 2)
 					{
-						if (!field[link.to])
+						if (!field_[link.to])
 						{
-							field[link.to] = root_color;
-							stack.push_back(link.to);
+							field_[link.to] = root_color;
+							stack_.push_back(link.to);
 							continue;
 						}
 						// else must be in this component already
@@ -429,79 +426,121 @@ IsingResults run_exact_swendsen_wang(const IsingParams &params)
 			//  possible link to different-colored previous component
 			if (possible_colors != root_color)
 			{
-				field[root] = possible_colors;
-				stack.push_back(root);
-				while (!stack.empty())
+				field_[root] = possible_colors;
+				stack_.push_back(root);
+				while (!stack_.empty())
 				{
-					int a = stack.back();
-					stack.pop_back();
-					for (auto link : top.graph[a])
-						if (bonds[link.link.i] == 2 &&
-						    field[link.to] != possible_colors)
+					int a = stack_.back();
+					stack_.pop_back();
+					for (auto &link : top_.graph[a])
+						if (bonds_[link.link.i] == 2 &&
+						    field_[link.to] != possible_colors)
 						{
-							field[link.to] = possible_colors;
-							stack.push_back(link.to);
+							field_[link.to] = possible_colors;
+							stack_.push_back(link.to);
 						}
 				}
 			}
 		}
-	};
+	}
 
-	auto pb = util::ProgressBar(params.count);
-	for (int iter = 0; iter < params.count; ++iter, ++pb)
+  public:
+	// statistics gathered during generation
+	std::vector<int> T_history;
+
+	explicit ExactSwendsenWang(Topology top)
+	    : top_(std::move(top)), field_(top_.nSites()), bonds_(top_.nLinks()),
+	      sites_(top_.nSites())
+	{}
+
+	Topology const &topology() { return top_; }
+
+	// create one new configuration
+	std::vector<int8_t> const &run(double beta, util::xoshiro256 &rng)
 	{
-		pb.show();
+		// Changing the iteration order of the sites does not meaningfully
+		// affect the Swendsen-Wang Markov chain itself, but it does have a
+		// significant effect on the quality of the bounding chain, i.e., how
+		// long it takes to detect complete coupling. It seems to be:
+		//     * random order is better standard (lexicographic) ordering, but
+		//     * changing the order in between steps is detrimental
+		assert(sites_.size() == (size_t)top_.nSites());
+		for (int i = 0; i < top_.nSites(); ++i)
+			sites_[i] = i;
+		std::shuffle(sites_.begin(), sites_.end(), rng);
 
 		std::vector<util::xoshiro256> rngs;
 
-		size_t T = 1;
-		for (;; T *= 2)
+		for (size_t T = 1; T < 10'000; T *= 2)
 		{
 			while (rngs.size() < T)
-				rngs.push_back(util::xoshiro256(rng_master()));
+				rngs.push_back(rng.jump());
 
 			// run markov from time -T to 0, starting from
 			// all-plus and all-minus states
-			for (auto &x : field)
+			for (auto &x : field_)
 				x = 1 | 2;
 			for (size_t i = 0; i < T; ++i)
 			{
-				rng = rngs[T - 1 - i];
-				make_bonds();
-				make_field();
+				auto local_rng = rngs[T - 1 - i];
+				make_bonds(beta, local_rng);
+				make_field(local_rng);
 			}
 
 			// if the two results are equal, we are done
 			bool done = true;
-			for (size_t i = 0; i < field.size(); ++i)
-				if (field[i] == 3)
+			for (size_t i = 0; i < field_.size(); ++i)
+				if (field_[i] == 3)
 				{
 					done = false;
 					break;
 				}
 
 			if (done)
-				break;
-			if (T >= 100000)
 			{
-				fmt::print("ERROR: Propp-Wilson did not find a solution with "
-				           "100k steps. aborting.\n");
-				exit(-1);
+				T_history.push_back(T);
+
+				// transform 1/2 to 1/-1
+				for (auto &x : field_)
+					x = int8_t(-2 * x + 3);
+
+				return field_;
 			}
 		}
 
-		// fmt::print("found solution going back {} time-steps\n", T);
+		throw std::runtime_error("ERROR: Swendsen-Wang-Propp-Wilson did not "
+		                         "find a solution within 10k steps. aborting.");
+	}
+};
 
-		// transform 1/2 to 1/-1
-		for (auto &x : field)
-			x = int8_t(-2 * x + 3);
+} // namespace
 
-		T_history.push_back(T);
+// params.discard and params.spacing are ignored here
+IsingResults run_exact_swendsen_wang(const IsingParams &params)
+{
+	// A single xoshiro256 instance would probably provide enough randomness
+	// for the whole process. But as we use layered RNGs anyway, it is kinda
+	// cool to use a CSRNG on the outermost level.
+	auto rng = util::Blake3(params.seed);
+	auto algo = ExactSwendsenWang(Topology::lattice(params.geom));
+
+	// results
+	util::DataFile file = makeFile(params, algo.topology());
+	IsingResults res;
+
+	auto pb = util::ProgressBar(params.count);
+	for (int iter = 0; iter < params.count; ++iter, ++pb)
+	{
+		pb.show();
+
+		auto chain_rng = util::xoshiro256(rng());
+		auto &field = algo.run(params.beta, chain_rng);
 
 		// measure observables
 		if (iter >= 0)
 		{
-			res.actionHistory.push_back(isingAction(field, top, params.beta));
+			res.actionHistory.push_back(
+			    isingAction(field, algo.topology(), params.beta));
 			res.magnetizationHistory.push_back(isingMagnetization(field));
 		}
 
@@ -515,7 +554,8 @@ IsingResults run_exact_swendsen_wang(const IsingParams &params)
 	{
 		file.writeData("action_history", res.actionHistory);
 		file.writeData("magnetization_history", res.magnetizationHistory);
-		file.writeData("T_history", T_history);
+		file.writeData("T_history", algo.T_history);
 	}
+
 	return res;
 }
