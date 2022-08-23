@@ -26,7 +26,7 @@ file(GLOB modules "src/util/*.cpp" "src/mesh/*.cpp" "src/scalar/*.cpp" "src/latt
 set(binaries "group_histogram" "phi4" "sigma" "ising" "hmc" "test_lattice_gauge" "sweep_beta" "poisson" "benchmark" "landau")
 
 foreach(bin ${binaries})
-	add_executable(${bin} src/${bin}.cpp ${modules})
+	add_executable(${bin} src/apps/${bin}.cpp ${modules})
 	target_compile_features(${bin} PUBLIC cxx_std_20)
 	set_target_properties(${bin} PROPERTIES CXX_EXTENSIONS ON)
 	target_include_directories(${bin} PRIVATE ${HDF5_INCLUDE_DIRS})
