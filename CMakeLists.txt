@@ -16,14 +16,14 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(cli11)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -march=native -Wall -Wextra -Wno-unused-variable -Wno-register -Werror -fno-math-errno")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -march=native -Wall -Wextra -Wno-unused-variable -Wno-register -Werror -fno-math-errno -g")
 
 find_package(HDF5 REQUIRED)
 find_package(Eigen3 3.3 REQUIRED NO_MODULE)
 
 file(GLOB modules "src/util/*.cpp" "src/mesh/*.cpp" "src/scalar/*.cpp" "src/lattice/*.cpp")
 
-set(binaries "group_histogram" "phi4" "sigma" "ising" "hmc" "test_lattice_gauge" "sweep_beta" "poisson" "benchmark" "landau")
+set(binaries "group_histogram" "phi4" "sigma" "ising" "ising_correlator" "hmc" "test_lattice_gauge" "sweep_beta" "poisson" "benchmark" "landau")
 
 foreach(bin ${binaries})
 	add_executable(${bin} src/apps/${bin}.cpp ${modules})

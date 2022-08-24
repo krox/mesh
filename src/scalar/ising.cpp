@@ -43,8 +43,8 @@ double isingAction(std::vector<int8_t> const &field, Topology const &top,
                    double beta)
 {
 	double sum = 0.0;
-	for (auto const &link : top.links)
-		sum += field[link.from] * field[link.to];
+	for (auto [a, b] : top.links)
+		sum += field[a] * field[b];
 	return -beta * sum;
 }
 
@@ -89,8 +89,8 @@ util::Hdf5File makeFile(IsingParams const &params, Topology const &top)
 	auto links = std::vector<int>(2 * top.nLinks());
 	for (int i = 0; i < top.nLinks(); ++i)
 	{
-		links[2 * i] = top.links[i].from;
-		links[2 * i + 1] = top.links[i].to;
+		links[2 * i] = top.links[i].first;
+		links[2 * i + 1] = top.links[i].second;
 	}
 
 	// physical parameters
@@ -303,9 +303,9 @@ IsingResults run_swendsen_wang(const IsingParams &params)
 		double susceptibility = 0.0;
 
 		uf.clear();
-		for (auto &link : top.links)
-			if (field[link.from] == field[link.to] && rng.uniform() < p)
-				uf.join(link.from, link.to);
+		for (auto [a, b] : top.links)
+			if (field[a] == field[b] && rng.uniform() < p)
+				uf.join(a, b);
 		for (int i = 0; i < top.nSites(); ++i)
 			if (i == uf.root(i))
 			{
@@ -361,8 +361,8 @@ class ExactSwendsenWang
 		for (int i = 0; i < top_.nLinks(); ++i)
 		{
 			bool coin = rng.uniform() <= p;
-			auto a = field_[top_.links[i].from];
-			auto b = field_[top_.links[i].to];
+			auto a = field_[top_.links[i].first];
+			auto b = field_[top_.links[i].second];
 			if (coin && (a & b))
 			{
 				if (a < 3 && b < 3)

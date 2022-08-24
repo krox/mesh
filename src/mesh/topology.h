@@ -1,5 +1,6 @@
 #pragma once
 
+#include "util/vector.h"
 #include <array>
 #include <cassert>
 #include <string>
@@ -29,20 +30,15 @@ struct HalfLink
 	HalfLink(int to, int i, bool sign) : to(to), link(i, sign) {}
 };
 
-struct Link
-{
-	int from, to; // lattice sites this link is attached to
-
-	Link() = default;
-	Link(int from, int to) : from(from), to(to) {}
-};
+using Link = std::pair<int, int>;
 
 class Topology
 {
   public:
 	/* The pure graph itself */
 	std::vector<Link> links;
-	std::vector<std::vector<HalfLink>> graph;
+	std::vector<util::small_vector<HalfLink, 8>> graph;
+	// 8 is enough to store a 4D lattice without extra allocations
 
 	/* succesor site in time-direction
 	  ( Only used for some imaginary action stuff.
@@ -53,9 +49,22 @@ class Topology
 	std::string top;
 	std::vector<int> geom;
 
-	/** constructors */
+	// constructors
 	Topology() = default;
 	explicit Topology(int nSites) : graph(nSites), timeStep(nSites, -1) {}
+	explicit Topology(std::vector<Link> ls) : links(std::move(ls))
+	{
+		int max_site = -1;
+		for (auto [a, b] : links)
+			max_site = std::max(std::max(a, b), max_site);
+		graph.resize(max_site + 1);
+		for (size_t i = 0; i < links.size(); ++i)
+		{
+			auto [a, b] = links[i];
+			graph[a].emplace_back(b, i, false);
+			graph[b].emplace_back(a, i, true);
+		}
+	}
 
 	/** create periodic, rectangular lattice topology */
 	static Topology lattice1D(int nx);
@@ -98,8 +107,7 @@ inline int Topology::addLink(int a, int b)
 inline std::vector<std::array<LinkRef, 3>> Topology::staples4(int i) const
 {
 	std::vector<std::array<LinkRef, 3>> staples;
-	int a = links[i].from;
-	int b = links[i].to;
+	auto [a, b] = links[i];
 	for (auto [c, j] : graph[b])
 		if (c != a && c != b)
 			for (auto [d, k] : graph[c])
