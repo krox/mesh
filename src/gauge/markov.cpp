@@ -21,22 +21,22 @@ GaugeChainResult runChainImpl(const GaugeChainParams &param,
 	res.plaqHistory = xt::zeros<double>({param.count});
 	res.topHistory = xt::zeros<double>({param.count});
 
-	DataFile file;
+	Hdf5File file;
 	if (param.filename != "")
 	{
-		file = DataFile::create(param.filename);
+		file = Hdf5File::create(param.filename);
 
 		// physical parameters
-		file.setAttribute("group", param.group);
-		file.setAttribute("beta", actionParams.beta);
-		file.setAttribute("c0", actionParams.c0);
-		file.setAttribute("c1", actionParams.c1);
-		file.setAttribute("geometry", param.top->geom);
+		file.set_attribute("group", param.group);
+		file.set_attribute("beta", actionParams.beta);
+		file.set_attribute("c0", actionParams.c0);
+		file.set_attribute("c1", actionParams.c1);
+		file.set_attribute("geometry", param.top->geom);
 
 		// simulation parameters
-		file.setAttribute("markov_count", param.count);
-		file.setAttribute("markov_discard", param.discard);
-		file.setAttribute("markov_sweeps", param.sweeps);
+		file.set_attribute("markov_count", param.count);
+		file.set_attribute("markov_discard", param.discard);
+		file.set_attribute("markov_sweeps", param.sweeps);
 
 		file.makeGroup("/configs");
 	}

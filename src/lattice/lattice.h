@@ -234,8 +234,8 @@ template <typename vT> class LatticeStack
 // store LatticeStack to file as [Nd,X,Y,Z,T,ncomp] array
 //     * returns resulting dataset
 template <typename vT>
-util::DataSet writeToFile(util::DataFile &file, std::string const &name,
-                          LatticeStack<vT> const &a)
+util::Hdf5Dataset writeToFile(util::Hdf5File &file, std::string const &name,
+                              LatticeStack<vT> const &a)
 {
 	auto &g = Grid::make(a.grid().shape(), 1);
 	using Object = typename LatticeStack<vT>::Object;
@@ -251,7 +251,7 @@ util::DataSet writeToFile(util::DataFile &file, std::string const &name,
 	shape.push_back(vT::size());
 
 	// create dataset and fill it
-	auto dset = file.createData(name, shape, type);
+	auto dset = file.create_data(name, shape, type);
 	for (size_t i = 0; i < a.size(); ++i)
 	{
 		a[i].transferTo(tmp);
@@ -262,14 +262,14 @@ util::DataSet writeToFile(util::DataFile &file, std::string const &name,
 }
 
 template <typename vT>
-void readFromFile(util::DataFile &file, std::string const &name,
+void readFromFile(util::Hdf5File &file, std::string const &name,
                   LatticeStack<vT> &a)
 {
 	auto &g = Grid::make(a.grid().shape(), 1);
 	using Object = typename LatticeStack<vT>::Object;
 	auto tmp = Lattice<Object>(g);
 
-	auto dset = file.openData(name);
+	auto dset = file.open_data(name);
 	// TODO: check shape more carefully
 	for (size_t i = 0; i < a.size(); ++i)
 	{

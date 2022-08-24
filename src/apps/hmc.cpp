@@ -62,28 +62,28 @@ int main(int argc, char **argv)
 	std::optional<util::Gnuplot> plot;
 	if (doPlot)
 		plot.emplace();
-	util::DataFile file;
+	util::Hdf5File file;
 	if (filename != "")
 	{
-		file = util::DataFile::create(filename, allow_overwrite);
+		file = util::Hdf5File::create(filename, allow_overwrite);
 
 		// physical parameters
-		file.setAttribute("group", group);
-		file.setAttribute("beta", beta);
-		file.setAttribute("geometry", geom);
+		file.set_attribute("group", group);
+		file.set_attribute("beta", beta);
+		file.set_attribute("geometry", geom);
 
 		// simulation parameters
-		file.setAttribute("hmc_scheme", scheme);
-		file.setAttribute("hmc_epsilon", epsilon);
-		file.setAttribute("hmc_substeps", substeps);
-		file.setAttribute("hmc_metropolis", 1);
-		file.setAttribute("markov_seed", seed);
-		file.setAttribute("markov_start", start);
-		file.setAttribute("markov_discard", 0);
-		file.setAttribute("markov_count", count);
-		file.setAttribute("markov_spacing", 1);
+		file.set_attribute("hmc_scheme", scheme);
+		file.set_attribute("hmc_epsilon", epsilon);
+		file.set_attribute("hmc_substeps", substeps);
+		file.set_attribute("hmc_metropolis", 1);
+		file.set_attribute("markov_seed", seed);
+		file.set_attribute("markov_start", start);
+		file.set_attribute("markov_discard", 0);
+		file.set_attribute("markov_count", count);
+		file.set_attribute("markov_spacing", 1);
 
-		file.makeGroup("/configs");
+		file.make_group("/configs");
 	}
 
 	dispatchByGroup(
@@ -128,10 +128,10 @@ int main(int argc, char **argv)
 
 		    if (file)
 		    {
-			    file.writeData("plaq_history", hmc.plaq_history);
-			    file.writeData("accept_history", hmc.accept_history);
-			    file.writeData("deltaH_history", hmc.deltaH_history);
-			    file.writeData("time_history", hmc.time_history);
+			    file.write_data("plaq_history", hmc.plaq_history);
+			    file.write_data("accept_history", hmc.accept_history);
+			    file.write_data("deltaH_history", hmc.deltaH_history);
+			    file.write_data("time_history", hmc.time_history);
 		    }
 	    },
 	    group, precision);

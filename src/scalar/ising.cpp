@@ -78,13 +78,13 @@ void heatBathSweep(std::vector<int8_t> &field, Topology const &top, double beta,
 }
 
 // opens hdf5 file, writes parameters, does nothing if filename==""
-util::DataFile makeFile(IsingParams const &params, Topology const &top)
+util::Hdf5File makeFile(IsingParams const &params, Topology const &top)
 {
 	if (params.filename == "")
 		return {};
 
 	auto file =
-	    util::DataFile::create(params.filename, params.overwrite_existing);
+	    util::Hdf5File::create(params.filename, params.overwrite_existing);
 
 	auto links = std::vector<int>(2 * top.nLinks());
 	for (int i = 0; i < top.nLinks(); ++i)
@@ -94,22 +94,22 @@ util::DataFile makeFile(IsingParams const &params, Topology const &top)
 	}
 
 	// physical parameters
-	file.setAttribute("beta", params.beta);
-	file.setAttribute("geometry", params.geom);
-	file.createData("topology", {(hsize_t)top.nLinks(), 2}, H5T_NATIVE_INT)
+	file.set_attribute("beta", params.beta);
+	file.set_attribute("geometry", params.geom);
+	file.create_data("topology", {(hsize_t)top.nLinks(), 2}, H5T_NATIVE_INT)
 	    .write(links);
 
 	// simulation parameters
-	file.setAttribute("markov_count", params.count);
-	file.setAttribute("markov_discard", params.discard);
-	file.setAttribute("markov_spacing", params.spacing);
+	file.set_attribute("markov_count", params.count);
+	file.set_attribute("markov_discard", params.discard);
+	file.set_attribute("markov_spacing", params.spacing);
 
-	file.makeGroup("/configs");
+	file.make_group("/configs");
 	return file;
 }
 
 // write configuration, does nothing if file is not valid
-void writeConfig(util::DataFile &file, std::vector<int8_t> const &field,
+void writeConfig(util::Hdf5File &file, std::vector<int8_t> const &field,
                  std::vector<int> const &geom, int id)
 {
 	if (!file)
@@ -130,7 +130,7 @@ void writeConfig(util::DataFile &file, std::vector<int8_t> const &field,
 		shape.push_back(d);
 
 	std::string name = fmt::format("/configs/{}", id);
-	file.createData(name, shape, hdf5type).write(field);
+	file.create_data(name, shape, hdf5type).write(field);
 }
 
 } // namespace
@@ -174,8 +174,8 @@ IsingResults run_heat_bath(const IsingParams &params)
 
 	if (file)
 	{
-		file.writeData("action_history", res.actionHistory);
-		file.writeData("magnetization_history", res.magnetizationHistory);
+		file.write_data("action_history", res.actionHistory);
+		file.write_data("magnetization_history", res.magnetizationHistory);
 	}
 	return res;
 }
@@ -189,7 +189,7 @@ IsingResults run_exact_heat_bath(const IsingParams &params)
 	util::Blake3 rng_master(params.seed);
 
 	// results
-	util::DataFile file = makeFile(params, top);
+	util::Hdf5File file = makeFile(params, top);
 	IsingResults res;
 
 	// The Propp-Wilson algorithm is exact (no thermalization/autocorrelation).
@@ -268,9 +268,9 @@ IsingResults run_exact_heat_bath(const IsingParams &params)
 
 	if (params.filename != "")
 	{
-		file.writeData("action_history", res.actionHistory);
-		file.writeData("magnetization_history", res.magnetizationHistory);
-		file.writeData("T_history", T_history);
+		file.write_data("action_history", res.actionHistory);
+		file.write_data("magnetization_history", res.magnetizationHistory);
+		file.write_data("T_history", T_history);
 	}
 	return res;
 }
@@ -335,9 +335,9 @@ IsingResults run_swendsen_wang(const IsingParams &params)
 
 	if (file)
 	{
-		file.writeData("action_history", res.actionHistory);
-		file.writeData("magnetization_history", res.magnetizationHistory);
-		file.writeData("susceptibility_history", res.susceptibilityHistory);
+		file.write_data("action_history", res.actionHistory);
+		file.write_data("magnetization_history", res.magnetizationHistory);
+		file.write_data("susceptibility_history", res.susceptibilityHistory);
 	}
 	return res;
 }
@@ -525,7 +525,7 @@ IsingResults run_exact_swendsen_wang(const IsingParams &params)
 	auto algo = ExactSwendsenWang(Topology::lattice(params.geom));
 
 	// results
-	util::DataFile file = makeFile(params, algo.topology());
+	util::Hdf5File file = makeFile(params, algo.topology());
 	IsingResults res;
 
 	auto pb = util::ProgressBar(params.count);
@@ -552,9 +552,9 @@ IsingResults run_exact_swendsen_wang(const IsingParams &params)
 
 	if (params.filename != "")
 	{
-		file.writeData("action_history", res.actionHistory);
-		file.writeData("magnetization_history", res.magnetizationHistory);
-		file.writeData("T_history", algo.T_history);
+		file.write_data("action_history", res.actionHistory);
+		file.write_data("magnetization_history", res.magnetizationHistory);
+		file.write_data("T_history", algo.T_history);
 	}
 
 	return res;

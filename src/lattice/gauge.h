@@ -180,14 +180,14 @@ GaugeField<vG> readConfig(std::string const &configName,
 	{
 		auto filename = configName.substr(0, p + 3);
 		auto dset = configName.substr(p + 3);
-		auto file = util::DataFile::open(filename);
-		auto geom = file.getAttribute<std::vector<int>>("geometry");
+		auto file = util::Hdf5File::open(filename);
+		auto geom = file.get_attribute<std::vector<int>>("geometry");
 		auto &grid = Grid::make(Coordinate(geom.begin(), geom.end()),
 		                        (int)GaugeField<vG>::simd_width);
-		if (file.getAttribute<std::string>("group") != vG::name())
+		if (file.get_attribute<std::string>("group") != vG::name())
 			throw std::runtime_error(fmt::format(
 			    "group mismatch on load. Expected {}, got {}\n", vG::name(),
-			    file.getAttribute<std::string>("group")));
+			    file.get_attribute<std::string>("group")));
 		if (expected_grid && expected_grid != &grid)
 			throw std::runtime_error(
 			    fmt::format("grid mismatch on load. Expected {}, got {}\n",
