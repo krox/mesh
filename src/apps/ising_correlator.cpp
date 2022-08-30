@@ -1,20 +1,84 @@
 #include "CLI/CLI.hpp"
 #include "fmt/format.h"
 #include "fmt/ranges.h"
+#include "lattice/fft.h"
 #include "mesh/topology.h"
 #include "scalar/ising.h"
 #include "util/bit_vector.h"
 #include "util/hdf5.h"
 #include "util/random.h"
+#include "util/unionfind.h"
 #include <cassert>
 #include <cmath>
 #include <filesystem>
 #include <random>
 #include <vector>
 
+using namespace mesh;
+
+std::vector<double> analyze_basic(std::vector<int8_t> const &field, double beta,
+                                  Topology const &top, util::xoshiro256 &rng,
+                                  int samples)
+{
+	(void)beta;
+	(void)rng;
+	(void)samples;
+	auto corr = Correlator(top.geom);
+
+	auto c2pt = std::vector<double>(top.nSites());
+	for (int i = 0; i < top.nSites(); ++i)
+		corr.in()[i] = field[i];
+	corr.run();
+	for (int i = 0; i < top.nSites(); ++i)
+		c2pt[i] = corr.out()[i].real() / top.nSites() / top.geom.back();
+	return c2pt;
+}
+
 std::vector<double> analyze(std::vector<int8_t> const &field, double beta,
                             Topology const &top, util::xoshiro256 &rng,
                             int samples)
+{
+	// TODO:
+	//     * only store a few (small) momenta
+	//     * optimize (and profile first):
+	//           - small clusters (at least size=1) dont need FFT
+	//           - full complex FFT is overkill
+	//           - allocation oerhead could be reduced
+	assert((int)field.size() == top.nSites());
+
+	auto uf = util::UnionFind(top.nSites());
+	double p = 1.0 - std::exp(-2.0 * beta);
+	auto c2pt = std::vector<double>(top.nSites(), 0.0);
+	auto corr = Correlator(top.geom);
+
+	for (int iter = 0; iter < samples; ++iter)
+	{
+		uf.clear();
+
+		for (auto [a, b] : top.links)
+			if (field[a] == field[b] && rng.uniform() < p)
+				uf.join(a, b);
+		auto comps = uf.components();
+
+		for (int comp = 0; comp < (int)uf.nComp(); ++comp)
+		{
+			for (int i = 0; i < top.nSites(); ++i)
+				corr.in()[i] = comps[i] == comp ? 1.0 : 0.0;
+			corr.run();
+
+			for (int i = 0; i < top.nSites(); ++i)
+				c2pt[i] += corr.out()[i].real();
+		}
+	}
+
+	for (auto &c : c2pt)
+		c *= 1.0 / samples / top.nSites() / top.geom.back();
+	return c2pt;
+}
+
+std::vector<double> analyze_binomial(std::vector<int8_t> const &field,
+                                     double beta, Topology const &top,
+                                     util::xoshiro256 &rng, int samples)
 {
 	assert(field.size() == (size_t)top.nSites());
 
