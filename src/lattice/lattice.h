@@ -34,12 +34,12 @@ template <typename vT> class Lattice
 	static_assert(std::is_trivially_copyable_v<Object>);
 	static_assert(std::is_trivially_copyable_v<vObject>);
 	static_assert(sizeof(vObject) == simd_width * sizeof(Object));
-	static_assert(sizeof(Object) == Object::size() * sizeof(Real));
+	// static_assert(sizeof(Object) == Object::size() * sizeof(Real));
 	static_assert(std::is_same_v<Real, float> || std::is_same_v<Real, double>);
 
   private:
-	Grid const *grid_ = nullptr; // never null
-	vObject *data_ = nullptr;    // can be null if grid is the empty lattice
+	Grid const *grid_ = nullptr;          // never null
+	util::memory_ptr<vObject> data_ = {}; // null if grid is default/empty
 
   public:
 	Lattice() : grid_(&Grid::make({0}, simd_width)) {}
@@ -47,7 +47,7 @@ template <typename vT> class Lattice
 	{
 		assert(grid().isize() == simd_width);
 		++latticeAllocCount;
-		data_ = new vObject[grid().osize()];
+		data_ = util::aligned_allocate<vObject>(grid().osize());
 	}
 
 	static Lattice zeros(Grid const &g)
@@ -66,8 +66,8 @@ template <typename vT> class Lattice
 	}
 
 	Grid const &grid() const { return *grid_; }
-	vObject *data() { return data_; }
-	vObject const *data() const { return data_; }
+	vObject *data() { return data_.get(); }
+	vObject const *data() const { return data_.get(); }
 
 	std::span<Real> rawSpan()
 	{
@@ -81,7 +81,8 @@ template <typename vT> class Lattice
 
 	// copy/move operations
 	Lattice(Lattice const &other)
-	    : grid_(&other.grid()), data_(new vObject[grid().osize()])
+	    : grid_(&other.grid()),
+	      data_(util::aligned_allocate<vObject>(grid().osize()))
 	{
 		++latticeAllocCount;
 		std::memcpy(data(), other.data(), grid().osize() * sizeof(vObject));
@@ -95,9 +96,8 @@ template <typename vT> class Lattice
 	{
 		if (grid().size() != other.grid().size())
 		{
-			delete[] data_;
 			++latticeAllocCount;
-			data_ = new vObject[other.grid().osize()];
+			data_ = util::aligned_allocate<vObject>(grid().osize());
 		}
 		grid_ = &other.grid();
 		std::memcpy(data(), other.data(), grid().osize() * sizeof(vObject));
@@ -109,8 +109,6 @@ template <typename vT> class Lattice
 		std::swap(data_, other.data_);
 		return *this;
 	}
-
-	~Lattice() { delete[] data_; }
 
 	/** single-element access. Slow, but sometimes nice to have. */
 	Object peekSite(Coordinate const &index) const

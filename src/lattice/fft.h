@@ -1,7 +1,10 @@
 #pragma once
 
-// Some useful wrappers around the FFTW3 library
+// Some useful wrappers around the FFTW3 library.
+// Also some helpers for "slow Fourier transforms" (contractions with e^-ipx for
+// one or few momenta)
 
+#include "lattice/lattice.h"
 #include "util/complex.h"
 #include "util/memory.h"
 #include <algorithm>
@@ -22,69 +25,41 @@ struct fftw_plan_delete
 using unique_fftw_plan =
     std::unique_ptr<std::remove_pointer_t<fftw_plan>, fftw_plan_delete>;
 
-// thin wrappers around fftw_plan_*
-unique_fftw_plan plan_fft(int n, util::complex<double> *in,
-                          util::complex<double> *out);
-unique_fftw_plan plan_ifft(int n, util::complex<double> *in,
-                           util::complex<double> *out);
+// thin wrappers around fftw_plan_*, mostly to adapt types a little bit
+//     * throws on errors
+//     * FFTW_FORWARD = -1, FFTW_BACKWARD = 1, though this is just convention
+//     * by default, planning destoys both input and output
+//     * for optimal performance, arrays should be aligned, for example using
+//           util::aligned_allocate<util::complex<double>>(...)
 
-// forward/backward FFT of all axes
+// 1D transform
+unique_fftw_plan plan_fft(int n, util::complex<double> *in,
+                          util::complex<double> *out, int sign,
+                          int flags = FFTW_MEASURE);
+
+// transforms all axes
 unique_fftw_plan plan_fft_all(std::span<const int> shape,
                               util::complex<double> *in,
-                              util::complex<double> *out);
-unique_fftw_plan plan_ifft_all(std::span<const int> shape,
-                               util::complex<double> *in,
-                               util::complex<double> *out);
+                              util::complex<double> *out, int sign,
+                              int flags = FFTW_MEASURE);
 
-// forward/backward FFT of the last axis
+// transforms just the last axis
 unique_fftw_plan plan_fft_last(std::span<const int> shape,
                                util::complex<double> *in,
-                               util::complex<double> *out);
-unique_fftw_plan plan_ifft_last(std::span<const int> shape,
-                                util::complex<double> *in,
-                                util::complex<double> *out);
+                               util::complex<double> *out, int sign,
+                               int flags = FFTW_MEASURE);
 
-// measures 2-pt correlation function in spatial momentum space
-//     * owns both input and output memory (more natural for fftw)
-//     * can(/should) be used multiple times. Just overwrite the 'in'
-//       array, and call 'run()' again
-class Correlator
-{
-	size_t size_;
-	util::memory_ptr<util::complex<double>> in_, tmp_, out_;
-	unique_fftw_plan plan1_, plan2_;
+// 'Lattice' based interface
+//     - only for non-vectorized lattices, though FFTW does its own
+//       vectorization internally regardless.
+Lattice<util::complex<double>> fft_all(Lattice<util::complex<double>> &,
+                                       int sign);
+Lattice<util::complex<double>> fft_last(Lattice<util::complex<double>> &,
+                                        int sign);
 
-  public:
-	// not needed (yet?)
-	Correlator(Correlator const &) = delete;
-	Correlator &operator=(Correlator const &) = delete;
+// list momenta with |p|^2 < mom2max
+std::vector<Coordinate> make_mom_list(int nd, int mom2max);
 
-	explicit Correlator(std::span<const int> shape)
-	    : size_(std::reduce(shape.begin(), shape.end(), 1, std::multiplies{})),
-	      in_(util::aligned_allocate<util::complex<double>>(size_)),
-	      tmp_(util::aligned_allocate<util::complex<double>>(size_)),
-	      out_(util::aligned_allocate<util::complex<double>>(size_)),
-	      plan1_(plan_fft_all(shape, in_.get(), tmp_.get())),
-	      plan2_(plan_ifft_last(shape, tmp_.get(), out_.get()))
-	{}
-
-	std::span<util::complex<double>> in()
-	{
-		return std::span(in_.get(), size_);
-	}
-	std::span<util::complex<double>> out()
-	{
-		return std::span(out_.get(), size_);
-	}
-
-	void run()
-	{
-		// NOTE: the 'c2r' ('plan2') destroys its input ('tmp_').
-		fftw_execute(plan1_.get());
-		for (size_t i = 0; i < size_; ++i)
-			tmp_[i] = norm2(tmp_[i]);
-		fftw_execute(plan2_.get());
-	}
-};
+// make_phases(std::span<const int> shape)
 
 } // namespace mesh
