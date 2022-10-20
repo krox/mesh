@@ -1,11 +1,12 @@
 cmake_minimum_required (VERSION 3.9.0)
-project (mesh)
-include_directories(src)
+project (mesh LANGUAGES CXX)
 
 
-add_subdirectory(util)
-include_directories(util/src)
+################################################################################
+# dependencies
+################################################################################
 
+add_subdirectory(util EXCLUDE_FROM_ALL)
 
 include(FetchContent)
 
@@ -14,21 +15,62 @@ FetchContent_Declare(
   GIT_REPOSITORY https://github.com/CLIUtils/CLI11
   GIT_TAG        b9be5b9444772324459989177108a6a65b8b2769 # v2.2.0
 )
+FetchContent_Declare(
+  Catch2
+  GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+  GIT_TAG        v3.0.0-preview4
+)
 FetchContent_MakeAvailable(cli11)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -march=native -Wall -Wextra -Wno-unused-variable -Wno-register -Werror -fno-math-errno -g")
-
-find_package(HDF5 REQUIRED)
+#find_package(HDF5 REQUIRED)
 find_package(Eigen3 3.3 REQUIRED NO_MODULE)
+
+
+################################################################################
+# mesh library
+################################################################################
 
 file(GLOB modules "src/util/*.cpp" "src/mesh/*.cpp" "src/scalar/*.cpp" "src/lattice/*.cpp")
 
-set(binaries "group_histogram" "phi4" "sigma" "ising" "ising_correlator" "hmc" "test_lattice_gauge" "sweep_beta" "poisson" "benchmark" "landau")
+add_library(mesh STATIC ${modules})
+target_compile_features(mesh PUBLIC cxx_std_20)
+set_target_properties(mesh PROPERTIES CXX_EXTENSIONS ON)
+target_include_directories(mesh PUBLIC src)
+#target_link_libraries(mesh ${HDF5_LIBRARIES} util_hdf5 fmt::fmt stdc++fs fftw3 Eigen3::Eigen CLI11::CLI11)
+target_link_libraries(mesh util_hdf5 fmt::fmt stdc++fs fftw3 Eigen3::Eigen CLI11::CLI11)
+target_compile_options(mesh PUBLIC -O3 -march=native -Wall -Wextra -Werror -fno-math-errno)
+
+
+################################################################################
+# executables
+################################################################################
+
+set(binaries "group_histogram" "phi4" "sigma" "ising" "ising_correlator" "hmc" "sweep_beta" "poisson" "benchmark" "landau")
 
 foreach(bin ${binaries})
-	add_executable(${bin} src/apps/${bin}.cpp ${modules})
+	add_executable(${bin} src/apps/${bin}.cpp)
 	target_compile_features(${bin} PUBLIC cxx_std_20)
 	set_target_properties(${bin} PROPERTIES CXX_EXTENSIONS ON)
 	target_include_directories(${bin} PRIVATE ${HDF5_INCLUDE_DIRS})
-	target_link_libraries(${bin} ${HDF5_LIBRARIES} util_hdf5 fmt::fmt stdc++fs fftw3 Eigen3::Eigen CLI11::CLI11)
+	target_link_libraries(${bin} mesh)
 endforeach()
+
+
+################################################################################
+# unittests
+################################################################################
+
+if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
+	include(FetchContent)
+
+	FetchContent_MakeAvailable(Catch2)
+
+	#add_compile_options(-fsanitize=address -fno-omit-frame-pointer)
+	#add_link_options(-fsanitize=address)
+
+	add_executable(tests src/tests/lattice_gauge.cpp)
+	target_compile_features(tests PRIVATE cxx_std_20)
+	target_link_libraries(tests PRIVATE Catch2::Catch2WithMain mesh)
+	target_compile_options(tests PRIVATE -g)
+
+endif()

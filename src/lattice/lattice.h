@@ -38,8 +38,8 @@ template <typename vT> class Lattice
 	static_assert(std::is_same_v<Real, float> || std::is_same_v<Real, double>);
 
   private:
-	Grid const *grid_ = nullptr;          // never null
-	util::memory_ptr<vObject> data_ = {}; // null if grid is default/empty
+	Grid const *grid_ = nullptr;           // never null
+	util::unique_span<vObject> data_ = {}; // null if grid is default/empty
 
   public:
 	Lattice() : grid_(&Grid::make({0}, simd_width)) {}
@@ -47,7 +47,7 @@ template <typename vT> class Lattice
 	{
 		assert(grid().isize() == simd_width);
 		++latticeAllocCount;
-		data_ = util::aligned_allocate<vObject>(grid().osize());
+		data_ = util::make_aligned_unique_span<vObject>(grid().osize());
 	}
 
 	static Lattice zeros(Grid const &g)
@@ -66,8 +66,8 @@ template <typename vT> class Lattice
 	}
 
 	Grid const &grid() const { return *grid_; }
-	vObject *data() { return data_.get(); }
-	vObject const *data() const { return data_.get(); }
+	vObject *data() { return data_.data(); }
+	vObject const *data() const { return data_.data(); }
 
 	std::span<Real> rawSpan()
 	{
@@ -82,31 +82,30 @@ template <typename vT> class Lattice
 	// copy/move operations
 	Lattice(Lattice const &other)
 	    : grid_(&other.grid()),
-	      data_(util::aligned_allocate<vObject>(grid().osize()))
+	      data_(util::make_aligned_unique_span<vObject>(grid().osize()))
 	{
 		++latticeAllocCount;
 		std::memcpy(data(), other.data(), grid().osize() * sizeof(vObject));
 	}
-	Lattice(Lattice &&other) : grid_{&other.grid()}, data_{other.data()}
-	{
-		other.grid_ = &Grid::make({0}, simd_width);
-		other.data_ = nullptr;
-	}
+	Lattice(Lattice &&other) noexcept
+	    : grid_(std::exchange(other.grid_, &Grid::make({0}, simd_width))),
+	      data_(std::exchange(other.data_, {}))
+	{}
 	Lattice &operator=(Lattice const &other)
 	{
-		if (grid().size() != other.grid().size())
+		if (data_.size() != other.data_.size())
 		{
 			++latticeAllocCount;
-			data_ = util::aligned_allocate<vObject>(grid().osize());
+			data_ = util::make_aligned_unique_span<vObject>(grid().osize());
 		}
 		grid_ = &other.grid();
 		std::memcpy(data(), other.data(), grid().osize() * sizeof(vObject));
 		return *this;
 	}
-	Lattice &operator=(Lattice &&other)
+	Lattice &operator=(Lattice &&other) noexcept
 	{
-		std::swap(grid_, other.grid_);
-		std::swap(data_, other.data_);
+		grid_ = std::exchange(other.grid_, &Grid::make({0}, simd_width));
+		data_ = std::exchange(other.data_, {});
 		return *this;
 	}
 

@@ -1,3 +1,5 @@
+#include "catch2/catch_test_macros.hpp"
+
 #include "CLI/CLI.hpp"
 #include "fmt/format.h"
 #include "lattice/gauge.h"
@@ -36,13 +38,8 @@ template <typename vG> void testImpl(Coordinate geom, util::xoshiro256 &rng)
 	}
 }
 
-int main(int argc, char **argv)
+TEST_CASE("lattice gauge", "[lattice][gauge]")
 {
-	CLI::App app{
-	    "Test some operations of lattice gauge theory, mostly to verify that "
-	    "normalizations and sign-conventions and such are consistent."};
-	CLI11_PARSE(app, argc, argv);
-
 	auto rng = util::xoshiro256(std::random_device()());
 	for (auto &geom : {Coordinate{8, 8, 8, 8}, Coordinate{8, 8, 8}})
 	{
