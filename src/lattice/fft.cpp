@@ -48,8 +48,7 @@ unique_fftw_plan plan_fft_last(std::span<const int> shape,
 Lattice<util::complex<double>> fft_all(Lattice<util::complex<double>> &in,
                                        int sign)
 {
-	auto &grid = in.grid();
-	assert(grid.isize() == 1);
+	auto grid = in.grid();
 	auto out = Lattice<util::complex<double>>(grid);
 
 	// TODO: Use flags = FFTW_MEASURE | FFTW_WISDOM_ONLY and run measurment in
@@ -63,8 +62,7 @@ Lattice<util::complex<double>> fft_all(Lattice<util::complex<double>> &in,
 Lattice<util::complex<double>> fft_last(Lattice<util::complex<double>> &in,
                                         int sign)
 {
-	auto &grid = in.grid();
-	assert(grid.isize() == 1);
+	auto grid = in.grid();
 	auto out = Lattice<util::complex<double>>(grid);
 
 	// TODO: Use flags = FFTW_MEASURE | FFTW_WISDOM_ONLY and run measurment in

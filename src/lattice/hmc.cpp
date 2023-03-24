@@ -51,16 +51,16 @@ std::vector<double> makeDeltas(std::string_view scheme, double epsilon,
 // NOTE: we hide the implementation behind a compilation boundary, mostly in
 //       order to improve comilation times during development
 
-template <typename vG> Hmc<vG>::Hmc(Grid const &g) : g(g), U(g), P(g) {}
+template <typename G> Hmc<G>::Hmc(Grid const &g) : g(g), U(g), P(g) {}
 
 // reset the gauge field to a random config
-template <typename vG> void Hmc<vG>::randomizeGaugeField()
+template <typename G> void Hmc<G>::randomizeGaugeField()
 {
 	randomGaugeField(U, rng);
 }
 
 // new gaussian momenta
-template <typename vG> void Hmc<vG>::randomizeMomenta()
+template <typename G> void Hmc<G>::randomizeMomenta()
 {
 	// NOTE on conventions:
 	//     * H = S(U) + 1/2 P^i P^i = S(U) - tr(P*P) = S(U) + norm2(P)
@@ -70,8 +70,8 @@ template <typename vG> void Hmc<vG>::randomizeMomenta()
 
 // generate momenta -> run a trajectory -> accept/reject it -> measure
 // (NOTE: even if rejected, old momenta are destroyed)
-template <typename vG>
-void Hmc<vG>::runHmcUpdate(double beta, std::vector<double> const &deltas)
+template <typename G>
+void Hmc<G>::runHmcUpdate(double beta, std::vector<double> const &deltas)
 {
 	util::Stopwatch sw;
 	sw.start();
@@ -104,11 +104,11 @@ void Hmc<vG>::runHmcUpdate(double beta, std::vector<double> const &deltas)
 	time_history.push_back(sw.secs());
 }
 
-template class Hmc<U1<util::simd<float>>>;
-template class Hmc<U1<util::simd<double>>>;
-template class Hmc<SU2<util::simd<float>>>;
-template class Hmc<SU2<util::simd<double>>>;
-template class Hmc<SU3<util::simd<float>>>;
-template class Hmc<SU3<util::simd<double>>>;
+template class Hmc<U1<float>>;
+template class Hmc<U1<double>>;
+template class Hmc<SU2<float>>;
+template class Hmc<SU2<double>>;
+template class Hmc<SU3<float>>;
+template class Hmc<SU3<double>>;
 
 } // namespace mesh

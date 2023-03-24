@@ -30,22 +30,18 @@ template <typename T>
 void randomGaugeField(Lattice<T> &U, util::xoshiro256 &rng)
 {
 	util::StopwatchGuard swg(swRandom);
-	auto osize = U.grid().osize();
-	for (size_t i = 0; i < osize; ++i)
-		for (size_t j = 0; j < Lattice<T>::simd_width; ++j)
-			vinsert(U.data()[i], j,
-			        Lattice<T>::Object::randomGroupElement(rng));
+	auto s = U.grid().size();
+	for (size_t i = 0; i < s; ++i)
+		U.data()[i] = T::randomGroupElement(rng);
 }
 
 template <typename T>
 void randomAlgebraField(Lattice<T> &F, util::xoshiro256 &rng)
 {
 	util::StopwatchGuard swg(swRandom);
-	auto osize = F.grid().osize();
-	for (size_t i = 0; i < osize; ++i)
-		for (size_t j = 0; j < Lattice<T>::simd_width; ++j)
-			vinsert(F.data()[i], j,
-			        Lattice<T>::Object::randomAlgebraElement(rng));
+	auto s = F.grid().size();
+	for (size_t i = 0; i < s; ++i)
+		F.data()[i] = T::randomAlgebraElement(rng);
 }
 
 template <typename T>
@@ -144,11 +140,11 @@ void dispatchByGroup(F f, std::string const &group, int precision)
 	if (precision == 1)
 	{
 		if (group == "u1")
-			f.template operator()<U1<util::simd<float>>>();
+			f.template operator()<U1<float>>();
 		else if (group == "su2")
-			f.template operator()<SU2<util::simd<float>>>();
+			f.template operator()<SU2<float>>();
 		else if (group == "su3")
-			f.template operator()<SU3<util::simd<float>>>();
+			f.template operator()<SU3<float>>();
 		else
 			throw std::runtime_error(
 			    fmt::format("unknown gauge group '{}'", group));
@@ -156,11 +152,11 @@ void dispatchByGroup(F f, std::string const &group, int precision)
 	else if (precision == 2)
 	{
 		if (group == "u1")
-			f.template operator()<U1<util::simd<double>>>();
+			f.template operator()<U1<double>>();
 		else if (group == "su2")
-			f.template operator()<SU2<util::simd<double>>>();
+			f.template operator()<SU2<double>>();
 		else if (group == "su3")
-			f.template operator()<SU3<util::simd<double>>>();
+			f.template operator()<SU3<double>>();
 		else
 			throw std::runtime_error(
 			    fmt::format("unknown gauge group '{}'", group));
@@ -175,30 +171,32 @@ template <typename vG>
 GaugeField<vG> readConfig(std::string const &configName,
                           Grid const *expected_grid = nullptr)
 {
+	assert(false && "readConfig() not implemented right now");
+	(void)configName;
+	(void)expected_grid;
 	// "my_ensemble.h5/configs/100"
-	if (auto p = configName.find(".h5/"); p != std::string::npos)
+	/*if (auto p = configName.find(".h5/"); p != std::string::npos)
 	{
-		auto filename = configName.substr(0, p + 3);
-		auto dset = configName.substr(p + 3);
-		auto file = util::Hdf5File::open(filename);
-		auto geom = file.get_attribute<std::vector<int>>("geometry");
-		auto &grid = Grid::make(Coordinate(geom.begin(), geom.end()),
-		                        (int)GaugeField<vG>::simd_width);
-		if (file.get_attribute<std::string>("group") != vG::name())
-			throw std::runtime_error(fmt::format(
-			    "group mismatch on load. Expected {}, got {}\n", vG::name(),
-			    file.get_attribute<std::string>("group")));
-		if (expected_grid && expected_grid != &grid)
-			throw std::runtime_error(
-			    fmt::format("grid mismatch on load. Expected {}, got {}\n",
-			                expected_grid->to_string(), grid.to_string()));
-		auto U = GaugeField<vG>(grid);
-		readFromFile(file, dset, U);
-		return U;
+	    auto filename = configName.substr(0, p + 3);
+	    auto dset = configName.substr(p + 3);
+	    auto file = util::Hdf5File::open(filename);
+	    auto geom = file.get_attribute<std::vector<int>>("geometry");
+	    auto grid = Grid(Coordinate(geom.begin(), geom.end()));
+	    if (file.get_attribute<std::string>("group") != vG::name())
+	        throw std::runtime_error(fmt::format(
+	            "group mismatch on load. Expected {}, got {}\n", vG::name(),
+	            file.get_attribute<std::string>("group")));
+	    if (expected_grid && expected_grid != &grid)
+	        throw std::runtime_error(
+	            fmt::format("grid mismatch on load. Expected {}, got {}\n",
+	                        expected_grid->to_string(), grid.to_string()));
+	    auto U = GaugeField<vG>(grid);
+	    readFromFile(file, dset, U);
+	    return U;
 	}
 	else
-		throw std::runtime_error(
-		    fmt::format("unknown config file format '{}'", configName));
+	    throw std::runtime_error(
+	        fmt::format("unknown config file format '{}'", configName));*/
 }
 
 } // namespace mesh

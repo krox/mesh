@@ -12,131 +12,49 @@ using Coordinate = util::static_vector<int32_t, 4>;
 
 class Grid
 {
-	static std::string makeDescription(Coordinate const &shape)
-	{
-		auto sshape = std::span(shape.begin(), shape.end());
-		return fmt::format("{}", sshape);
-	}
+	size_t size_ = 0;
+	Coordinate shape_ = {0};
 
-	static std::string makeDescription(Coordinate const &shape,
-	                                   Coordinate const &ishape)
-	{
-		auto sshape = std::span(shape.begin(), shape.end());
-		auto sishape = std::span(ishape.begin(), ishape.end());
-		return fmt::format("{{{}, {}}}", sshape, sishape);
-	}
-
-	size_t osize_, isize_, size_;
-	Coordinate oshape_, ishape_, shape_;
-	std::string desc_; // human readable description
-
-	// this is a trick to make the constructor "effectively private" and still
-	// enabling delegated construction as in '.emplace' or similar functions
-	struct private_key
-	{};
+	// FUTURE: description of MPI layout should go here too
 
   public:
-	Grid(Coordinate const &shape, Coordinate const &ishape, private_key)
-	    : osize_(1), isize_(1), oshape_(shape), ishape_(ishape), shape_(shape),
-	      desc_(makeDescription(shape, ishape))
+	// NOTE: the default constructor creates a 1-dimensional grid with 0
+	//       elements. A 0-dimensional grid would need 1 element, which would
+	//       result in a (pointless) memory allocation when creating a lattice.
+	Grid() = default;
+
+	explicit Grid(Coordinate const &shape) : size_(1), shape_(shape)
 	{
-		assert(oshape_.size() == ishape_.size());
-		for (size_t i = 0; i < oshape_.size(); ++i)
-		{
-			assert(oshape_[i] % ishape_[i] == 0);
-			oshape_[i] /= ishape_[i];
-			osize_ *= oshape_[i];
-			isize_ *= ishape_[i];
-		}
-		size_ = osize_ * isize_;
+		for (size_t i = 0; i < shape_.size(); ++i)
+			size_ *= shape_[i];
 	}
 
-	/** disable copy/move. Usercode should only use pointers created by make */
-	Grid(Grid const &) = delete;
-	Grid &operator=(Grid const &) = delete;
-
-	/** geometry of the lattice */
-	int ndim() const { return (int)oshape_.size(); }
-	size_t osize() const { return osize_; }
-	size_t isize() const { return isize_; }
+	// geometry of the lattice
+	int ndim() const { return (int)shape_.size(); }
 	size_t size() const { return size_; }
-	Coordinate oshape() const { return oshape_; }
-	Coordinate ishape() const { return ishape_; }
 	Coordinate shape() const { return shape_; }
-	int32_t oshape(size_t i) const { return oshape_[i]; }
-	int32_t ishape(size_t i) const { return ishape_[i]; }
 	int32_t shape(size_t i) const { return shape_[i]; }
 
-	/** convert coordinate into (outerInde, innerIndex) */
-	std::pair<size_t, size_t> flatIndex(Coordinate const &index) const
+	// convert coordinate into single flat index
+	size_t flat_index(Coordinate const &index) const
 	{
 		assert((int)index.size() == ndim());
-		size_t oIndex = 0;
-		size_t iIndex = 0;
-		for (size_t i = 0; i < index.size(); ++i)
+		size_t r = 0;
+		for (int i = 0; i < ndim(); ++i)
 		{
-			assert(index[i] < shape(i));
-			oIndex = oIndex * oshape(i) + index[i] % oshape(i);
-			iIndex = iIndex * ishape(i) + index[i] / oshape(i);
+			assert(0 <= index[i] && index[i] < shape(i));
+			r = r * shape(i) + index[i];
 		}
-		assert(oIndex < osize());
-		assert(iIndex < isize());
-		return {oIndex, iIndex};
+		return r;
 	}
 
-	/** human-readable description */
-	std::string const &to_string() const { return desc_; }
-
-	/** "constructors" */
-	static Grid const &make(Coordinate const &shape, Coordinate const &ishape)
+	// human-readable description
+	std::string to_string() const
 	{
-		// NOTE: std::map guarantees pointer-stability
-		static std::map<std::string, Grid> cache;
-		assert(shape.size() == ishape.size());
-
-		auto [it, _] = cache.try_emplace(makeDescription(shape, ishape), shape,
-		                                 ishape, private_key{});
-		return it->second;
+		return fmt::format("{}", std::span(shape_.begin(), shape_.end()));
 	}
 
-	/** automatic simd layout */
-	static Grid const &make(Coordinate const &shape, int simdWidth)
-	{
-		auto ishape = Coordinate(shape.size(), 1);
-		assert(simdWidth != 0 && (simdWidth & (simdWidth - 1)) == 0);
-		while (simdWidth > 1)
-		{
-			int best = -1;
-			int bestSize = 0;
-			for (int i = 0; i < (int)shape.size(); ++i)
-				if ((shape[i] / ishape[i]) % 2 == 0)
-					if (shape[i] / ishape[i] >= bestSize)
-					{
-						bestSize = shape[i] / ishape[i];
-						best = i;
-					}
-			if (best == -1)
-			{
-				throw std::runtime_error(
-				    fmt::format("unable to distribute all simd lanes "
-				                "over lattice geometry (geom = {}, simd = {})",
-				                makeDescription(shape), simdWidth));
-			}
-			ishape[best] *= 2;
-			simdWidth /= 2;
-		}
-		return make(shape, ishape);
-	}
-
-	static Grid const &make_single(Coordinate const &shape)
-	{
-		return make(shape, util::simd<float>::size());
-	}
-
-	static Grid const &make_double(Coordinate const &shape)
-	{
-		return make(shape, util::simd<double>::size());
-	}
+	bool operator==(Grid const &) const = default;
 };
 
 } // namespace mesh

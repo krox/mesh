@@ -5,7 +5,6 @@
 #include "util/linalg.h"
 #include "util/progressbar.h"
 #include "util/random.h"
-#include "util/simd.h"
 #include <cmath>
 #include <string_view>
 #include <vector>
@@ -25,24 +24,23 @@ std::vector<double> makeDeltas(std::string_view scheme, double epsilon,
                                int substeps);
 
 // same es 'U = exp(P * t) * U', but slightly faster (and no allocations)
-template <typename vG>
-void evolve(Lattice<vG> &U, Lattice<vG> const &P, double t)
+template <typename G> void evolve(Lattice<G> &U, Lattice<G> const &P, double t)
 {
 	util::StopwatchGuard swg(swExp);
-	assert(compatible(U, P));
-	for (size_t i = 0; i < U.grid().osize(); ++i)
+	assert(U.grid() == P.grid());
+	for (size_t i = 0; i < U.grid().size(); ++i)
 		U.data()[i] = exp(P.data()[i] * t) * U.data()[i];
 }
 
 // evolve (U,P) in Hamiltonian dynamics basic Wilson-action
 //   * should be generalized to other actions
-template <typename vG>
-void runHmd(GaugeField<vG> &U, GaugeField<vG> &P, double beta,
+template <typename G>
+void runHmd(GaugeField<G> &U, GaugeField<G> &P, double beta,
             std::vector<double> const &deltas)
 {
 	assert(deltas.size() % 2 == 1);
-	assert(U.size() == P.size() && !U.empty());
-	int Nd = U[0].grid().ndim();
+	assert(U.grid() == P.grid());
+	int Nd = U.grid().ndim();
 
 	for (size_t i = 0; i < deltas.size(); ++i)
 		if (i % 2 == 0)
@@ -62,13 +60,13 @@ void runHmd(GaugeField<vG> &U, GaugeField<vG> &P, double beta,
 // a complicated simulation setup.
 //     * 'beta' should be generalized to an arbitrary action
 //     * 'deltas' should be generalized to an arbitrary integration scheme
-template <typename vG> class Hmc
+template <typename G> class Hmc
 {
   public:
 	// state of the simulation
 	Grid const &g;        // lattice grid
-	GaugeField<vG> U;     // gauge field
-	GaugeField<vG> P;     // conjugate momenta
+	GaugeField<G> U;      // gauge field
+	GaugeField<G> P;      // conjugate momenta
 	util::xoshiro256 rng; // random number generator
 
 	// observables (reset any time using .reset_observables())
@@ -98,7 +96,7 @@ template <typename vG> class Hmc
 		           mean(deltaH_history, [](double x) { return exp(-x); }));
 	}
 
-	GaugeField<vG> U_new; // temporary
+	GaugeField<G> U_new; // temporary
 
 	Hmc(Grid const &g);
 

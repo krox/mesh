@@ -2,7 +2,6 @@
 
 #include "util/complex.h"
 #include "util/random.h"
-#include "util/simd.h"
 #include <cassert>
 #include <cmath>
 #include <random>
@@ -26,8 +25,9 @@ template <typename T> struct U1
 
 	template <typename Rng> static U1<T> randomGroupElement(Rng &rng)
 	{
-		T t = rng.uniform() * (2 * M_PI);
-		return U1({std::cos(t), std::sin(t)});
+		using std::sin, std::cos;
+		T t = rng.template uniform<T>() * (2 * M_PI);
+		return U1({cos(t), sin(t)});
 	}
 
 	// algebra element with normal-random coeffs and tr(T^aT^b) = 1/2 δ^ab
@@ -66,11 +66,11 @@ template <typename T> U1<T> projectOnGroupFast(U1<T> const &a)
 // scalar operator
 
 template <typename T>
-U1<T> operator*(U1<T> const &a, util::type_identity_t<T> const &b)
+U1<T> operator*(U1<T> const &a, std::type_identity_t<T> const &b)
 {
 	return U1<T>(a.v_ * b);
 }
-template <typename T> void operator*=(U1<T> &a, util::type_identity_t<T> b)
+template <typename T> void operator*=(U1<T> &a, std::type_identity_t<T> b)
 {
 	a.v_ *= b;
 }
@@ -116,22 +116,8 @@ template <typename T> void operator*=(U1<T> &a, U1<T> const &b)
 template <typename T> U1<T> exp(U1<T> const &a)
 {
 	// we assume that a is indeed in the algebra, i.e. a.v_.real = 0
+	using std::cos, std::sin;
 	return U1<T>({cos(a.v_.im), sin(a.v_.im)});
-}
-
-// simd operations
-
-using util::vshuffle, util::vsum, util::vextract, util::vinsert;
-
-template <typename T> auto vsum(U1<T> const &a) { return U1(vsum(a.v_)); }
-template <typename T> auto vextract(U1<T> const &a, size_t lane)
-{
-	return U1(vextract(a.v_, lane));
-}
-template <typename T, typename U>
-void vinsert(U1<T> &a, size_t lane, U1<U> const &b)
-{
-	vinsert(a.v_, lane, b.v_);
 }
 
 #if 0 // old stuff for heatbath algorithms

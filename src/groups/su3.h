@@ -2,7 +2,6 @@
 
 #include "util/linalg.h"
 #include "util/random.h"
-#include "util/simd.h"
 #include <cmath>
 #include <random>
 
@@ -49,7 +48,7 @@ template <typename T> struct SU3
 			for (int j = 0; j < 3; ++j)
 				r.v_(i, j) = {rng.template normal<T>(),
 				              rng.template normal<T>()};
-		r.v_ = gramSchmidt(r.v_);
+		r.v_ = gram_schmidt(r.v_);
 		r.v_(0) /= determinant(r.v_);
 		return r;
 	}
@@ -111,7 +110,7 @@ template <typename T> void operator*=(SU3<T> &a, SU3<T> const &b)
 }
 
 template <typename T>
-SU3<T> operator*(SU3<T> const &a, util::type_identity_t<T> b)
+SU3<T> operator*(SU3<T> const &a, std::type_identity_t<T> b)
 {
 	return SU3(a.v_ * b);
 }
@@ -122,7 +121,7 @@ SU3<T> operator*(SU3<T> const &a, typename T::value_type b)
 	return SU3(a.v_ * b);
 }
 
-template <typename T> void operator*=(SU3<T> &a, util::type_identity_t<T> b)
+template <typename T> void operator*=(SU3<T> &a, std::type_identity_t<T> b)
 {
 	a.v_ *= b;
 }
@@ -177,21 +176,6 @@ template <typename T> SU3<T> projectOnAlgebra(SU3<T> const &a)
 	for (int i = 0; i < 3; ++i)
 		b.v_(i, i) -= tmp;
 	return b;
-}
-
-// simd operations
-
-using util::vshuffle, util::vsum, util::vextract, util::vinsert;
-
-template <typename T> auto vsum(SU3<T> const &a) { return SU3(vsum(a.v_)); }
-template <typename T> auto vextract(SU3<T> const &a, size_t lane)
-{
-	return SU3(vextract(a.v_, lane));
-}
-template <typename T, typename U>
-void vinsert(SU3<T> &a, size_t lane, SU3<U> const &b)
-{
-	vinsert(a.v_, lane, b.v_);
 }
 
 } // namespace mesh

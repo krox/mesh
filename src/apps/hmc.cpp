@@ -87,16 +87,15 @@ int main(int argc, char **argv)
 	}
 
 	dispatchByGroup(
-	    [&]<typename vG>() {
-		    auto const &g = Grid::make(Coordinate(geom.begin(), geom.end()),
-		                               TensorTraits<vG>::simd_width);
-		    auto hmc = Hmc<vG>(g);
+	    [&]<typename G>() {
+		    auto g = Grid(Coordinate(geom.begin(), geom.end()));
+		    auto hmc = Hmc<G>(g);
 		    hmc.rng.seed(util::sha3<256>(seed.value()));
 
 		    if (start == "random")
 			    hmc.randomizeGaugeField();
 		    else
-			    hmc.U = readConfig<vG>(start, &g);
+			    hmc.U = readConfig<G>(start, &g);
 
 		    for (size_t iter : util::ProgressRange(count))
 		    {
@@ -109,11 +108,11 @@ int main(int argc, char **argv)
 				                       .subspan(hmc.plaq_history.size() / 10));
 			    }
 
-			    if (file)
+			    /*if (file)
 			    {
-				    std::string name = fmt::format("/configs/{}", iter + 1);
-				    writeToFile(file, name, hmc.U);
-			    }
+			        std::string name = fmt::format("/configs/{}", iter + 1);
+			        writeToFile(file, name, hmc.U);
+			    }*/
 		    }
 
 		    if (plot)

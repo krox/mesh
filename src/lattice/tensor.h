@@ -17,7 +17,7 @@ template <> struct TensorTraits<float>
 	using Object = float;
 	using vObject = float;
 
-	static constexpr size_t simd_width = 1;
+	static constexpr int simd_width = 1;
 };
 
 template <> struct TensorTraits<double>
@@ -27,28 +27,39 @@ template <> struct TensorTraits<double>
 	using Object = double;
 	using vObject = double;
 
-	static constexpr size_t simd_width = 1;
+	static constexpr int simd_width = 1;
 };
 
-template <typename T, size_t W> struct TensorTraits<util::simd<T, W>>
+template <typename T, int W> struct TensorTraits<util::simd<T, W>>
 {
 	using Real = T;
 	using vReal = util::simd<T, W>;
 	using Object = T;
 	using vObject = util::simd<T, W>;
+	static constexpr int simd_width = 1;
 };
 
-template <template <typename> typename F, typename T> struct TensorTraits<F<T>>
+template <template <typename> typename F> struct TensorTraits<F<float>>
 {
-	using Real = T;
-	using vReal = T;
-	using Object = F<T>;
-	using vObject = F<T>;
+	using Real = float;
+	using vReal = float;
+	using Object = F<float>;
+	using vObject = F<float>;
 
-	static constexpr size_t simd_width = 1;
+	static constexpr int simd_width = 1;
 };
 
-template <template <typename> typename F, typename T, size_t W>
+template <template <typename> typename F> struct TensorTraits<F<double>>
+{
+	using Real = double;
+	using vReal = double;
+	using Object = F<double>;
+	using vObject = F<double>;
+
+	static constexpr int simd_width = 1;
+};
+
+template <template <typename> typename F, typename T, int W>
 struct TensorTraits<F<util::simd<T, W>>>
 {
 	using Real = T;
@@ -56,7 +67,7 @@ struct TensorTraits<F<util::simd<T, W>>>
 	using Object = F<T>;
 	using vObject = F<util::simd<T, W>>;
 
-	static constexpr size_t simd_width = W;
+	static constexpr int simd_width = W;
 };
 
 } // namespace mesh

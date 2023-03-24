@@ -1,7 +1,6 @@
 #pragma once
 
 #include "util/random.h"
-#include "util/simd.h"
 #include <cmath>
 
 namespace mesh {
@@ -107,7 +106,7 @@ template <typename T> void operator-=(SU2<T> &a, SU2<T> const &b)
 template <typename T> void operator*=(SU2<T> &a, SU2<T> const &b) { a = a * b; }
 
 template <typename T>
-SU2<T> operator*(SU2<T> const &a, util::type_identity_t<T> const &b)
+SU2<T> operator*(SU2<T> const &a, std::type_identity_t<T> const &b)
 {
 	return {a[0] * b, a[1] * b, a[2] * b, a[3] * b};
 }
@@ -118,7 +117,7 @@ SU2<T> operator*(SU2<T> const &a, typename T::value_type const &b)
 	return {a[0] * b, a[1] * b, a[2] * b, a[3] * b};
 }
 
-template <typename T> void operator*=(SU2<T> &a, util::type_identity_t<T> b)
+template <typename T> void operator*=(SU2<T> &a, std::type_identity_t<T> b)
 {
 	a[0] *= b;
 	a[1] *= b;
@@ -164,9 +163,9 @@ template <typename T> SU2<T> exp(SU2<T> const &a)
 	// usual 12-order Taylor series. Sadly, this version produces
 	//     exp({0,0,0,0}) = {1, nan, nan, nan}
 	// though hopefully that does not happen in practice
-
-	auto alpha = sqrt(a[1] * a[1] + a[2] * a[2] + a[3] * a[3]);
-	auto f = sin(alpha) / alpha;
+	using std::sqrt, std::sin, std::cos;
+	T alpha = sqrt(a[1] * a[1] + a[2] * a[2] + a[3] * a[3]);
+	T f = sin(alpha) / alpha;
 	return {cos(alpha), a[1] * f, a[2] * f, a[3] * f};
 }
 
@@ -193,28 +192,6 @@ template <typename T> SU2<T> projectOnGroupFast(SU2<T> const &a)
 template <typename T> SU2<T> projectOnAlgebra(SU2<T> const &a)
 {
 	return {T(0), a[1], a[2], a[3]};
-}
-
-// utilities for horizontal simd
-
-using util::vshuffle, util::vsum, util::vextract, util::vinsert;
-
-template <typename T> auto vsum(SU2<T> const &a)
-{
-	return SU2(vsum(a[0]), vsum(a[1]), vsum(a[2]), vsum(a[3]));
-}
-template <typename T> auto vextract(SU2<T> const &a, size_t lane)
-{
-	return SU2(vextract(a[0], lane), vextract(a[1], lane), vextract(a[2], lane),
-	           vextract(a[3], lane));
-}
-template <typename T, typename U>
-void vinsert(SU2<T> &a, size_t lane, SU2<U> const &b)
-{
-	vinsert(a[0], lane, b[0]);
-	vinsert(a[1], lane, b[1]);
-	vinsert(a[2], lane, b[2]);
-	vinsert(a[3], lane, b[3]);
 }
 
 /*
