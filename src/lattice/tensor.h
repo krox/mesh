@@ -5,69 +5,87 @@
  */
 
 #include "util/simd.h"
+#include <type_traits>
 
 namespace mesh {
 
-template <typename> struct TensorTraits;
+template <class> struct TensorTraits;
 
-template <> struct TensorTraits<float>
+template <class R>
+    requires std::is_floating_point_v<R>
+struct TensorTraits<R>
 {
-	using Real = float;
-	using vReal = float;
-	using Object = float;
-	using vObject = float;
+	using Real = R;
+	using vReal = R;
+	using Object = R;
+	using vObject = R;
 
 	static constexpr int simd_width = 1;
+	static constexpr int flops_mul = 1;
 };
 
-template <> struct TensorTraits<double>
+template <class R, int W>
+    requires std::is_floating_point_v<R>
+struct TensorTraits<util::simd<R, W>>
 {
-	using Real = double;
-	using vReal = double;
-	using Object = double;
-	using vObject = double;
+	using Real = R;
+	using vReal = util::simd<R, W>;
+	using Object = R;
+	using vObject = util::simd<R, W>;
+	static constexpr int simd_width = W;
+	static constexpr int flops_mul = W;
+};
+
+template <template <class> class F, class R>
+    requires std::is_floating_point_v<R>
+struct TensorTraits<F<R>>
+{
+	using Real = R;
+	using vReal = R;
+	using Object = F<R>;
+	using vObject = F<R>;
 
 	static constexpr int simd_width = 1;
+	static constexpr int flops_mul = F<R>::mul_complexity();
 };
 
-template <typename T, int W> struct TensorTraits<util::simd<T, W>>
+template <template <class, int> class F, class R, int N>
+    requires std::is_floating_point_v<R>
+struct TensorTraits<F<R, N>>
 {
-	using Real = T;
-	using vReal = util::simd<T, W>;
-	using Object = T;
-	using vObject = util::simd<T, W>;
-	static constexpr int simd_width = 1;
-};
-
-template <template <typename> typename F> struct TensorTraits<F<float>>
-{
-	using Real = float;
-	using vReal = float;
-	using Object = F<float>;
-	using vObject = F<float>;
+	using Real = R;
+	using vReal = R;
+	using Object = F<R, N>;
+	using vObject = F<R, N>;
 
 	static constexpr int simd_width = 1;
+	static constexpr int flops_mul = F<R, N>::mul_complexity();
 };
 
-template <template <typename> typename F> struct TensorTraits<F<double>>
+template <template <class> class F, class R, int W>
+    requires std::is_floating_point_v<R>
+struct TensorTraits<F<util::simd<R, W>>>
 {
-	using Real = double;
-	using vReal = double;
-	using Object = F<double>;
-	using vObject = F<double>;
-
-	static constexpr int simd_width = 1;
-};
-
-template <template <typename> typename F, typename T, int W>
-struct TensorTraits<F<util::simd<T, W>>>
-{
-	using Real = T;
-	using vReal = util::simd<T, W>;
-	using Object = F<T>;
-	using vObject = F<util::simd<T, W>>;
+	using Real = R;
+	using vReal = util::simd<R, W>;
+	using Object = F<R>;
+	using vObject = F<util::simd<R, W>>;
 
 	static constexpr int simd_width = W;
+	static constexpr int flops_mul = F<R>::mul_complexity() * W;
+};
+
+template <template <class, int> class F, int N, class R, int W>
+    requires std::is_floating_point_v<R>
+struct TensorTraits<F<util::simd<R, W>, N>>
+{
+	using Real = R;
+	using vReal = util::simd<R, W>;
+	using Object = F<R, N>;
+	using vObject = F<util::simd<R, W>, N>;
+
+	static constexpr int simd_width = W;
+	static constexpr int flops_mul = F<R, N>::mul_complexity() * W;
 };
 
 } // namespace mesh

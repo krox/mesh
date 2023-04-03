@@ -22,6 +22,8 @@ template <typename T> struct SU2
 	//   = dimension of defining/fundamental representation
 	static constexpr int Nc() { return 2; }
 
+	static constexpr int mul_complexity() { return 16; }
+
 	// constructors
 	SU2() = default;
 	explicit SU2(T a) : v_{a, 0, 0, 0} {}

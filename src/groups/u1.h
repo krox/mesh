@@ -16,6 +16,7 @@ template <typename T> struct U1
 	static constexpr std::string_view name() { return "u1"; }
 	static constexpr int dim() { return 1; }
 	static constexpr int Nc() { return 1; }
+	static constexpr int mul_complexity() { return 4; }
 
 	// constructors
 	U1() = default;

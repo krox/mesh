@@ -6,7 +6,7 @@
  */
 
 #include "groups/su2.h"
-#include "groups/su3.h"
+#include "groups/sun.h"
 #include "groups/u1.h"
 #include "lattice/lattice.h"
 #include "util/complex.h"
