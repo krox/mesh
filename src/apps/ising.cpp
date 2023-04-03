@@ -12,6 +12,19 @@
 #include <random>
 #include <vector>
 
+enum class Algo
+{
+	heat_bath,
+	exact_heat_bath,
+	swendsen_wang,
+	exact_swendsen_wang
+};
+static const std::map<std::string, Algo> str2algo{
+    {"heat-bath", Algo::heat_bath},
+    {"exact-heat-bath", Algo::exact_heat_bath},
+    {"swendsen-wang", Algo::swendsen_wang},
+    {"exact-swendsen-wang", Algo::exact_swendsen_wang}};
+
 int main(int argc, char **argv)
 {
 	IsingParams params;
@@ -20,10 +33,10 @@ int main(int argc, char **argv)
 	params.beta = 0.44068679350977147; // beta_crit for 2D
 	bool do_plot = false;
 	params.overwrite_existing = false;
-	std::string algorithm = "swendsen-wang";
+	Algo algorithm = Algo::exact_swendsen_wang;
+	int num_threads = 1;
 
-	CLI::App app{"Simulate 1D-4D Ising model "
-	             "with a combination of heatbath and cluster updates."};
+	CLI::App app{"Simulate 1D-4D Ising model with a variety of algorithm."};
 
 	// physics options
 	app.add_option("--geom", params.geom, "geometry of the lattice");
@@ -32,21 +45,27 @@ int main(int argc, char **argv)
 	// markov options
 	app.add_option("--count", params.count, "number of configs to generate");
 	app.add_option("--discard", params.discard,
-	               "number of configs to discard for thermalization");
-	app.add_option("--spacing", params.spacing,
-	               "number of updates between configs");
+	               "number of configs to discard for thermalization (only for "
+	               "non-exact algos)");
+	app.add_option(
+	    "--spacing", params.spacing,
+	    "number of updates between configs (only for non-exact algos)");
 	app.add_option(
 	    "--seed", params.seed,
 	    "seed for random number generator (default = empty = random)");
-	app.add_option("--algorithm", algorithm,
-	               "simulation algorithm (SwendsenWang=default, HeatBath)");
+	app.add_option("--algorithm", algorithm, "simulation algorithm")
+	    ->transform(CLI::CheckedTransformer(str2algo, CLI::ignore_case));
+	app.add_option("--threads,-j", num_threads,
+	               "number of worker threads to spawn "
+	               "(not implemented for all algorithms)");
 
 	// output options
-	app.add_flag("--plot", do_plot, "plot result");
+	app.add_flag("--plot", do_plot, "plot result using Gnuplot");
 	app.add_option("--filename", params.filename,
-	               "hdf5 output (one dataset per config)");
+	               "hdf5 output with one dataset per config. If given a path "
+	               "ending with '/', a filename is chosen automatically.");
 	app.add_flag("--force", params.overwrite_existing,
-	             "overwrite existing data file");
+	             "allow overwriting existing datafile");
 
 	CLI11_PARSE(app, argc, argv);
 
@@ -85,18 +104,22 @@ int main(int argc, char **argv)
 		fmt::print("writing to {}\n", params.filename);
 
 	IsingResults res;
-	if (algorithm == "heat-bath")
-		res = run_heat_bath(params);
-	else if (algorithm == "exact-heat-bath")
-		res = run_exact_heat_bath(params);
-	else if (algorithm == "swendsen-wang")
-		res = run_swendsen_wang(params);
-	else if (algorithm == "exact-swendsen-wang")
-		res = run_exact_swendsen_wang(params);
-	else
+	switch (algorithm)
 	{
-		fmt::print("ERROR: unknown algorithm '{}'\n", algorithm);
-		return -1;
+	case Algo::heat_bath:
+		res = run_heat_bath(params);
+		break;
+	case Algo::exact_heat_bath:
+		res = run_exact_heat_bath(params);
+		break;
+	case Algo::swendsen_wang:
+		res = run_swendsen_wang(params);
+		break;
+	case Algo::exact_swendsen_wang:
+		res = run_exact_swendsen_wang(params);
+		break;
+	default:
+		assert(false);
 	}
 
 	// double tau = util::correlationTime(res.magnetizationHistory);
@@ -109,8 +132,8 @@ int main(int argc, char **argv)
 
 	// analyze
 
-	// fmt::print("beta = {}, <mag> = {}, <|mag|> = {}, corr = {}\n", beta, mag,
-	// magAbs, tau);
+	// fmt::print("beta = {}, <mag> = {}, <|mag|> = {}, corr = {}\n", beta,
+	// mag, magAbs, tau);
 
 	// known exact formula for 2D infinite-volume
 	// 2D infinite volume exact result (for ordered phase):

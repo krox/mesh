@@ -10,9 +10,9 @@ using namespace mesh;
 
 template <typename vG> void testImpl(Coordinate geom, util::xoshiro256 &rng)
 {
-	fmt::print("\n========== testing G={}, Nd={}, simd={} ==========\n",
-	           vG::name(), geom.size(), TensorTraits<vG>::simd_width);
-	auto const &g = Grid::make(geom, TensorTraits<vG>::simd_width);
+	fmt::print("\n========== testing G={}, Nd={} ==========\n", vG::name(),
+	           geom.size(), TensorTraits<vG>::simd_width);
+	auto g = Grid(geom);
 
 	auto f = Lattice<vG>(g);
 	auto F = GaugeField<vG>(g);
@@ -43,11 +43,11 @@ TEST_CASE("lattice gauge", "[lattice][gauge]")
 	auto rng = util::xoshiro256(std::random_device()());
 	for (auto &geom : {Coordinate{8, 8, 8, 8}, Coordinate{8, 8, 8}})
 	{
-		testImpl<U1<util::simd<double>>>(geom, rng);
-		testImpl<SU2<util::simd<double>>>(geom, rng);
-		testImpl<SU3<util::simd<double>>>(geom, rng);
-		testImpl<U1<util::simd<float>>>(geom, rng);
-		testImpl<SU2<util::simd<float>>>(geom, rng);
-		testImpl<SU3<util::simd<float>>>(geom, rng);
+		testImpl<U1<double>>(geom, rng);
+		testImpl<SU2<double>>(geom, rng);
+		testImpl<SU3<double>>(geom, rng);
+		testImpl<U1<float>>(geom, rng);
+		testImpl<SU2<float>>(geom, rng);
+		testImpl<SU3<float>>(geom, rng);
 	}
 }
