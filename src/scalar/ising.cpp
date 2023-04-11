@@ -345,7 +345,7 @@ namespace {
 
 class ExactSwendsenWang
 {
-	Topology top_;
+	Topology const &top_;
 
 	// no information is kept in these between calls to .run(), only the storage
 	std::vector<int8_t> field_;
@@ -445,10 +445,7 @@ class ExactSwendsenWang
 	}
 
   public:
-	// statistics gathered during generation
-	std::vector<int> T_history;
-
-	explicit ExactSwendsenWang(Topology top)
+	explicit ExactSwendsenWang(Topology const &top)
 	    : top_(std::move(top)), field_(top_.nSites()), bonds_(top_.nLinks()),
 	      sites_(top_.nSites())
 	{}
@@ -462,7 +459,7 @@ class ExactSwendsenWang
 		// affect the Swendsen-Wang Markov chain itself, but it does have a
 		// significant effect on the quality of the bounding chain, i.e., how
 		// long it takes to detect complete coupling. It seems to be:
-		//     * random order is better standard (lexicographic) ordering, but
+		//     * random order is better then the default lexicographic, but
 		//     * changing the order in between steps is detrimental
 		assert(sites_.size() == (size_t)top_.nSites());
 		for (int i = 0; i < top_.nSites(); ++i)
@@ -482,7 +479,7 @@ class ExactSwendsenWang
 				x = 1 | 2;
 			for (size_t i = 0; i < T; ++i)
 			{
-				auto local_rng = rngs[T - 1 - i];
+				auto local_rng = rngs[T - 1 - i]; // intended copy of rng state
 				make_bonds(beta, local_rng);
 				make_field(local_rng);
 			}
@@ -498,12 +495,11 @@ class ExactSwendsenWang
 
 			if (done)
 			{
-				T_history.push_back(T);
+				// fmt::print("found a solution at T={}\n", T);
 
 				// transform 1/2 to 1/-1
 				for (auto &x : field_)
 					x = int8_t(-2 * x + 3);
-
 				return field_;
 			}
 		}
@@ -518,35 +514,37 @@ class ExactSwendsenWang
 // params.discard and params.spacing are ignored here
 IsingResults run_exact_swendsen_wang(const IsingParams &params)
 {
-	// A single xoshiro256 instance would probably provide enough randomness
-	// for the whole process. But as we use layered RNGs anyway, it is kinda
-	// cool to use a CSRNG on the outermost level.
-	auto rng = util::Blake3(params.seed);
-	auto algo = ExactSwendsenWang(Topology::lattice(params.geom));
+	const auto top = Topology::lattice(params.geom);
 
-	// results
-	util::Hdf5File file = makeFile(params, algo.topology());
+	// init results
+	util::Hdf5File file = makeFile(params, top);
 	IsingResults res;
+	res.actionHistory.resize(params.count, 0.0 / 0.0);
+	res.magnetizationHistory.resize(params.count, 0.0 / 0.0);
 
 	auto pb = util::ProgressBar(params.count);
-	for (int iter = 0; iter < params.count; ++iter, ++pb)
-	{
-		pb.show();
+	pb.show();
+	auto algo = ExactSwendsenWang(top);
 
-		auto chain_rng = util::xoshiro256(rng());
+#pragma omp parallel for schedule(dynamic, 1) default(none)                    \
+    shared(params, pb, file, res) firstprivate(algo)
+	for (int iter = 0; iter < params.count; ++iter)
+	{
+		std::string config_seed = fmt::format("{}.{}", params.seed, iter + 1);
+		auto chain_rng = util::xoshiro256(util::blake3(config_seed));
 		auto &field = algo.run(params.beta, chain_rng);
 
 		// measure observables
-		if (iter >= 0)
-		{
-			res.actionHistory.push_back(
-			    isingAction(field, algo.topology(), params.beta));
-			res.magnetizationHistory.push_back(isingMagnetization(field));
-		}
+		res.actionHistory[iter] =
+		    isingAction(field, algo.topology(), params.beta);
+		res.magnetizationHistory[iter] = isingMagnetization(field);
 
-		// write config to file
-		if (iter >= 0 && (iter + 1) % params.spacing == 0)
+#pragma omp critical
+		{
 			writeConfig(file, field, params.geom, iter + 1);
+			++pb;
+			pb.show();
+		}
 	}
 	pb.finish();
 
@@ -554,7 +552,6 @@ IsingResults run_exact_swendsen_wang(const IsingParams &params)
 	{
 		file.write_data("action_history", res.actionHistory);
 		file.write_data("magnetization_history", res.magnetizationHistory);
-		file.write_data("T_history", algo.T_history);
 	}
 
 	return res;

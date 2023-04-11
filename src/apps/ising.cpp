@@ -9,6 +9,7 @@
 #include <cmath>
 #include <filesystem>
 #include <iostream>
+#include <omp.h>
 #include <random>
 #include <vector>
 
@@ -27,14 +28,14 @@ static const std::map<std::string, Algo> str2algo{
 
 int main(int argc, char **argv)
 {
-	IsingParams params;
+	IsingParams params ;
 	params.geom = {32, 32};
 	params.count = 1000;
 	params.beta = 0.44068679350977147; // beta_crit for 2D
 	bool do_plot = false;
 	params.overwrite_existing = false;
 	Algo algorithm = Algo::exact_swendsen_wang;
-	int num_threads = 1;
+	int num_threads = 0;
 
 	CLI::App app{"Simulate 1D-4D Ising model with a variety of algorithm."};
 
@@ -55,9 +56,11 @@ int main(int argc, char **argv)
 	    "seed for random number generator (default = empty = random)");
 	app.add_option("--algorithm", algorithm, "simulation algorithm")
 	    ->transform(CLI::CheckedTransformer(str2algo, CLI::ignore_case));
-	app.add_option("--threads,-j", num_threads,
-	               "number of worker threads to spawn "
-	               "(not implemented for all algorithms)");
+	app.add_option(
+	    "--threads,-j", num_threads,
+	    "number of worker threads to spawn "
+	    "(not implemented for all algorithms). If not given, use OpenMP "
+	    "defaults, which can controlled by setting OMP_NUM_THREADS.");
 
 	// output options
 	app.add_flag("--plot", do_plot, "plot result using Gnuplot");
@@ -72,6 +75,10 @@ int main(int argc, char **argv)
 	// no seed given -> get a random one
 	if (params.seed.empty())
 		params.seed = fmt::format("{}", std::random_device()());
+
+	// if no thread count is given, stick to OpenMP's default
+	if (num_threads)
+		omp_set_num_threads(num_threads);
 
 	// filename ends with "/" -> automatic filename
 	if (params.filename != "" && params.filename.back() == '/')

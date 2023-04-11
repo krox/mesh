@@ -22,10 +22,8 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(cli11)
 
-#find_package(HDF5 REQUIRED)
 find_package(Eigen3 3.3 REQUIRED NO_MODULE)
-
-find_package(OpenMP) # optional
+find_package(OpenMP REQUIRED) # could be made optional I think
 
 
 ################################################################################
@@ -38,9 +36,8 @@ add_library(mesh STATIC ${modules})
 target_compile_features(mesh PUBLIC cxx_std_20)
 set_target_properties(mesh PROPERTIES CXX_EXTENSIONS ON)
 target_include_directories(mesh PUBLIC src)
-#target_link_libraries(mesh ${HDF5_LIBRARIES} util_hdf5 fmt::fmt stdc++fs fftw3 Eigen3::Eigen CLI11::CLI11)
-target_link_libraries(mesh util_hdf5 fmt::fmt stdc++fs fftw3 Eigen3::Eigen CLI11::CLI11 OpenMP::OpenMP_CXX)
-target_compile_options(mesh PUBLIC -O3 -march=native -Wall -Wextra -Werror -fno-math-errno)
+target_link_libraries(mesh util_hdf5 stdc++fs fftw3 Eigen3::Eigen CLI11::CLI11 OpenMP::OpenMP_CXX)
+target_compile_options(mesh PRIVATE -g -O3 -march=native -Wall -Wextra -Werror -fno-math-errno)
 
 ################################################################################
 # executables
