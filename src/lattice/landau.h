@@ -10,7 +10,10 @@ template <typename vG> struct Landau
 	Lattice<vG> g;
 	bool verbose = false;
 
-	Landau(GaugeField<vG> const &U_) : U(U_), g(Lattice<vG>::ones(U_.grid())) {}
+	Landau(GaugeField<vG> const &U_) : U(U_), g(Lattice<vG>(U_.grid()))
+	{
+		lattice_apply([](auto &site) { site = vG::one(); }, g);
+	}
 
 	// maximized by gauge fixing
 

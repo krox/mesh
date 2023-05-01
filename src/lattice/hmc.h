@@ -29,7 +29,7 @@ template <typename G> void evolve(Lattice<G> &U, Lattice<G> const &P, double t)
 	util::StopwatchGuard swg(swExp);
 	assert(U.grid() == P.grid());
 	for (size_t i = 0; i < U.grid().size(); ++i)
-		U.data()[i] = exp(P.data()[i] * t) * U.data()[i];
+		U.data()[i] = exp(projectOnAlgebra(P.data()[i]) * t) * U.data()[i];
 }
 
 // evolve (U,P) in Hamiltonian dynamics basic Wilson-action

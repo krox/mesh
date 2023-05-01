@@ -21,8 +21,8 @@ template <typename T> struct U1
 	// constructors
 	U1() = default;
 	explicit U1(util::complex<T> const &v) : v_(v) {}
-	static U1 zero() { return U1(T(0)); }
-	static U1 one() { return U1(T(1)); }
+	static U1 zero() { return U1(util::complex<T>(T(0))); }
+	static U1 one() { return U1(util::complex<T>(T(1))); }
 
 	template <typename Rng> static U1<T> randomGroupElement(Rng &rng)
 	{

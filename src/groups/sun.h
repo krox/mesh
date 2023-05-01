@@ -36,7 +36,7 @@ template <typename T, int N> struct SUN
 	using value_type = T;
 
 	// machine-readable name of the group
-	static constexpr std::string_view name() { return fmt::format("su{}", N); }
+	static constexpr std::string name() { return fmt::format("su{}", N); }
 
 	// dimension of the Lie group
 	//   = number of generators
@@ -66,10 +66,7 @@ template <typename T, int N> struct SUN
 	template <typename Rng> static SUN randomGroupElement(Rng &rng)
 	{
 		SUN r;
-		for (int i = 0; i < N; ++i)
-			for (int j = 0; j < N; ++j)
-				r.v_(i, j) = {rng.template normal<T>(),
-				              rng.template normal<T>()};
+		r.v_ = util::Matrix<util::complex<T>, N>::random_normal(rng);
 		r.v_ = gram_schmidt(r.v_);
 		r.v_(0) /= determinant(r.v_);
 		return r;
@@ -81,10 +78,7 @@ template <typename T, int N> struct SUN
 		// TODO: this could be made faster (only approx N^2/2 independent
 		// numbers, not N^2)
 		SUN r;
-		for (int i = 0; i < N; ++i)
-			for (int j = 0; j < N; ++j)
-				r.v_(i, j) = {rng.template normal<T>(),
-				              rng.template normal<T>()};
+		r.v_ = util::Matrix<util::complex<T>, N>::random_normal(rng);
 		return projectOnAlgebra(r) * sqrt(0.5);
 	}
 
@@ -202,11 +196,7 @@ template <typename T> SUN<T, 3> projectOnGroupFast(SUN<T, 3> const &a)
 // projection to su(N) algebra (traceless anti-hermitian matrices)
 template <typename T, int N> SUN<T, N> projectOnAlgebra(SUN<T, N> const &a)
 {
-	auto b = (a - adj(a)) * 0.5;
-	util::complex<T> tmp = trace(b) * (1.0 / N);
-	for (int i = 0; i < N; ++i)
-		b.v_(i, i) -= tmp;
-	return b;
+	return SUN(antihermitian_traceless(a.v_));
 }
 
 template <class T> using SU3 = SUN<T, 3>;

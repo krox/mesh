@@ -37,7 +37,7 @@ target_compile_features(mesh PUBLIC cxx_std_20)
 set_target_properties(mesh PROPERTIES CXX_EXTENSIONS ON)
 target_include_directories(mesh PUBLIC src)
 target_link_libraries(mesh util_hdf5 stdc++fs fftw3 Eigen3::Eigen CLI11::CLI11 OpenMP::OpenMP_CXX)
-target_compile_options(mesh PRIVATE -g -O3 -march=native -Wall -Wextra -Werror -fno-math-errno)
+target_compile_options(mesh PUBLIC -g -O3 -march=native -Wall -Wextra -Werror -fno-math-errno)
 
 ################################################################################
 # executables

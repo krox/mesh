@@ -121,6 +121,9 @@ template <typename T> class Lattice
 //     * all contained lattices are expected to live on the same grid
 //          (not fully enforces sadly)
 //     * better operator overloading than std::vector<Lattice>
+//     * TODO: probably should integrate this functionality into the Lattice
+//             class itself. Though keep the data-layout of Lorentz index
+//             outside of the lattice index.
 template <typename T> class LatticeStack
 {
 	std::vector<Lattice<T>> data_;
@@ -302,6 +305,19 @@ void lattice_apply(F f, LatticeStack<T> &a, LatticeStack<Ts> const &...as)
 		return r;                                                              \
 	}                                                                          \
 	template <typename T> Lattice<T> fun(Lattice<T> &&a)                       \
+	{                                                                          \
+		lattice_apply([](T &aa) { aa = fun(aa); }, a);                         \
+		return std::move(a);                                                   \
+	}                                                                          \
+	template <typename T>                                                      \
+	auto fun(LatticeStack<T> const &a)                                         \
+	    ->LatticeStack<decltype(fun(std::declval<T>()))>                       \
+	{                                                                          \
+		auto r = LatticeStack<decltype(fun(std::declval<T>()))>(a.grid());     \
+		lattice_apply([](T &rr, T const &aa) { rr = fun(aa); }, r, a);         \
+		return r;                                                              \
+	}                                                                          \
+	template <typename T> LatticeStack<T> fun(LatticeStack<T> &&a)             \
 	{                                                                          \
 		lattice_apply([](T &aa) { aa = fun(aa); }, a);                         \
 		return std::move(a);                                                   \

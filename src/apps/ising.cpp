@@ -28,7 +28,7 @@ static const std::map<std::string, Algo> str2algo{
 
 int main(int argc, char **argv)
 {
-	IsingParams params ;
+	IsingParams params;
 	params.geom = {32, 32};
 	params.count = 1000;
 	params.beta = 0.44068679350977147; // beta_crit for 2D

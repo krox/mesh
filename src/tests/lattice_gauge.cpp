@@ -11,7 +11,7 @@ using namespace mesh;
 template <typename vG> void testImpl(Coordinate geom, util::xoshiro256 &rng)
 {
 	fmt::print("\n========== testing G={}, Nd={} ==========\n", vG::name(),
-	           geom.size(), TensorTraits<vG>::simd_width);
+	           geom.size());
 	auto g = Grid(geom);
 
 	auto f = Lattice<vG>(g);
