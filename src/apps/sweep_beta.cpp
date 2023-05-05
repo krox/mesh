@@ -59,8 +59,7 @@ int main(int argc, char **argv)
 	std::vector<double> xs, ys;
 	dispatchByGroup(
 	    [&]<typename vG>() {
-		    auto const &g = Grid::make(Coordinate(geom.begin(), geom.end()),
-		                               TensorTraits<vG>::simd_width);
+		    auto const &g = Grid(Coordinate(geom.begin(), geom.end()));
 		    auto hmc = Hmc<vG>(g);
 		    hmc.rng.seed(util::sha3<256>(seed.value()));
 		    hmc.randomizeGaugeField();
@@ -74,9 +73,10 @@ int main(int argc, char **argv)
 			    for (int i = 0; i < count; ++i)
 				    hmc.runHmcUpdate(beta, deltas);
 
-			    auto plaq = util::mean(util::span(hmc.plaq_history)
-			                               .slice(hmc.plaq_history.size() / 10,
-			                                      hmc.plaq_history.size()));
+			    auto plaq =
+			        util::mean(std::span(hmc.plaq_history)
+			                       .subspan(hmc.plaq_history.size() / 10,
+			                                hmc.plaq_history.size()));
 			    fmt::print("beta = {:.3f}, acc = {:.3f}, plaq = {:.3f}\n", beta,
 			               util::mean(hmc.accept_history), plaq);
 
