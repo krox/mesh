@@ -1,6 +1,6 @@
 #pragma once
 
-#include "lattice/gauge.h"
+#include "gauge/utils.h"
 #include "util/gnuplot.h"
 #include "util/linalg.h"
 #include "util/progressbar.h"

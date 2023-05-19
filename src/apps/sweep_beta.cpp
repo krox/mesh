@@ -1,7 +1,6 @@
 #include "CLI/CLI.hpp"
 #include "fmt/format.h"
-#include "lattice/gauge.h"
-#include "lattice/hmc.h"
+#include "gauge/hmc.h"
 #include "util/hash.h"
 
 using namespace mesh;

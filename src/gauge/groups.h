@@ -4,9 +4,12 @@
 #include "util/linalg.h"
 #include <type_traits>
 
-// Definitions of and utilities for the gauge groups. This module deals with
-// individual elements of the group/algebra, operations on whole lattice objects
-// are located in lattice/gauge.h
+// Definitions of and utilities for the gauge groups.
+// * This module deals with individual elements of the group/algebra, operations
+//   on whole lattice objects are located in gauge/utils.h for example.
+// * Ideally, this would be the only file that contains code dependent on
+//   specific gauge groups. Everything else should be templated over arbitrary
+//   groups. Probably not quite true in practice of course.
 
 namespace mesh {
 

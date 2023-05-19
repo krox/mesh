@@ -1,7 +1,6 @@
 #pragma once
 
 #include "fmt/format.h"
-#include "gauge/groups.h"
 #include "lattice/grid.h"
 #include "lattice/tensor.h"
 #include "util/hdf5.h"
@@ -411,22 +410,16 @@ UTIL_DEFINE_LATTICE_BINARY(+)
 UTIL_DEFINE_LATTICE_BINARY(-)
 UTIL_DEFINE_LATTICE_BINARY(*)
 
-UTIL_DEFINE_LATTICE_UNARY(real_trace, real_trace)
-UTIL_DEFINE_LATTICE_UNARY(adj, adj)
-UTIL_DEFINE_LATTICE_UNARY(exp, gauge::exp)
-UTIL_DEFINE_LATTICE_UNARY(project_on_algebra, project_on_algebra)
-
 struct my_identity
 {
 	template <class T> T operator()(T const &x) { return x; }
 };
 UTIL_DEFINE_LATTICE_REDUCTION(sum, my_identity{})
-UTIL_DEFINE_LATTICE_REDUCTION(norm2, norm2)
-UTIL_DEFINE_LATTICE_REDUCTION(sum_real_trace, gauge::real_trace)
 
-#undef UTIL_DEFINE_LATTICE_BINARY
-#undef UTIL_DEFINE_LATTICE_UNARY
-#undef UTIL_DEFINE_LATTICE_REDUCTION
+// keep these macros. used in gauge/utils.h
+// #undef UTIL_DEFINE_LATTICE_BINARY
+// #undef UTIL_DEFINE_LATTICE_UNARY
+// #undef UTIL_DEFINE_LATTICE_REDUCTION
 
 // TODO: this should be handled by templates like the operators above...
 template <typename T> Lattice<T> operator*(Lattice<T> const &a, double b)

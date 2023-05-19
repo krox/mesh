@@ -30,7 +30,7 @@ find_package(OpenMP REQUIRED) # could be made optional I think
 # mesh library
 ################################################################################
 
-file(GLOB modules "src/util/*.cpp" "src/mesh/*.cpp" "src/scalar/*.cpp" "src/lattice/*.cpp")
+file(GLOB modules "src/mesh/*.cpp" "src/scalar/*.cpp" "src/lattice/*.cpp" "src/gauge/*.cpp")
 
 add_library(mesh STATIC ${modules})
 target_compile_features(mesh PUBLIC cxx_std_20)

@@ -14,8 +14,6 @@
 
 namespace mesh {
 
-using util::real;
-
 // Quite often, the Lorentz components are used separately (e.g, in order to
 // cshift them into different directions). So it should be beneficial to
 // performance to separate them, i.e., not putting the Lorentz index into
@@ -23,6 +21,16 @@ using util::real;
 template <class G> using GaugeField = LatticeStack<G>;
 
 inline util::Stopwatch swRandom, swStaples, swReunitize, swPlaquette;
+
+using util::real;
+
+// lattice versions of some gauge group operations
+UTIL_DEFINE_LATTICE_REDUCTION(norm2, norm2)
+UTIL_DEFINE_LATTICE_REDUCTION(sum_real_trace, gauge::real_trace)
+UTIL_DEFINE_LATTICE_UNARY(real_trace, real_trace)
+UTIL_DEFINE_LATTICE_UNARY(adj, adj)
+UTIL_DEFINE_LATTICE_UNARY(exp, gauge::exp)
+UTIL_DEFINE_LATTICE_UNARY(project_on_algebra, project_on_algebra)
 
 template <typename T>
 void random_gauge_field(Lattice<T> &U, util::xoshiro256 &rng)

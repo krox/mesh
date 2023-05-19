@@ -1,4 +1,4 @@
-#include "lattice/hmc.h"
+#include "gauge/hmc.h"
 
 namespace mesh {
 

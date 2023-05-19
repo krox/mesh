@@ -2,9 +2,9 @@
 
 #include "CLI/CLI.hpp"
 #include "fmt/format.h"
-#include "lattice/gauge.h"
-#include "lattice/hmc.h"
-#include "lattice/landau.h"
+#include "gauge/hmc.h"
+#include "gauge/landau.h"
+#include "gauge/utils.h"
 
 using namespace mesh;
 

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "lattice/gauge.h"
+#include "gauge/utils.h"
 
 namespace mesh {
 
