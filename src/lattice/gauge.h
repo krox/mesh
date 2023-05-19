@@ -5,9 +5,7 @@
  * Might be split into multiple files in the future.
  */
 
-#include "groups/su2.h"
-#include "groups/sun.h"
-#include "groups/u1.h"
+#include "gauge/groups.h"
 #include "lattice/lattice.h"
 #include "util/complex.h"
 #include "util/hdf5.h"
@@ -22,58 +20,58 @@ using util::real;
 // cshift them into different directions). So it should be beneficial to
 // performance to separate them, i.e., not putting the Lorentz index into
 // the inner tensor structure.
-template <typename vG> using GaugeField = LatticeStack<vG>;
+template <class G> using GaugeField = LatticeStack<G>;
 
 inline util::Stopwatch swRandom, swStaples, swReunitize, swPlaquette;
 
 template <typename T>
-void randomGaugeField(Lattice<T> &U, util::xoshiro256 &rng)
+void random_gauge_field(Lattice<T> &U, util::xoshiro256 &rng)
 {
 	util::StopwatchGuard swg(swRandom);
 	auto s = U.grid().size();
 	for (size_t i = 0; i < s; ++i)
-		U.data()[i] = T::randomGroupElement(rng);
+		gauge::random_group_element(U.data()[i], rng);
 }
 
 template <typename T>
-void randomAlgebraField(Lattice<T> &F, util::xoshiro256 &rng)
+void random_algebra_field(Lattice<T> &F, util::xoshiro256 &rng)
 {
 	util::StopwatchGuard swg(swRandom);
 	auto s = F.grid().size();
 	for (size_t i = 0; i < s; ++i)
-		F.data()[i] = T::randomAlgebraElement(rng);
+		gauge::random_algebra_element(F.data()[i], rng);
 }
 
 template <typename T>
-void randomGaugeField(LatticeStack<T> &U, util::xoshiro256 &rng)
+void random_gauge_field(LatticeStack<T> &U, util::xoshiro256 &rng)
 {
 	util::StopwatchGuard swg(swRandom);
 	for (size_t mu = 0; mu < U.size(); ++mu)
-		randomGaugeField(U[mu], rng);
+		random_gauge_field(U[mu], rng);
 }
 
 template <typename T>
-void randomAlgebraField(LatticeStack<T> &F, util::xoshiro256 &rng)
+void random_algebra_field(LatticeStack<T> &F, util::xoshiro256 &rng)
 {
 	util::StopwatchGuard swg(swRandom);
 	for (size_t mu = 0; mu < F.size(); ++mu)
-		randomAlgebraField(F[mu], rng);
+		random_algebra_field(F[mu], rng);
 }
 
 template <typename vG> void reunitize(Lattice<vG> &U)
 {
 	util::StopwatchGuard swg(swReunitize);
-	lattice_apply([](auto &a) { a = projectOnGroupFast(a); }, U);
+	lattice_apply([](auto &a) { a = project_on_group_fast(a); }, U);
 }
 
 template <typename vG> void reunitize(GaugeField<vG> &U)
 {
 	util::StopwatchGuard swg(swReunitize);
-	lattice_apply([](auto &a) { a = projectOnGroupFast(a); }, U);
+	lattice_apply([](auto &a) { a = project_on_group_fast(a); }, U);
 }
 
 /** normalized to [0,1] */
-template <typename vG> double plaquette(GaugeField<vG> const &U)
+template <typename G> double plaquette(GaugeField<G> const &U)
 {
 	util::StopwatchGuard swg(swPlaquette);
 	double vol = U[0].grid().size();
@@ -84,9 +82,9 @@ template <typename vG> double plaquette(GaugeField<vG> const &U)
 		{
 			auto tmp = U[mu] * cshift(U[nu], mu, 1) *
 			           adj(cshift(U[mu], nu, 1)) * adj(U[nu]);
-			s += real(sumTrace(tmp));
+			s += sum_real_trace(tmp);
 		}
-	return s / (vol * Nd * (Nd - 1) * 0.5) / vG::Nc();
+	return s / (vol * Nd * (Nd - 1) * 0.5) / GaugeTraits<G>::Nc();
 }
 
 /**
@@ -127,10 +125,11 @@ template <typename vG> double wilsonAction(GaugeField<vG> const &U, double beta)
 	return (1.0 - plaquette(U)) * (beta * Nd * (Nd - 1) * 0.5 * vol);
 }
 
-template <typename vG>
-Lattice<vG> wilsonDeriv(GaugeField<vG> const &U, int mu, double beta)
+template <typename G>
+Lattice<G> wilsonDeriv(GaugeField<G> const &U, int mu, double beta)
 {
-	return projectOnAlgebra(U[mu] * stapleSum(U, mu) * (beta / (2 * vG::Nc())));
+	return project_on_algebra(U[mu] * stapleSum(U, mu) *
+	                          (beta / (2 * GaugeTraits<G>::Nc())));
 }
 
 // calls f<vG>() with vG determined at runtime based on gauge group and FP prec

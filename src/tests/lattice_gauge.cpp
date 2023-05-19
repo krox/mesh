@@ -8,22 +8,24 @@
 
 using namespace mesh;
 
-template <typename vG> void testImpl(Coordinate geom, util::xoshiro256 &rng)
+template <typename G> void testImpl(Coordinate geom, util::xoshiro256 &rng)
 {
-	fmt::print("\n========== testing G={}, Nd={} ==========\n", vG::name(),
-	           geom.size());
+	fmt::print("\n========== testing G={}, Nd={} ==========\n",
+	           GaugeTraits<G>::name(), geom.size());
 	auto g = Grid(geom);
 
-	auto f = Lattice<vG>(g);
-	auto F = GaugeField<vG>(g);
-	auto U = GaugeField<vG>(g);
-	randomAlgebraField(f, rng);
-	randomAlgebraField(F, rng);
-	randomGaugeField(U, rng);
+	auto f = Lattice<G>(g);
+	auto F = GaugeField<G>(g);
+	auto U = GaugeField<G>(g);
+	random_algebra_field(f, rng);
+	random_algebra_field(F, rng);
+	random_gauge_field(U, rng);
 	fmt::print("normalizaiton of norm2(random algebra): {}\n",
-	           norm2(F) * (1.0 / (g.size() * g.ndim() * vG::dim())) / 0.5);
+	           norm2(F) *
+	               (1.0 / (g.size() * g.ndim() * GaugeTraits<G>::dim())) / 0.5);
 	fmt::print("normalizaiton of trace(random algebra^2): {}\n",
-	           sumTrace(F * F) * (1.0 / (g.size() * g.ndim() * vG::dim())) /
+	           sum_real_trace(F * F) *
+	               (1.0 / (g.size() * g.ndim() * GaugeTraits<G>::dim())) /
 	               (-0.5));
 
 	{
@@ -31,7 +33,7 @@ template <typename vG> void testImpl(Coordinate geom, util::xoshiro256 &rng)
 		auto old = landau();
 
 		double eps = 0.0001;
-		double expected = -2.0 * eps * real(sumTrace(f * landau.deriv()));
+		double expected = -2.0 * eps * sum_real_trace(f * landau.deriv());
 		landau.g = exp(f * eps) * landau.g;
 		fmt::print("derivative of Landau gauge condition: {}\n",
 		           (landau() - old) / expected);

@@ -4,28 +4,28 @@
 
 namespace mesh {
 
-template <typename vG> struct Landau
+template <typename G> struct Landau
 {
-	GaugeField<vG> const &U;
-	Lattice<vG> g;
+	GaugeField<G> const &U;
+	Lattice<G> g;
 	bool verbose = false;
 
-	Landau(GaugeField<vG> const &U_) : U(U_), g(Lattice<vG>(U_.grid()))
+	Landau(GaugeField<G> const &U_) : U(U_), g(Lattice<G>(U_.grid()))
 	{
-		lattice_apply([](auto &site) { site = vG::one(); }, g);
+		lattice_apply([](auto &site) { site = G(1); }, g);
 	}
 
 	// maximized by gauge fixing
 
-	double operator()(Lattice<vG> const &h) const
+	double operator()(Lattice<G> const &h) const
 	{
 		int Nd = U.grid().ndim();
 		double vol = U.grid().size();
 
 		double s = 0;
 		for (int mu = 0; mu < Nd; ++mu)
-			s += real(sumTrace(h * U[mu] * adj(cshift(h, mu, 1))));
-		return s / (vG::Nc() * Nd * vol);
+			s += sum_real_trace(h * U[mu] * adj(cshift(h, mu, 1)));
+		return s / (GaugeTraits<G>::Nc() * Nd * vol);
 	}
 
 	double operator()() const { return (*this)(g); }
@@ -36,28 +36,29 @@ template <typename vG> struct Landau
 		int Nd = U.grid().ndim();
 		double vol = U.grid().size();
 
-		auto d = Lattice<vG>::zeros(U.grid());
+		auto d = Lattice<G>::zeros(U.grid());
 		for (int mu = 0; mu < Nd; ++mu)
 		{
 			d += U[mu] * adj(cshift(g, mu, 1));
 			d += adj(cshift(g * U[mu], mu, -1));
 		}
-		return norm2(projectOnAlgebra(g * d)) * (1.0 / (Nd * vol));
+		return norm2(project_on_algebra(g * d)) * (1.0 / (Nd * vol));
 	}
 
 	// (algebra-valued) derivative of term
-	Lattice<vG> deriv() const
+	Lattice<G> deriv() const
 	{
 		int Nd = U.grid().ndim();
 		double vol = U.grid().size();
 
-		auto d = Lattice<vG>::zeros(U.grid());
+		auto d = Lattice<G>::zeros(U.grid());
 		for (int mu = 0; mu < Nd; ++mu)
 		{
 			d += U[mu] * adj(cshift(g, mu, 1));
 			d += adj(cshift(g * U[mu], mu, -1));
 		}
-		return projectOnAlgebra(g * d) * (-0.5 / (vG::Nc() * Nd * vol));
+		return project_on_algebra(g * d) *
+		       (-0.5 / (GaugeTraits<G>::Nc() * Nd * vol));
 	}
 
 	// saddle point of quadratic given by three points
@@ -70,7 +71,7 @@ template <typename vG> struct Landau
 		       ((x2 - x3) * y1 - (x1 - x3) * y2 + (x1 - x2) * y3);
 	}
 
-	double line_search(Lattice<vG> const &F, double eps) const
+	double line_search(Lattice<G> const &F, double eps) const
 	{
 		double base = (*this)();
 
@@ -98,7 +99,7 @@ template <typename vG> struct Landau
 		double eps = 3000.0;
 
 		// non-linear CG
-		Lattice<vG> last(U.grid());
+		Lattice<G> last(U.grid());
 		double lastNorm = 0.0;
 		for (int iter = 0; iter < max_iter; ++iter)
 		{
@@ -110,14 +111,14 @@ template <typename vG> struct Landau
 				return;
 
 			auto F = deriv();
-			double norm = real(sumTrace(F * F));
+			double norm = sum_real_trace(F * F);
 			// NOTE: only start the CG after a few iterations of SD
 
 			// Fletcher-Reeves
 			// double beta = norm / lastNorm;
 
 			// Polak-Ribière with automatic restart
-			double beta = (norm - real(sumTrace(F * last))) / lastNorm;
+			double beta = (norm - sum_real_trace(F * last)) / lastNorm;
 
 			last = F;
 			if (iter > 20 && beta > 0)

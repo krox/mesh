@@ -56,7 +56,7 @@ template <typename G> Hmc<G>::Hmc(Grid const &g) : g(g), U(g), P(g) {}
 // reset the gauge field to a random config
 template <typename G> void Hmc<G>::randomizeGaugeField()
 {
-	randomGaugeField(U, rng);
+	random_gauge_field(U, rng);
 }
 
 // new gaussian momenta
@@ -65,7 +65,7 @@ template <typename G> void Hmc<G>::randomizeMomenta()
 	// NOTE on conventions:
 	//     * H = S(U) + 1/2 P^i P^i = S(U) - tr(P*P) = S(U) + norm2(P)
 	//     * U' = P, P' = -S'(U)
-	randomAlgebraField(P, rng);
+	random_algebra_field(P, rng);
 }
 
 // generate momenta -> run a trajectory -> accept/reject it -> measure

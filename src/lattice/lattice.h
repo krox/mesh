@@ -1,6 +1,7 @@
 #pragma once
 
 #include "fmt/format.h"
+#include "gauge/groups.h"
 #include "lattice/grid.h"
 #include "lattice/tensor.h"
 #include "util/hdf5.h"
@@ -367,28 +368,28 @@ auto lattice_sum(F f, LatticeStack<T> const &a, LatticeStack<Ts> const &...as)
 		return a;                                                              \
 	}
 
-#define UTIL_DEFINE_LATTICE_UNARY(fun)                                         \
+#define UTIL_DEFINE_LATTICE_UNARY(name, fun)                                   \
 	template <typename T>                                                      \
-	auto fun(Lattice<T> const &a)->Lattice<decltype(fun(std::declval<T>()))>   \
+	auto name(Lattice<T> const &a)->Lattice<decltype(fun(std::declval<T>()))>  \
 	{                                                                          \
 		auto r = Lattice<decltype(fun(std::declval<T>()))>(a.grid());          \
 		lattice_apply([](T &rr, T const &aa) { rr = fun(aa); }, r, a);         \
 		return r;                                                              \
 	}                                                                          \
-	template <typename T> Lattice<T> fun(Lattice<T> &&a)                       \
+	template <typename T> Lattice<T> name(Lattice<T> &&a)                      \
 	{                                                                          \
 		lattice_apply([](T &aa) { aa = fun(aa); }, a);                         \
 		return std::move(a);                                                   \
 	}                                                                          \
 	template <typename T>                                                      \
-	auto fun(LatticeStack<T> const &a)                                         \
+	auto name(LatticeStack<T> const &a)                                        \
 	    ->LatticeStack<decltype(fun(std::declval<T>()))>                       \
 	{                                                                          \
 		auto r = LatticeStack<decltype(fun(std::declval<T>()))>(a.grid());     \
 		lattice_apply([](T &rr, T const &aa) { rr = fun(aa); }, r, a);         \
 		return r;                                                              \
 	}                                                                          \
-	template <typename T> LatticeStack<T> fun(LatticeStack<T> &&a)             \
+	template <typename T> LatticeStack<T> name(LatticeStack<T> &&a)            \
 	{                                                                          \
 		lattice_apply([](T &aa) { aa = fun(aa); }, a);                         \
 		return std::move(a);                                                   \
@@ -410,10 +411,10 @@ UTIL_DEFINE_LATTICE_BINARY(+)
 UTIL_DEFINE_LATTICE_BINARY(-)
 UTIL_DEFINE_LATTICE_BINARY(*)
 
-UTIL_DEFINE_LATTICE_UNARY(trace)
-UTIL_DEFINE_LATTICE_UNARY(adj)
-UTIL_DEFINE_LATTICE_UNARY(exp)
-UTIL_DEFINE_LATTICE_UNARY(projectOnAlgebra)
+UTIL_DEFINE_LATTICE_UNARY(real_trace, real_trace)
+UTIL_DEFINE_LATTICE_UNARY(adj, adj)
+UTIL_DEFINE_LATTICE_UNARY(exp, gauge::exp)
+UTIL_DEFINE_LATTICE_UNARY(project_on_algebra, project_on_algebra)
 
 struct my_identity
 {
@@ -421,7 +422,7 @@ struct my_identity
 };
 UTIL_DEFINE_LATTICE_REDUCTION(sum, my_identity{})
 UTIL_DEFINE_LATTICE_REDUCTION(norm2, norm2)
-UTIL_DEFINE_LATTICE_REDUCTION(sumTrace, trace)
+UTIL_DEFINE_LATTICE_REDUCTION(sum_real_trace, gauge::real_trace)
 
 #undef UTIL_DEFINE_LATTICE_BINARY
 #undef UTIL_DEFINE_LATTICE_UNARY
