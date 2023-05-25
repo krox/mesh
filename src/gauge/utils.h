@@ -35,6 +35,7 @@ UTIL_DEFINE_LATTICE_UNARY(project_on_algebra, project_on_algebra)
 template <typename T>
 void random_gauge_field(Lattice<T> &U, util::xoshiro256 &rng)
 {
+	// TODO: actually parallelize this
 	util::StopwatchGuard swg(swRandom);
 	auto s = U.grid().size();
 	for (size_t i = 0; i < s; ++i)

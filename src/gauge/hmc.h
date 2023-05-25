@@ -23,14 +23,16 @@ inline util::Stopwatch swExp;
 std::vector<double> makeDeltas(std::string_view scheme, double epsilon,
                                int substeps);
 
-// same es 'U = exp(P * t) * U', but slightly faster (and no allocations)
+// evolution of gauge field:
+// U = exp(project_algebra(P) * t) * U
 template <typename G> void evolve(Lattice<G> &U, Lattice<G> const &P, double t)
 {
 	util::StopwatchGuard swg(swExp);
-	assert(U.grid() == P.grid());
-	for (size_t i = 0; i < U.grid().size(); ++i)
-		U.data()[i] =
-		    gauge::exp(project_on_algebra(P.data()[i]) * t) * U.data()[i];
+	lattice_apply(
+	    [t](auto &u, auto const &p) {
+		    u = gauge::exp(project_on_algebra(p) * t) * u;
+	    },
+	    U, P);
 }
 
 // evolve (U,P) in Hamiltonian dynamics basic Wilson-action
