@@ -231,8 +231,8 @@ int main(int argc, char **argv)
 		auto c2pt = std::vector<double>(geom.back());
 		auto data = util::aligned_allocate<util::complex<double>>(top.nSites());
 		auto tmp = util::aligned_allocate<util::complex<double>>(top.nSites());
-		auto plan1 = plan_fft_all(top.geom, data.get(), tmp.get(), -1);
-		auto plan2 = plan_fft_last(top.geom, tmp.get(), data.get(), +1);
+		auto plan1 = plan_fft_all(top.geom, data.data(), tmp.data(), -1);
+		auto plan2 = plan_fft_last(top.geom, tmp.data(), data.data(), +1);
 		double normalization = 1.0 / top.nSites() / top.geom.back();
 
 		auto pb = util::ProgressBar(count);
@@ -244,10 +244,10 @@ int main(int argc, char **argv)
 			    file.read_data<int8_t>(fmt::format("configs/{}", ci + 1));
 
 			for (int i = 0; i < top.nSites(); ++i)
-				data[i] = field[i];
+				data[i] = util::complex<double>(field[i]);
 			fftw_execute(plan1.get());
 			for (int i = 0; i < top.nSites(); ++i)
-				tmp[i] = norm2(tmp[i]);
+				tmp[i] = util::complex<double>(norm2(tmp[i]));
 			fftw_execute(plan2.get());
 
 			for (size_t i = 0; i < mom_pos.size(); ++i)

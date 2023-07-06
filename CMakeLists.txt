@@ -6,21 +6,25 @@ project (mesh LANGUAGES CXX)
 # dependencies
 ################################################################################
 
-add_subdirectory(util EXCLUDE_FROM_ALL)
+include(cmake/CPM.cmake)
 
-include(FetchContent)
-
-FetchContent_Declare(
-  cli11
-  GIT_REPOSITORY https://github.com/CLIUtils/CLI11
-  GIT_TAG        b9be5b9444772324459989177108a6a65b8b2769 # v2.2.0
+CPMAddPackage(
+  NAME cli11
+  GITHUB_REPOSITORY CLIUtils/CLI11
+  GIT_TAG 291c58789c031208f08f4f261a858b5b7083e8e2 # v2.3.2
 )
-FetchContent_Declare(
+
+CPMAddPackage(
+  NAME util
+  GITHUB_REPOSITORY krox/util
+  GIT_TAG 7827147c171c9116aee29dc9d2385023388694c0
+)
+
+CPMAddPackage(
   Catch2
-  GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-  GIT_TAG        v3.0.0-preview4
+  GITHUB_REPOSITORY catchorg/Catch2
+  GIT_TAG 3f0283de7a9c43200033da996ff9093be3ac84dc # v3.3.2
 )
-FetchContent_MakeAvailable(cli11)
 
 find_package(Eigen3 3.3 REQUIRED NO_MODULE)
 find_package(OpenMP REQUIRED) # could be made optional I think
