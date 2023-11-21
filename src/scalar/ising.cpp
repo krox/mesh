@@ -524,26 +524,29 @@ IsingResults run_exact_swendsen_wang(const IsingParams &params)
 
 	auto pb = util::ProgressBar(params.count);
 	pb.show();
-	auto algo = ExactSwendsenWang(top);
-
-#pragma omp parallel for schedule(dynamic, 1) default(none)                    \
-    shared(params, pb, file, res) firstprivate(algo)
-	for (int iter = 0; iter < params.count; ++iter)
+#pragma omp parallel default(none) shared(params, pb, file, res, top)
 	{
-		std::string config_seed = fmt::format("{}.{}", params.seed, iter + 1);
-		auto chain_rng = util::xoshiro256(util::blake3(config_seed));
-		auto &field = algo.run(params.beta, chain_rng);
+		auto algo = ExactSwendsenWang(top);
 
-		// measure observables
-		res.actionHistory[iter] =
-		    isingAction(field, algo.topology(), params.beta);
-		res.magnetizationHistory[iter] = isingMagnetization(field);
+#pragma omp for schedule(dynamic, 1)
+		for (int iter = 0; iter < params.count; ++iter)
+		{
+			std::string config_seed =
+			    fmt::format("{}.{}", params.seed, iter + 1);
+			auto chain_rng = util::xoshiro256(util::blake3(config_seed));
+			auto &field = algo.run(params.beta, chain_rng);
+
+			// measure observables
+			res.actionHistory[iter] =
+			    isingAction(field, algo.topology(), params.beta);
+			res.magnetizationHistory[iter] = isingMagnetization(field);
 
 #pragma omp critical
-		{
-			writeConfig(file, field, params.geom, iter + 1);
-			++pb;
-			pb.show();
+			{
+				writeConfig(file, field, params.geom, iter + 1);
+				++pb;
+				pb.show();
+			}
 		}
 	}
 	pb.finish();
