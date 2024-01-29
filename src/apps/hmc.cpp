@@ -12,7 +12,7 @@ int main(int argc, char **argv)
 
 	// physics parameters
 	std::string group = "su3";
-	std::vector<int32_t> geom = {6, 6, 6, 6};
+	std::vector<int32_t> geom = {8, 8, 8, 8};
 	double beta = 6.0;
 
 	// simulation parameters

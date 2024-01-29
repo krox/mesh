@@ -108,6 +108,16 @@ template <class T> class DeviceBuffer
 		                 count * sizeof(T), cudaMemcpyDeviceToDevice));
 	}
 
+	void copy_to_2d(DeviceBuffer &dst, size_t dst_offset, size_t dst_pitch,
+	                size_t src_offset, size_t src_pitch, size_t width,
+	                size_t height) const
+	{
+		check(cudaMemcpy2D(dst.data() + dst_offset, dst_pitch * sizeof(T),
+		                   data() + src_offset, src_pitch * sizeof(T),
+		                   width * sizeof(T), height,
+		                   cudaMemcpyDeviceToDevice));
+	}
+
 	void cshift_to(DeviceBuffer &dst, int64_t offset, size_t row_size) const
 	{
 		// sign convention:
@@ -126,26 +136,21 @@ template <class T> class DeviceBuffer
 			copy_to(dst);
 			return;
 		}
+		auto height = size() / row_size;
 
-		// TODO: this is doing too much synchronization. We should use the
-		// _async version of memcpy, or, even better, use
-		// omp_target_memcpy_rect[_async] instead of the loop.
-		for (size_t row = 0; row < size() / row_size; ++row)
+		if (offset > 0)
 		{
-			if (offset > 0)
-			{
-				copy_to(dst, row * row_size, row * row_size + offset,
-				        row_size - offset);
-				copy_to(dst, row * row_size + row_size - offset, row * row_size,
-				        offset);
-			}
-			else
-			{
-				copy_to(dst, row * row_size + (-offset), row * row_size,
-				        row_size + offset);
-				copy_to(dst, row * row_size, row * row_size + row_size + offset,
-				        (-offset));
-			}
+			copy_to_2d(dst, 0, row_size, offset, row_size, row_size - offset,
+			           height);
+			copy_to_2d(dst, row_size - offset, row_size, 0, row_size, offset,
+			           height);
+		}
+		else
+		{
+			copy_to_2d(dst, -offset, row_size, 0, row_size, row_size + offset,
+			           height);
+			copy_to_2d(dst, 0, row_size, row_size + offset, row_size, -offset,
+			           height);
 		}
 	}
 
