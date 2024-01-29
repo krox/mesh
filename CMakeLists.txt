@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.9.0)
-project(mesh LANGUAGES CXX)
+project(mesh LANGUAGES CXX CUDA)
+
+add_compile_definitions(FMT_USE_NONTYPE_TEMPLATE_ARGS=0)
+
+# add_compile_definitions(FMT_USE_CONSTEXPR=0)
 
 # ###############################################################################
 # dependencies
@@ -15,13 +19,13 @@ CPMAddPackage(
 CPMAddPackage(
 	NAME util
 	GITHUB_REPOSITORY krox/util
-	GIT_TAG 0a701b742e54cf35eb007667cba31bfbca8b2ab7
+	GIT_TAG 2da9780e930833297f8cd042b77c0035a4df6e37
 )
 
 CPMAddPackage(
 	Catch2
 	GITHUB_REPOSITORY catchorg/Catch2
-	GIT_TAG 3f0283de7a9c43200033da996ff9093be3ac84dc # v3.3.2
+	GIT_TAG 05e10dfccc28c7f973727c54f850237d07d5e10f # v3.5.2
 )
 
 find_package(Eigen3 3.3 REQUIRED NO_MODULE)
@@ -37,12 +41,17 @@ target_compile_features(mesh PUBLIC cxx_std_20)
 set_target_properties(mesh PROPERTIES CXX_EXTENSIONS ON)
 target_include_directories(mesh PUBLIC src)
 target_link_libraries(mesh util_hdf5 stdc++fs fftw3 Eigen3::Eigen CLI11::CLI11 OpenMP::OpenMP_CXX)
-target_compile_options(mesh PUBLIC -g -O3 -march=native -Wall -Wextra -Werror -fno-math-errno -Wno-stringop-overflow)
+target_compile_options(mesh PUBLIC -g -O3 -march=native -Wall -Wextra $<$<COMPILE_LANGUAGE:CXX>:-Werror -fno-math-errno> $<$<COMPILE_LANGUAGE:CUDA>:--expt-relaxed-constexpr -extended-lambda>)
+
+set_source_files_properties(src/apps/hmc.cpp PROPERTIES LANGUAGE CUDA)
+set_source_files_properties(src/gauge/hmc.cpp PROPERTIES LANGUAGE CUDA)
+set_source_files_properties(src/lattice/fft.cpp PROPERTIES LANGUAGE CUDA)
+set_source_files_properties(src/apps/benchmark_lattice.cpp PROPERTIES LANGUAGE CUDA)
 
 # ###############################################################################
 # executables
 # ###############################################################################
-set(binaries "ising" "ising_correlator")
+set(binaries "benchmark_lattice" "hmc")
 
 foreach(bin ${binaries})
 	add_executable(${bin} src/apps/${bin}.cpp)
@@ -63,6 +72,7 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
 	# add_compile_options(-fsanitize=address -fno-omit-frame-pointer)
 	# add_link_options(-fsanitize=address)
 	add_executable(tests src/tests/lattice_gauge.cpp)
+	set_source_files_properties(src/tests/lattice_gauge.cpp PROPERTIES LANGUAGE CUDA)
 	target_compile_features(tests PRIVATE cxx_std_20)
 	target_link_libraries(tests PRIVATE Catch2::Catch2WithMain mesh)
 	target_compile_options(tests PRIVATE -g)

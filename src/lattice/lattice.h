@@ -1,8 +1,10 @@
 #pragma once
 
 #include "fmt/format.h"
+#include "lattice/devicebuffer.h"
 #include "lattice/grid.h"
 #include "lattice/tensor.h"
+#include "util/complex.h"
 #include "util/hdf5.h"
 #include "util/ndarray.h"
 #include "util/span.h"
@@ -36,16 +38,16 @@ template <typename T> class Lattice
 
   private:
 	Grid grid_ = {}; // this is dimension 1, size 0
-	util::unique_span<T> data_ = {};
+	DeviceBuffer<T> buffer_;
 
   public:
 	Lattice() = default;
 
 	// allocates memory but does not initialize anything
-	explicit Lattice(Grid const &g) : grid_(g)
+	explicit Lattice(Grid const &g)
+	    : grid_(g), buffer_(DeviceBuffer<T>(grid().size()))
 	{
 		++latticeAllocCount;
-		data_ = util::make_aligned_unique_span<T>(grid().size());
 	}
 
 	// allocates memory and set it to zero
@@ -57,75 +59,84 @@ template <typename T> class Lattice
 		return a;
 	}
 
-	void fill_zeros() { parallel_memset(data(), 0, bytes()); }
+	void fill_zeros()
+	{
+		device_apply([] UTIL_DEVICE(T & a) { a = {}; }, buffer());
+	}
 
 	Grid const &grid() const { return grid_; }
-	T *data() { return data_.data(); }
-	T const *data() const { return data_.data(); }
+	DeviceBuffer<T> &buffer() { return buffer_; }
+	DeviceBuffer<T> const &buffer() const { return buffer_; }
 
-	size_t bytes() const { return data_.size() * sizeof(T); }
+	size_t bytes() const { return buffer().bytes(); }
 
 	// copy/move operations
 	Lattice(Lattice const &other)
-	    : grid_(other.grid()),
-	      data_(util::make_aligned_unique_span<T>(grid().size()))
+	    : grid_(other.grid()), buffer_(other.buffer().copy())
 	{
 		++latticeAllocCount;
-		parallel_memcpy(data(), other.data(), grid().size() * sizeof(T));
 	}
 
 	Lattice(Lattice &&other) noexcept
 	    : grid_(std::exchange(other.grid_, {})),
-	      data_(std::exchange(other.data_, {}))
+	      buffer_(std::exchange(other.buffer_, {}))
 	{}
 
 	Lattice &operator=(Lattice const &other)
 	{
-		if (data_.size() != other.data_.size())
+		if (grid() == other.grid())
+			other.buffer().copy_to(buffer());
+		else
 		{
 			++latticeAllocCount;
-			data_ = util::make_aligned_unique_span<T>(other.grid().size());
+			buffer_ = other.buffer().copy();
+			grid_ = other.grid();
 		}
-		grid_ = other.grid();
-
-		parallel_memcpy(data(), other.data(), grid().size() * sizeof(T));
-
 		return *this;
 	}
 
 	Lattice &operator=(Lattice &&other) noexcept
 	{
 		grid_ = std::exchange(other.grid_, {});
-		data_ = std::exchange(other.data_, {});
+		buffer_ = std::exchange(other.buffer_, {});
 		return *this;
 	}
 
-	// single-element access. Slow, but sometimes nice to have
-	T peek_site(Coordinate const &index) const
+	// copy from host memory
+	void copy_from_host(std::span<const T> data)
 	{
-		return data()[grid().flat_index(index)];
+		buffer().copy_from_host(data);
+	}
+
+	// copy to host memory
+	std::vector<T> copy_to_host() const { return buffer().copy_to_host(); }
+
+	// single-element access. Slow, but sometimes nice to have
+	/*T peek_site(Coordinate const &index) const
+	{
+	    return data()[grid().flat_index(index)];
 	}
 	void poke_site(Coordinate const &index, T const &a)
 	{
-		data()[grid().flat_index(index)] = a;
+	    data()[grid().flat_index(index)] = a;
 	}
 
 	// convert to ndarray. slow, pretty much only for debugging
 	template <size_t N> util::ndarray<T, N> to_array() const
 	{
-		assert(N == grid().ndim());
-		if constexpr (N == 2)
-		{
-			auto r = util::ndarray<T, N>(
-			    {(size_t)grid().shape(0), (size_t)grid().shape(1)});
-			for (int x = 0; x < grid().shape(0); ++x)
-				for (int y = 0; y < grid().shape(1); ++y)
-					r(x, y) = peek_site({x, y});
-			return r;
-		}
-		else
-			assert(false);
-	}
+	    assert(N == grid().ndim());
+	    if constexpr (N == 2)
+	    {
+	        auto r = util::ndarray<T, N>(
+	            {(size_t)grid().shape(0), (size_t)grid().shape(1)});
+	        for (int x = 0; x < grid().shape(0); ++x)
+	            for (int y = 0; y < grid().shape(1); ++y)
+	                r(x, y) = peek_site({x, y});
+	        return r;
+	    }
+	    else
+	        assert(false);
+	}*/
 };
 
 // equivalent to Lattice<T>[Nd] width Nd = grid.ndim
@@ -231,15 +242,13 @@ void readFromFile(util::Hdf5File &file, std::string const &name,
 }
 */
 
+// TODO: get rid of the 'lattice_apply' wrappers. using 'device_apply' directly
+// is fine
 template <typename F, typename T, typename... Ts>
 void lattice_apply(F f, Lattice<T> &a, Lattice<Ts> const &...as)
 {
 	assert(((a.grid() == as.grid()) && ...));
-	size_t size = a.grid().size();
-
-#pragma omp parallel for schedule(static)
-	for (size_t i = 0; i < size; ++i)
-		f(a.data()[i], as.data()[i]...);
+	device_apply(f, a.buffer(), as.buffer()...);
 }
 
 template <typename F, typename T, typename... Ts>
@@ -252,196 +261,143 @@ void lattice_apply(F f, LatticeStack<T> &a, LatticeStack<Ts> const &...as)
 
 template <typename F, typename T, typename... Ts>
 auto lattice_sum(F f, Lattice<T> const &a, Lattice<Ts> const &...as)
-    -> decltype(f(a.data()[0], as.data()[0]...))
 {
 	assert(((a.grid() == as.grid()) && ...));
+	return device_sum(f, a.buffer(), as.buffer()...);
+}
 
-	using R = decltype(f(a.data()[0], as.data()[0]...));
-	auto r = R(0);
-
-	// number of local accumulators:
-	//   1) improve numerics (similar to "pair summation")
-	//   2) improve instruction-level parallelism
-	//   3) increases register pressure, so we scale it by the size of T
-	//   4) the number '64' is kinda arbitrary
-	constexpr size_t naccs =
-	    std::max(size_t(1), std::bit_floor(size_t(64) / sizeof(T)));
-
-	size_t size = a.grid().size();
-	assert(size % naccs == 0);
-
-#pragma omp parallel
-	{
-		R accs[naccs];
-		for (size_t k = 0; k < naccs; ++k)
-			accs[k] = R(0);
-
-#pragma omp for schedule(static) nowait
-		for (size_t i = 0; i < size / naccs; ++i)
-			for (size_t k = 0; k < naccs; ++k)
-				accs[k] +=
-				    f(a.data()[i * naccs + k], as.data()[i * naccs + k]...);
-
-		for (size_t k = 1; k < naccs; ++k)
-			accs[0] += accs[k];
-
-#pragma omp critical
-		r += accs[0];
-	}
-	return r;
+template <class T> T lattice_sum(Lattice<T> const &a)
+{
+	return device_sum(a.buffer());
 }
 
 template <typename F, typename T, typename... Ts>
 auto lattice_sum(F f, LatticeStack<T> const &a, LatticeStack<Ts> const &...as)
-    -> decltype(f(a[0].data()[0], as[0].data()[0]...))
 {
-	auto r = decltype(f(a[0].data()[0], as[0].data()[0]...))(0);
+	auto r =
+	    decltype(f(a[0].buffer().data()[0], as[0].buffer().data()[0]...))(0);
 	for (size_t i = 0; i < a.size(); ++i)
-		r += lattice_sum(f, a[i], as[i]...);
+		r += device_sum(f, a[i].buffer(), as[i].buffer()...);
 	return r;
 }
 
-#define UTIL_DEFINE_LATTICE_BINARY(op)                                         \
-	template <typename T>                                                      \
-	Lattice<T> operator op(Lattice<T> const &a, Lattice<T> const &b)           \
-	{                                                                          \
-		assert(a.grid() == b.grid());                                          \
-		auto r = Lattice<T>(a.grid());                                         \
-		lattice_apply([](T &rr, T const &aa, T const &bb) { rr = aa op bb; },  \
-		              r, a, b);                                                \
-		return r;                                                              \
-	}                                                                          \
-	template <typename T>                                                      \
-	Lattice<T> operator op(Lattice<T> &&a, Lattice<T> const &b)                \
-	{                                                                          \
-		assert(a.grid() == b.grid());                                          \
-		lattice_apply([](T &aa, T const &bb) { aa op## = bb; }, a, b);         \
-		return std::move(a);                                                   \
-	}                                                                          \
-	template <typename T>                                                      \
-	Lattice<T> operator op(Lattice<T> const &a, Lattice<T> &&b)                \
-	{                                                                          \
-		assert(a.grid() == b.grid());                                          \
-		lattice_apply([](T &bb, T const &aa) { bb = aa op bb; }, b, a);        \
-		return std::move(b);                                                   \
-	}                                                                          \
-	template <typename T>                                                      \
-	Lattice<T> operator op(Lattice<T> &&a, Lattice<T> &&b)                     \
-	{                                                                          \
-		return operator op(std::move(a), b);                                   \
-	}                                                                          \
-	template <typename T>                                                      \
-	LatticeStack<T> operator op(LatticeStack<T> const &a,                      \
-	                            LatticeStack<T> const &b)                      \
-	{                                                                          \
-		assert(a.size() == b.size());                                          \
-		auto c = LatticeStack<T>(a.grid());                                    \
-		lattice_apply([](T &cc, T const &aa, T const &bb) { cc = aa op bb; },  \
-		              c, a, b);                                                \
-		return c;                                                              \
-	}                                                                          \
-	template <typename T, typename U>                                          \
-	Lattice<T> &operator op##=(Lattice<T> &a, Lattice<U> const &b)             \
-	{                                                                          \
-		assert(a.grid() == b.grid());                                          \
-		lattice_apply([](T &aa, T const &bb) { aa op## = bb; }, a, b);         \
-		return a;                                                              \
-	}                                                                          \
-	template <typename T, typename U>                                          \
-	auto operator op(Lattice<T> const &a, U const &b)->Lattice<T>              \
-	{                                                                          \
-		auto r = Lattice<T>(a.grid());                                         \
-		lattice_apply([b](T &rr, T const &aa) { rr = aa op b; }, r, a);        \
-		return r;                                                              \
-	}                                                                          \
-	template <typename T, typename U>                                          \
-	auto operator op(Lattice<T> &&a, U const &b)->Lattice<T>                   \
-	{                                                                          \
-		lattice_apply([b](T &aa) { aa = aa op b; }, a);                        \
-		return std::move(a);                                                   \
-	}                                                                          \
-	template <typename T, typename U>                                          \
-	Lattice<T> &operator op##=(Lattice<T> &a, U const &b)                      \
-	{                                                                          \
-		lattice_apply([b](T &aa) { aa op## = b; }, a);                         \
-		return a;                                                              \
-	}
+// TODO: plenty of rvalue-reference overloads (after LatticeStack is gone)
 
-#define UTIL_DEFINE_LATTICE_UNARY(name, fun)                                   \
-	template <typename T>                                                      \
-	auto name(Lattice<T> const &a)->Lattice<decltype(fun(std::declval<T>()))>  \
+#define MESH_DEFINE_LATTICE_UNARY(name, fun)                                   \
+	template <class T>                                                         \
+	auto name(Lattice<T> const &arg)                                           \
+	    ->Lattice<decltype(fun(std::declval<T>()))>                            \
 	{                                                                          \
-		auto r = Lattice<decltype(fun(std::declval<T>()))>(a.grid());          \
-		lattice_apply([](T &rr, T const &aa) { rr = fun(aa); }, r, a);         \
-		return r;                                                              \
+		using R = decltype(fun(std::declval<T>()));                            \
+		auto ret = Lattice<R>(arg.grid());                                     \
+		lattice_apply([] UTIL_DEVICE(R &a, T const &b) { a = fun(b); }, ret,   \
+		              arg);                                                    \
+		return ret;                                                            \
 	}                                                                          \
-	template <typename T> Lattice<T> name(Lattice<T> &&a)                      \
-	{                                                                          \
-		lattice_apply([](T &aa) { aa = fun(aa); }, a);                         \
-		return std::move(a);                                                   \
-	}                                                                          \
-	template <typename T>                                                      \
-	auto name(LatticeStack<T> const &a)                                        \
+	template <class T>                                                         \
+	auto name(LatticeStack<T> const &arg)                                      \
 	    ->LatticeStack<decltype(fun(std::declval<T>()))>                       \
 	{                                                                          \
-		auto r = LatticeStack<decltype(fun(std::declval<T>()))>(a.grid());     \
-		lattice_apply([](T &rr, T const &aa) { rr = fun(aa); }, r, a);         \
-		return r;                                                              \
-	}                                                                          \
-	template <typename T> LatticeStack<T> name(LatticeStack<T> &&a)            \
-	{                                                                          \
-		lattice_apply([](T &aa) { aa = fun(aa); }, a);                         \
-		return std::move(a);                                                   \
+		using R = decltype(fun(std::declval<T>()));                            \
+		auto ret = Lattice<R>(arg.grid());                                     \
+		lattice_apply([] UTIL_DEVICE(R &a, T const &b) { a = fun(b); }, ret,   \
+		              arg);                                                    \
+		return ret;                                                            \
 	}
 
-#define UTIL_DEFINE_LATTICE_REDUCTION(name, fun)                               \
-	template <typename T>                                                      \
-	auto name(Lattice<T> const &a)->decltype(fun(std::declval<T>()))           \
+#define MESH_DEFINE_LATTICE_BINARY(op)                                         \
+	template <class T, class U>                                                \
+	auto operator op(Lattice<T> const &lhs, Lattice<U> const &rhs)             \
+	    ->Lattice<decltype(std::declval<T>() op std::declval<U>())>            \
 	{                                                                          \
-		return lattice_sum([](T const &aa) { return fun(aa); }, a);            \
+		assert(lhs.grid() == rhs.grid());                                      \
+		using R = decltype(std::declval<T>() op std::declval<U>());            \
+		auto ret = Lattice<R>(lhs.grid());                                     \
+		lattice_apply(                                                         \
+		    [] UTIL_DEVICE(R &a, T const &b, U const &c) { a = b op c; }, ret, \
+		    lhs, rhs);                                                         \
+		return ret;                                                            \
 	}                                                                          \
-	template <typename T>                                                      \
-	auto name(LatticeStack<T> const &a)->decltype(fun(std::declval<T>()))      \
+	template <class T, class U>                                                \
+	auto operator op(LatticeStack<T> const &lhs, LatticeStack<U> const &rhs)   \
+	    ->LatticeStack<decltype(std::declval<T>() op std::declval<U>())>       \
 	{                                                                          \
-		return lattice_sum([](T const &aa) { return fun(aa); }, a);            \
+		assert(lhs.size() == rhs.size());                                      \
+		using R = decltype(std::declval<T>() op std::declval<U>());            \
+		auto ret = LatticeStack<R>(lhs.grid());                                \
+		lattice_apply(                                                         \
+		    [] UTIL_DEVICE(R &a, T const &b, U const &c) { a = b op c; }, ret, \
+		    lhs, rhs);                                                         \
+		return ret;                                                            \
+	}                                                                          \
+	template <class T, class U>                                                \
+	Lattice<T> &operator op##=(Lattice<T> &lhs, Lattice<U> const &rhs)         \
+	{                                                                          \
+		assert(lhs.grid() == rhs.grid());                                      \
+		lattice_apply([] UTIL_DEVICE(T &a, U const &b) { a op## = b; }, lhs,   \
+		              rhs);                                                    \
+		return lhs;                                                            \
+	}                                                                          \
+	template <class T, class U>                                                \
+	    requires(!is_lattice_v<U>)                                             \
+	auto operator op(Lattice<T> const &lhs, U const &rhs)                      \
+	    ->Lattice<decltype(std::declval<T>() op std::declval<U>())>            \
+	{                                                                          \
+		using R = decltype(std::declval<T>() op std::declval<U>());            \
+		auto ret = Lattice<R>(lhs.grid());                                     \
+		lattice_apply([rhs] UTIL_DEVICE(R &a, T const &b) { a = b op rhs; },   \
+		              ret, lhs);                                               \
+		return ret;                                                            \
+	}                                                                          \
+	template <class T, class U>                                                \
+	    requires(!is_lattice_v<U>)                                             \
+	Lattice<T> &operator op##=(Lattice<T> &lhs, U const &rhs)                  \
+	{                                                                          \
+		lattice_apply([rhs] UTIL_DEVICE(T &a) { a op## = rhs; }, lhs);         \
+		return lhs;                                                            \
 	}
 
-UTIL_DEFINE_LATTICE_BINARY(+)
-UTIL_DEFINE_LATTICE_BINARY(-)
-UTIL_DEFINE_LATTICE_BINARY(*)
+#define MESH_DEFINE_LATTICE_SUM(name, fun)                                     \
+	template <class T>                                                         \
+	auto name(Lattice<T> const &arg)->decltype(fun(std::declval<T>()))         \
+	{                                                                          \
+		return lattice_sum([] UTIL_DEVICE(T const &a) { return fun(a); },      \
+		                   arg);                                               \
+	}                                                                          \
+	template <class T>                                                         \
+	auto name(LatticeStack<T> const &arg)->decltype(fun(std::declval<T>()))    \
+	{                                                                          \
+		return lattice_sum([] UTIL_DEVICE(T const &a) { return fun(a); },      \
+		                   arg);                                               \
+	}
 
-struct my_identity
-{
-	template <class T> T operator()(T const &x) { return x; }
-};
-UTIL_DEFINE_LATTICE_REDUCTION(sum, my_identity{})
+MESH_DEFINE_LATTICE_BINARY(+)
+MESH_DEFINE_LATTICE_BINARY(-)
+MESH_DEFINE_LATTICE_BINARY(*)
+
+// template <class T> T sum(Lattice<T> const &arg) { return lattice_sum(arg); }
 
 // keep these macros. used in gauge/utils.h
-// #undef UTIL_DEFINE_LATTICE_BINARY
-// #undef UTIL_DEFINE_LATTICE_UNARY
-// #undef UTIL_DEFINE_LATTICE_REDUCTION
+// #undef MESH_DEFINE_LATTICE_BINARY
+// #undef MESH_DEFINE_LATTICE_UNARY
+// #undef MESH_DEFINE_LATTICE_REDUCTION
 
 // TODO: this should be handled by templates like the operators above...
-template <typename T> Lattice<T> operator*(Lattice<T> const &a, double b)
+template <class T> Lattice<T> operator*(Lattice<T> const &lhs, double rhs)
 {
-	auto r = Lattice<T>(a.grid());
-	for (size_t i = 0; i < a.grid().size(); ++i)
-		r.data()[i] = a.data()[i] * b;
-	return r;
-}
-template <typename T> Lattice<T> operator*(Lattice<T> &&a, double b)
-{
-	for (size_t i = 0; i < a.grid().size(); ++i)
-		a.data()[i] *= b;
-	return std::move(a);
+	auto ret = Lattice<T>(lhs.grid());
+	lattice_apply([rhs] UTIL_DEVICE(T & a, T const &b) { a = b * rhs; }, ret,
+	              lhs);
+	return ret;
 }
 
 // a += b*c
 template <class A, class B, class C>
     requires(!is_lattice_v<B>)
-void add_mul(Lattice<A> &a, B b, Lattice<C> const &c)
+void add_mul(Lattice<A> &lhs, B mhs, Lattice<C> const &rhs)
 {
-	lattice_apply([b](A &aa, C const &cc) { aa += b * cc; }, a, c);
+	lattice_apply([mhs] UTIL_DEVICE(A & a, C const &b) { a += mhs * b; }, lhs,
+	              rhs);
 }
 
 template <typename T>
@@ -463,23 +419,7 @@ Lattice<T> cshift(Lattice<T> const &a, int dir, int offset)
 
 	auto r = Lattice<T>(a.grid());
 
-	for (int x = 0; x < slow; ++x)
-	{
-		T *rp = r.data() + x * s * fast;
-		T const *ap = a.data() + x * s * fast;
-
-		if (offset < 0)
-		{
-			memcpy(rp, ap + (s + offset) * fast, sizeof(T) * fast * (-offset));
-			memcpy(rp + (-offset) * fast, ap, sizeof(T) * fast * (s + offset));
-		}
-
-		if (offset > 0)
-		{
-			memcpy(rp + (s - offset) * fast, ap, sizeof(T) * fast * offset);
-			memcpy(rp, ap + offset * fast, sizeof(T) * fast * (s - offset));
-		}
-	}
+	a.buffer().cshift_to(r.buffer(), offset * fast, s * fast);
 
 	return r;
 }
@@ -491,7 +431,7 @@ inline void parallel_memcpy(void *dest, void const *src, size_t count)
 	{
 		int rank = omp_get_thread_num();
 		int nranks = omp_get_num_threads();
-		size_t chunk = (count / nranks) & -4096;
+		size_t chunk = size_t(count / nranks) & size_t(-4096);
 
 		void *my_dest = (char *)dest + rank * chunk;
 		void const *my_src = (char const *)src + rank * chunk;
@@ -510,7 +450,7 @@ inline void parallel_memset(void *dest, int ch, std::size_t count)
 	{
 		int rank = omp_get_thread_num();
 		int nranks = omp_get_num_threads();
-		size_t chunk = (count / nranks) & -4096;
+		size_t chunk = size_t(count / nranks) & size_t(-4096);
 
 		void *my_dest = (char *)dest + rank * chunk;
 

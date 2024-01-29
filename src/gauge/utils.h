@@ -25,30 +25,32 @@ inline util::Stopwatch swRandom, swStaples, swReunitize, swPlaquette;
 using util::real;
 
 // lattice versions of some gauge group operations
-UTIL_DEFINE_LATTICE_REDUCTION(norm2, norm2)
-UTIL_DEFINE_LATTICE_REDUCTION(sum_real_trace, gauge::real_trace)
-UTIL_DEFINE_LATTICE_UNARY(real_trace, real_trace)
-UTIL_DEFINE_LATTICE_UNARY(adj, adj)
-UTIL_DEFINE_LATTICE_UNARY(exp, gauge::exp)
-UTIL_DEFINE_LATTICE_UNARY(project_on_algebra, project_on_algebra)
+MESH_DEFINE_LATTICE_SUM(norm2, norm2)
+MESH_DEFINE_LATTICE_SUM(sum_real_trace, gauge::real_trace)
+MESH_DEFINE_LATTICE_UNARY(real_trace, real_trace)
+MESH_DEFINE_LATTICE_UNARY(adj, adj)
+MESH_DEFINE_LATTICE_UNARY(exp, gauge::exp)
+MESH_DEFINE_LATTICE_UNARY(project_on_algebra, project_on_algebra)
 
 template <typename T>
 void random_gauge_field(Lattice<T> &U, util::xoshiro256 &rng)
 {
-	// TODO: actually parallelize this
+	// TODO: move this to GPU
 	util::StopwatchGuard swg(swRandom);
-	auto s = U.grid().size();
-	for (size_t i = 0; i < s; ++i)
-		gauge::random_group_element(U.data()[i], rng);
+	auto tmp = std::vector<T>(U.grid().size());
+	for (auto &a : tmp)
+		gauge::random_group_element(a, rng);
+	U.copy_from_host(tmp);
 }
 
 template <typename T>
 void random_algebra_field(Lattice<T> &F, util::xoshiro256 &rng)
 {
 	util::StopwatchGuard swg(swRandom);
-	auto s = F.grid().size();
-	for (size_t i = 0; i < s; ++i)
-		gauge::random_algebra_element(F.data()[i], rng);
+	auto tmp = std::vector<T>(F.grid().size());
+	for (auto &a : tmp)
+		gauge::random_algebra_element(a, rng);
+	F.copy_from_host(tmp);
 }
 
 template <typename T>
@@ -70,13 +72,14 @@ void random_algebra_field(LatticeStack<T> &F, util::xoshiro256 &rng)
 template <typename vG> void reunitize(Lattice<vG> &U)
 {
 	util::StopwatchGuard swg(swReunitize);
-	lattice_apply([](auto &a) { a = project_on_group_fast(a); }, U);
+	lattice_apply([] UTIL_DEVICE(vG & a) { a = project_on_group_fast(a); }, U);
 }
 
 template <typename vG> void reunitize(GaugeField<vG> &U)
 {
 	util::StopwatchGuard swg(swReunitize);
-	lattice_apply([](auto &a) { a = project_on_group_fast(a); }, U);
+	for (size_t mu = 0; mu < U.size(); ++mu)
+		reunitize(U[mu]);
 }
 
 /** normalized to [0,1] */
@@ -116,12 +119,12 @@ template <typename vG> Lattice<vG> stapleSum(GaugeField<vG> const &U, int mu)
 
 		// optimized (fewer temporaries, fewer memory passes)
 		auto tmp = cshift(U[nu], mu, 1);
-		lattice_apply([](vG &a, vG const &b, vG const &c,
-		                 vG const &d) { a += b * adj(d * c); },
+		lattice_apply([] UTIL_DEVICE(vG & a, vG const &b, vG const &c,
+		                             vG const &d) { a += b * adj(d * c); },
 		              S, tmp, cshift(U[mu], nu, 1), U[nu]);
-		lattice_apply(
-		    [](vG &a, vG const &b, vG const &c) { a = adj(b * a) * c; }, tmp,
-		    U[mu], U[nu]);
+		lattice_apply([] UTIL_DEVICE(vG & a, vG const &b,
+		                             vG const &c) { a = adj(b * a) * c; },
+		              tmp, U[mu], U[nu]);
 		S += cshift(tmp, nu, -1);
 	}
 	return S;

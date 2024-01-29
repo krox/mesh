@@ -52,23 +52,23 @@ template <std::floating_point T> struct GaugeTraits<U1<T>>
 	static constexpr int mul_complexity() { return 4; }
 };
 
-template <class T> U1<T> adj(U1<T> const &a) { return conj(a); }
+template <class T> UTIL_DEVICE U1<T> adj(U1<T> const &a) { return conj(a); }
 
 // Real part of trace in the "defining"/"fundamental"/"vector" representation.
 // This is used in most gauge actions.
-template <class T> T real_trace(U1<T> const &a) { return a.re; }
+template <class T> UTIL_DEVICE T real_trace(U1<T> const &a) { return a.re; }
 
 // project group to algebra.
 // This is a linear approximation of 'log' around unity.
 // (used in Landau gauge fixing for example)
-template <class T> U1<T> project_on_algebra(U1<T> const &a)
+template <class T> UTIL_DEVICE U1<T> project_on_algebra(U1<T> const &a)
 {
 	return {T(0), a.im};
 }
 
 // project a to the group manifold
 // (used in some smearing procedures for example)
-template <class T> U1<T> project_on_group(U1<T> const &a)
+template <class T> UTIL_DEVICE U1<T> project_on_group(U1<T> const &a)
 {
 	using std::sqrt;
 	return a * (1.0 / sqrt(norm2(a.v_)));
@@ -76,7 +76,7 @@ template <class T> U1<T> project_on_group(U1<T> const &a)
 
 // Fast approximation of project_on_group, valid if a is already close to
 // the manifold. Used to correct rounding errors during HMC.
-template <class T> U1<T> project_on_group_fast(U1<T> const &a)
+template <class T> UTIL_DEVICE U1<T> project_on_group_fast(U1<T> const &a)
 {
 	// just a linear approximation of the 'sqrt' from the exact formula
 	return a * (1.5 - norm2(a) * 0.5);
@@ -100,7 +100,7 @@ template <class T, class Rng> void random_group_element(U1<T> &a, Rng &rng)
 }
 
 // exponential map algebra -> group
-template <class T> U1<T> exp(U1<T> const &a)
+template <class T> UTIL_DEVICE U1<T> exp(U1<T> const &a)
 {
 	// we assume that a is indeed in the algebra, i.e. a.real == 0
 	using std::cos, std::sin;
@@ -132,22 +132,25 @@ template <std::floating_point T> struct GaugeTraits<SU2<T>>
 	static constexpr int mul_complexity() { return 16; }
 };
 
-template <class T> SU2<T> adj(SU2<T> const &a) { return conj(a); }
+template <class T> UTIL_DEVICE SU2<T> adj(SU2<T> const &a) { return conj(a); }
 
-template <class T> T real_trace(SU2<T> const &a) { return a.re * 2.0; }
+template <class T> UTIL_DEVICE T real_trace(SU2<T> const &a)
+{
+	return a.re * 2.0;
+}
 
-template <class T> SU2<T> project_on_algebra(SU2<T> const &a)
+template <class T> UTIL_DEVICE SU2<T> project_on_algebra(SU2<T> const &a)
 {
 	return {T(0), a.im1, a.im2, a.im3};
 }
 
-template <class T> SU2<T> project_on_group(SU2<T> const &a)
+template <class T> UTIL_DEVICE SU2<T> project_on_group(SU2<T> const &a)
 {
 	using std::sqrt;
 	return a * (1.0 / sqrt(norm2(a.v_)));
 }
 
-template <class T> SU2<T> exp(SU2<T> const &a)
+template <class T> UTIL_DEVICE SU2<T> exp(SU2<T> const &a)
 {
 	// Assuming a.re==0, the following is exact, and also faster than a
 	// typical 12-order Taylor series. Sadly, this version produces
@@ -182,7 +185,7 @@ template <class T, class Rng> void random_group_element(SU2<T> &a, Rng &rng)
 	a *= 1.0 / sqrt(norm2(a));
 }
 
-template <class T> SU2<T> project_on_group_fast(SU2<T> const &a)
+template <class T> UTIL_DEVICE SU2<T> project_on_group_fast(SU2<T> const &a)
 {
 	// just a linear approximation of the 'sqrt' from the exact formula
 	return a * (1.5 - norm2(a) * 0.5);
@@ -208,28 +211,31 @@ template <std::floating_point T, int N> struct GaugeTraits<SU<T, N>>
 	static constexpr int mul_complexity() { return N * N * N * 4; }
 };
 
-template <class T, int N> SU<T, N> adj(SU<T, N> const &a)
+template <class T, int N> UTIL_DEVICE SU<T, N> adj(SU<T, N> const &a)
 {
 	return util::adj(a);
 }
 
-template <class T, int N> T real_trace(SU<T, N> const &a)
+template <class T, int N> UTIL_DEVICE T real_trace(SU<T, N> const &a)
 {
 	return util::trace(a).re;
 }
 
-template <class T, int N> SU<T, N> project_on_algebra(SU<T, N> const &a)
+template <class T, int N>
+UTIL_DEVICE SU<T, N> project_on_algebra(SU<T, N> const &a)
 {
 	return antihermitian_traceless(a);
 }
 
-template <class T, int N> SU<T, N> project_on_group(SU<T, N> const &a)
+template <class T, int N>
+UTIL_DEVICE SU<T, N> project_on_group(SU<T, N> const &a)
 {
 	// the exact formula contains a matrix-inverse-square-root...
 	assert(false);
 }
 
-template <class T, int N> SU<T, N> project_on_group_fast(SU<T, N> const &a)
+template <class T, int N>
+UTIL_DEVICE SU<T, N> project_on_group_fast(SU<T, N> const &a)
 {
 	assert(N == 3); // havnt checked if the formula below is specific to N=3
 	auto r = a * 1.5 - a * adj(a) * a * 0.5;
@@ -254,7 +260,7 @@ void random_group_element(SU<T, N> &a, Rng &rng)
 	a(0) /= determinant(a);
 }
 
-template <class T, int N> SU<T, N> exp(SU<T, N> const &a)
+template <class T, int N> UTIL_DEVICE SU<T, N> exp(SU<T, N> const &a)
 {
 	// TODO: this could be a lot faster using the fact that a is
 	// antihermitian-traceless

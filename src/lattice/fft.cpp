@@ -44,34 +44,35 @@ unique_fftw_plan plan_fft_last(std::span<const int> shape,
 		throw std::runtime_error("fftw_plan_many_dft() failed");
 	return unique_fftw_plan(plan);
 }
-
+/*
 Lattice<util::complex<double>> fft_all(Lattice<util::complex<double>> &in,
                                        int sign)
 {
-	auto grid = in.grid();
-	auto out = Lattice<util::complex<double>>(grid);
+    auto grid = in.grid();
+    auto out = Lattice<util::complex<double>>(grid);
 
-	// TODO: Use flags = FFTW_MEASURE | FFTW_WISDOM_ONLY and run measurment in
-	//       separate allocation when needed.
-	auto plan =
-	    plan_fft_all(grid.shape(), in.data(), out.data(), sign, FFTW_ESTIMATE);
-	fftw_execute(plan.get());
-	return out;
+    // TODO: Use flags = FFTW_MEASURE | FFTW_WISDOM_ONLY and run measurment in
+    //       separate allocation when needed.
+    auto plan =
+        plan_fft_all(grid.shape(), in.data(), out.data(), sign, FFTW_ESTIMATE);
+    fftw_execute(plan.get());
+    return out;
 }
 
 Lattice<util::complex<double>> fft_last(Lattice<util::complex<double>> &in,
                                         int sign)
 {
-	auto grid = in.grid();
-	auto out = Lattice<util::complex<double>>(grid);
+    auto grid = in.grid();
+    auto out = Lattice<util::complex<double>>(grid);
 
-	// TODO: Use flags = FFTW_MEASURE | FFTW_WISDOM_ONLY and run measurment in
-	//       separate allocation when needed.
-	auto plan =
-	    plan_fft_last(grid.shape(), in.data(), out.data(), sign, FFTW_ESTIMATE);
-	fftw_execute(plan.get());
-	return out;
+    // TODO: Use flags = FFTW_MEASURE | FFTW_WISDOM_ONLY and run measurment in
+    //       separate allocation when needed.
+    auto plan =
+        plan_fft_last(grid.shape(), in.data(), out.data(), sign, FFTW_ESTIMATE);
+    fftw_execute(plan.get());
+    return out;
 }
+*/
 
 std::vector<Coordinate> make_mom_list(int nd, int mom2max)
 {

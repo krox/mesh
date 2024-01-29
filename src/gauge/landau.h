@@ -1,6 +1,7 @@
 #pragma once
 
 #include "gauge/utils.h"
+#include "util/complex.h"
 
 namespace mesh {
 
@@ -10,9 +11,14 @@ template <typename G> struct Landau
 	Lattice<G> g;
 	bool verbose = false;
 
+	void reset()
+	{
+		lattice_apply([] UTIL_DEVICE(G & a) { a = G(1); }, g);
+	}
+
 	Landau(GaugeField<G> const &U_) : U(U_), g(Lattice<G>(U_.grid()))
 	{
-		lattice_apply([](auto &site) { site = G(1); }, g);
+		reset();
 	}
 
 	// maximized by gauge fixing

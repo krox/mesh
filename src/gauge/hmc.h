@@ -29,8 +29,8 @@ template <typename G> void evolve(Lattice<G> &U, Lattice<G> const &P, double t)
 {
 	util::StopwatchGuard swg(swExp);
 	lattice_apply(
-	    [t](auto &u, auto const &p) {
-		    u = gauge::exp(project_on_algebra(p) * t) * u;
+	    [t] UTIL_DEVICE(G & a, G const &b) {
+		    a = gauge::exp(project_on_algebra(b) * t) * a;
 	    },
 	    U, P);
 }
