@@ -1,5 +1,7 @@
 #include "gauge/hmc.h"
 
+#include <vector>
+
 namespace mesh {
 
 std::vector<double> makeDeltas(std::string_view scheme, double epsilon,

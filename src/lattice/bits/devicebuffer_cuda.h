@@ -2,6 +2,7 @@
 
 #include "fmt/format.h"
 #include "lattice/grid.h"
+#include "util/complex.h"
 #include "util/hdf5.h"
 #include "util/ndarray.h"
 #include "util/span.h"
@@ -24,6 +25,10 @@ inline void check(cudaError_t err)
 	auto msg = cudaGetErrorString(err);
 	throw std::runtime_error(fmt::format("cuda error: {}", msg));
 }
+
+template <class T> class DeviceBuffer;
+template <class F, class T, class... Ts>
+void device_apply(F f, DeviceBuffer<T> &a, DeviceBuffer<Ts> const &...as);
 
 // memory allocated on device, i.e. a GPU.
 template <class T> class DeviceBuffer
@@ -76,6 +81,20 @@ template <class T> class DeviceBuffer
 	size_t size() const { return size_; }
 	size_t bytes() const { return size_ * sizeof(T); }
 	explicit operator bool() const { return data_ != nullptr; }
+
+	void fill_zeros()
+	{
+		if (size() == 0)
+			return;
+		check(cudaMemset(data(), 0, bytes()));
+	}
+
+	void fill(T const &value)
+	{
+		if (size() == 0)
+			return;
+		device_apply([value] UTIL_DEVICE(T & a) { a = value; }, *this);
+	}
 
 	// create a copy of the data on the devices
 	DeviceBuffer copy() const

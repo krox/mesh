@@ -59,10 +59,8 @@ template <typename T> class Lattice
 		return a;
 	}
 
-	void fill_zeros()
-	{
-		device_apply([] UTIL_DEVICE(T & a) { a = {}; }, buffer());
-	}
+	void fill_zeros() { buffer().fill_zeros(); }
+	void fill(T const &a) { buffer().fill(a); }
 
 	Grid const &grid() const { return grid_; }
 	DeviceBuffer<T> &buffer() { return buffer_; }

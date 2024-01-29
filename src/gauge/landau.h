@@ -11,10 +11,7 @@ template <typename G> struct Landau
 	Lattice<G> g;
 	bool verbose = false;
 
-	void reset()
-	{
-		lattice_apply([] UTIL_DEVICE(G & a) { a = G(1); }, g);
-	}
+	void reset() { g.fill(G(1)); }
 
 	Landau(GaugeField<G> const &U_) : U(U_), g(Lattice<G>(U_.grid()))
 	{
