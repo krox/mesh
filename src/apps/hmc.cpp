@@ -2,6 +2,7 @@
 #include "CLI/CLI.hpp"
 #include "fmt/format.h"
 #include "util/hash.h"
+#include <optional>
 
 using namespace mesh;
 

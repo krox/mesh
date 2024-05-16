@@ -19,7 +19,8 @@ CPMAddPackage(
 CPMAddPackage(
 	NAME util
 	GITHUB_REPOSITORY krox/util
-	GIT_TAG 2da9780e930833297f8cd042b77c0035a4df6e37
+	GIT_TAG 078b8ac6bfd9892d4b43146bfe23d671c64d8a13
+	OPTIONS "UTIL_HDF5 ON" "UTIL_FFTW ON"
 )
 
 CPMAddPackage(
@@ -41,7 +42,7 @@ set_target_properties(mesh PROPERTIES CUDA_ARCHITECTURES native)
 target_compile_features(mesh PUBLIC cxx_std_20)
 set_target_properties(mesh PROPERTIES CXX_EXTENSIONS ON)
 target_include_directories(mesh PUBLIC src)
-target_link_libraries(mesh util_hdf5 stdc++fs fftw3 Eigen3::Eigen CLI11::CLI11 OpenMP::OpenMP_CXX)
+target_link_libraries(mesh util stdc++fs fftw3 Eigen3::Eigen CLI11::CLI11 OpenMP::OpenMP_CXX)
 target_compile_options(mesh PUBLIC -g -O3 -march=native -Wall -Wextra $<$<COMPILE_LANGUAGE:CXX>:-Werror -fno-math-errno> $<$<COMPILE_LANGUAGE:CUDA>:--expt-relaxed-constexpr -extended-lambda>)
 
 set_source_files_properties(src/apps/hmc.cpp PROPERTIES LANGUAGE CUDA)

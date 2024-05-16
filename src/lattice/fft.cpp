@@ -4,8 +4,6 @@
 
 namespace mesh {
 
-static constexpr int default_patience = FFTW_MEASURE;
-
 unique_fftw_plan plan_fft(int n, util::complex<double> *in,
                           util::complex<double> *out, int sign, int flags)
 {
