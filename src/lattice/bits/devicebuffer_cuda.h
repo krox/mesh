@@ -1,6 +1,7 @@
 #pragma once
 
 #include "fmt/format.h"
+#include "lattice/device.h"
 #include "lattice/grid.h"
 #include "util/complex.h"
 #include "util/hdf5.h"
@@ -17,15 +18,6 @@
 namespace mesh {
 namespace cuda {
 
-inline void check(cudaError_t err)
-{
-	if (err == cudaSuccess) [[likely]]
-		return;
-
-	auto msg = cudaGetErrorString(err);
-	throw std::runtime_error(fmt::format("cuda error: {}", msg));
-}
-
 template <class T> class DeviceBuffer;
 template <class F, class T, class... Ts>
 void device_apply(F f, DeviceBuffer<T> &a, DeviceBuffer<Ts> const &...as);
@@ -39,7 +31,7 @@ template <class T> class DeviceBuffer
 	static_assert(std::is_trivially_copy_constructible_v<T>);
 	static_assert(std::is_trivially_destructible_v<T>);
 
-	T *data_ = nullptr; // pointer in device memory
+	unique_device_ptr<T> data_ = {};
 	size_t size_ = 0;
 
   public:
@@ -47,13 +39,8 @@ template <class T> class DeviceBuffer
 
 	// allocates memory on device
 	explicit DeviceBuffer(size_t size)
-	{
-		if (size == 0)
-			return;
-		check(cudaMalloc(&data_, size * sizeof(T)));
-		assert(data_ != nullptr);
-		size_ = size;
-	}
+	    : data_(device_allocate<T>(size)), size_(size)
+	{}
 
 	// no implicit copy. use explciit copy instead
 	DeviceBuffer(DeviceBuffer const &) = delete;
@@ -71,23 +58,16 @@ template <class T> class DeviceBuffer
 		return *this;
 	}
 
-	~DeviceBuffer() { check(cudaFree(data_)); }
-
 	// device pointers. dont dereference them on the host.
-	T *data() { return data_; }
-	T const *data() const { return data_; }
+	T *data() { return data_.get(); }
+	T const *data() const { return data_.get(); }
 
 	// size metrics
 	size_t size() const { return size_; }
 	size_t bytes() const { return size_ * sizeof(T); }
 	explicit operator bool() const { return data_ != nullptr; }
 
-	void fill_zeros()
-	{
-		if (size() == 0)
-			return;
-		check(cudaMemset(data(), 0, bytes()));
-	}
+	void fill_zeros() { device_memclear(data(), size()); }
 
 	void fill(T const &value)
 	{
@@ -123,18 +103,15 @@ template <class T> class DeviceBuffer
 		if (src_offset + count > size())
 			throw std::runtime_error(
 			    "DeviceBuffer: copy_to failed (src size mismatch)");
-		check(cudaMemcpy(dst.data() + dst_offset, data() + src_offset,
-		                 count * sizeof(T), cudaMemcpyDeviceToDevice));
+		device_copy(dst.data() + dst_offset, data() + src_offset, count);
 	}
 
 	void copy_to_2d(DeviceBuffer &dst, size_t dst_offset, size_t dst_pitch,
 	                size_t src_offset, size_t src_pitch, size_t width,
 	                size_t height) const
 	{
-		check(cudaMemcpy2D(dst.data() + dst_offset, dst_pitch * sizeof(T),
-		                   data() + src_offset, src_pitch * sizeof(T),
-		                   width * sizeof(T), height,
-		                   cudaMemcpyDeviceToDevice));
+		device_copy_2d(dst.data() + dst_offset, dst_pitch, data() + src_offset,
+		               src_pitch, width, height);
 	}
 
 	void cshift_to(DeviceBuffer &dst, int64_t offset, size_t row_size) const
@@ -175,10 +152,7 @@ template <class T> class DeviceBuffer
 
 	void copy_from_host(T const *host_data)
 	{
-		if (size() == 0)
-			return;
-		assert(host_data != nullptr);
-		check(cudaMemcpy(data(), host_data, bytes(), cudaMemcpyHostToDevice));
+		device_copy_from_host(data(), host_data, size());
 	}
 
 	void copy_from_host(std::span<const T> host_data)
@@ -194,10 +168,7 @@ template <class T> class DeviceBuffer
 
 	void copy_to_host(T *host_data) const
 	{
-		if (size() == 0)
-			return;
-		assert(host_data != nullptr);
-		check(cudaMemcpy(host_data, data(), bytes(), cudaMemcpyDeviceToHost));
+		device_copy_to_host(host_data, data(), size());
 	}
 
 	std::vector<T> copy_to_host() const
@@ -294,7 +265,7 @@ void device_apply(F f, DeviceBuffer<T> &a, DeviceBuffer<Ts> const &...as)
 	size_t nblocks = (a.size() + block_size - 1) / block_size;
 	device_apply_kernel<<<nblocks, block_size>>>(f, a.size(), a.data(),
 	                                             as.data()...);
-	check(cudaDeviceSynchronize());
+	device_synchronize();
 }
 
 template <class T> auto device_sum(DeviceBuffer<T> const &a) -> T
@@ -305,7 +276,7 @@ template <class T> auto device_sum(DeviceBuffer<T> const &a) -> T
 
 	device_sum_kernel<<<nblocks, block_size, block_size * sizeof(T)>>>(
 	    r.data(), a.size(), a.data());
-	check(cudaDeviceSynchronize()); // is this necessary?
+	device_synchronize(); // is this necessary?
 	auto r_host = r.copy_to_host();
 	auto result = r_host[0];
 	for (size_t i = 1; i < r_host.size(); ++i)
@@ -325,7 +296,7 @@ auto device_sum(F f, DeviceBuffer<T> const &a, DeviceBuffer<Ts> const &...as)
 
 	device_sum_kernel<<<nblocks, block_size, block_size * sizeof(R)>>>(
 	    f, r.data(), a.size(), a.data(), as.data()...);
-	check(cudaDeviceSynchronize()); // is this necessary?
+	device_synchronize(); // is this necessary?
 	auto r_host = r.copy_to_host();
 	auto result = r_host[0];
 	for (size_t i = 1; i < r_host.size(); ++i)

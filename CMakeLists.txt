@@ -13,7 +13,7 @@ include(cmake/CPM.cmake)
 CPMAddPackage(
 	NAME cli11
 	GITHUB_REPOSITORY CLIUtils/CLI11
-	GIT_TAG 291c58789c031208f08f4f261a858b5b7083e8e2 # v2.3.2
+	GIT_TAG 6c7b07a878ad834957b98d0f9ce1dbe0cb204fc9 # v2.4.2
 )
 
 CPMAddPackage(

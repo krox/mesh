@@ -13,16 +13,12 @@
 #include <array>
 #include <cassert>
 #include <cstring>
-#include <omp.h>
 #include <type_traits>
 
 namespace mesh {
 
 inline int64_t latticeAllocCount = 0;
 inline util::Stopwatch swCshift;
-
-void parallel_memcpy(void *, void const *, size_t);
-void parallel_memset(void *, int, size_t);
 
 template <typename T> class Lattice
 {
@@ -420,43 +416,6 @@ Lattice<T> cshift(Lattice<T> const &a, int dir, int offset)
 	a.buffer().cshift_to(r.buffer(), offset * fast, s * fast);
 
 	return r;
-}
-
-// Same as std::memcpy, put parallelized using OMP
-inline void parallel_memcpy(void *dest, void const *src, size_t count)
-{
-#pragma omp parallel
-	{
-		int rank = omp_get_thread_num();
-		int nranks = omp_get_num_threads();
-		size_t chunk = size_t(count / nranks) & size_t(-4096);
-
-		void *my_dest = (char *)dest + rank * chunk;
-		void const *my_src = (char const *)src + rank * chunk;
-
-		size_t my_size =
-		    (rank == nranks - 1) ? count - (nranks - 1) * chunk : chunk;
-
-		std::memcpy(my_dest, my_src, my_size);
-	}
-}
-
-// Same as std::memset, put parallelized using OMP
-inline void parallel_memset(void *dest, int ch, std::size_t count)
-{
-#pragma omp parallel
-	{
-		int rank = omp_get_thread_num();
-		int nranks = omp_get_num_threads();
-		size_t chunk = size_t(count / nranks) & size_t(-4096);
-
-		void *my_dest = (char *)dest + rank * chunk;
-
-		size_t my_size =
-		    (rank == nranks - 1) ? count - (nranks - 1) * chunk : chunk;
-
-		std::memset(my_dest, ch, my_size);
-	}
 }
 
 } // namespace mesh
