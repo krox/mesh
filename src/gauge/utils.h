@@ -32,6 +32,14 @@ MESH_DEFINE_LATTICE_UNARY(adj, adj)
 MESH_DEFINE_LATTICE_UNARY(exp, gauge::exp)
 MESH_DEFINE_LATTICE_UNARY(project_on_algebra, project_on_algebra)
 
+template <class T> double norm2(LatticeStack<T> const &U)
+{
+	double s = 0;
+	for (size_t mu = 0; mu < U.size(); ++mu)
+		s += norm2(U[mu]);
+	return s;
+}
+
 template <typename T>
 void random_gauge_field(Lattice<T> &U, util::xoshiro256 &rng)
 {

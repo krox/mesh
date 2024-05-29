@@ -255,14 +255,6 @@ void lattice_apply(F f, Lattice<T> &a, Lattice<Ts> const &...as)
 }
 
 template <typename F, typename T, typename... Ts>
-void lattice_apply(F f, LatticeStack<T> &a, LatticeStack<Ts> const &...as)
-{
-	assert(((a.size() == as.size()) && ...));
-	for (size_t i = 0; i < a.size(); ++i)
-		lattice_apply(f, a[i], as[i]...);
-}
-
-template <typename F, typename T, typename... Ts>
 auto lattice_sum_apply(F f, Lattice<T> const &a, Lattice<Ts> const &...as)
 {
 	assert(((a.grid() == as.grid()) && ...));
@@ -274,33 +266,12 @@ template <class T> T lattice_sum(Lattice<T> const &a)
 	return device_sum(a.buffer());
 }
 
-template <typename F, typename T, typename... Ts>
-auto lattice_sum_apply(F f, LatticeStack<T> const &a,
-                       LatticeStack<Ts> const &...as)
-{
-	auto r =
-	    decltype(f(a[0].buffer().data()[0], as[0].buffer().data()[0]...))(0);
-	for (size_t i = 0; i < a.size(); ++i)
-		r += device_sum_apply(f, a[i].buffer(), as[i].buffer()...);
-	return r;
-}
-
 // TODO: plenty of rvalue-reference overloads (after LatticeStack is gone)
 
 #define MESH_DEFINE_LATTICE_UNARY(name, fun)                                   \
 	template <class T>                                                         \
 	auto name(Lattice<T> const &arg)                                           \
 	    ->Lattice<decltype(fun(std::declval<T>()))>                            \
-	{                                                                          \
-		using R = decltype(fun(std::declval<T>()));                            \
-		auto ret = Lattice<R>(arg.grid());                                     \
-		lattice_apply([] UTIL_DEVICE(R &a, T const &b) { a = fun(b); }, ret,   \
-		              arg);                                                    \
-		return ret;                                                            \
-	}                                                                          \
-	template <class T>                                                         \
-	auto name(LatticeStack<T> const &arg)                                      \
-	    ->LatticeStack<decltype(fun(std::declval<T>()))>                       \
 	{                                                                          \
 		using R = decltype(fun(std::declval<T>()));                            \
 		auto ret = Lattice<R>(arg.grid());                                     \
@@ -317,18 +288,6 @@ auto lattice_sum_apply(F f, LatticeStack<T> const &a,
 		assert(lhs.grid() == rhs.grid());                                      \
 		using R = decltype(std::declval<T>() op std::declval<U>());            \
 		auto ret = Lattice<R>(lhs.grid());                                     \
-		lattice_apply(                                                         \
-		    [] UTIL_DEVICE(R &a, T const &b, U const &c) { a = b op c; }, ret, \
-		    lhs, rhs);                                                         \
-		return ret;                                                            \
-	}                                                                          \
-	template <class T, class U>                                                \
-	auto operator op(LatticeStack<T> const &lhs, LatticeStack<U> const &rhs)   \
-	    ->LatticeStack<decltype(std::declval<T>() op std::declval<U>())>       \
-	{                                                                          \
-		assert(lhs.size() == rhs.size());                                      \
-		using R = decltype(std::declval<T>() op std::declval<U>());            \
-		auto ret = LatticeStack<R>(lhs.grid());                                \
 		lattice_apply(                                                         \
 		    [] UTIL_DEVICE(R &a, T const &b, U const &c) { a = b op c; }, ret, \
 		    lhs, rhs);                                                         \
@@ -364,12 +323,6 @@ auto lattice_sum_apply(F f, LatticeStack<T> const &a,
 #define MESH_DEFINE_LATTICE_SUM(name, fun)                                     \
 	template <class T>                                                         \
 	auto name(Lattice<T> const &arg)->decltype(fun(std::declval<T>()))         \
-	{                                                                          \
-		return lattice_sum_apply(                                              \
-		    [] UTIL_DEVICE(T const &a) { return fun(a); }, arg);               \
-	}                                                                          \
-	template <class T>                                                         \
-	auto name(LatticeStack<T> const &arg)->decltype(fun(std::declval<T>()))    \
 	{                                                                          \
 		return lattice_sum_apply(                                              \
 		    [] UTIL_DEVICE(T const &a) { return fun(a); }, arg);               \
