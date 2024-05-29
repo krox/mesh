@@ -142,6 +142,12 @@ template <typename T> class Lattice
 	}*/
 };
 
+template <class T, class... Ts>
+void conformable(Lattice<T> const &a, Lattice<Ts> const &...as)
+{
+	assert(((a.grid() == as.grid()) && ...));
+}
+
 // equivalent to Lattice<T>[Nd] width Nd = grid.ndim
 //     * intended for a single "outer" (Lorentz) index
 //     * all contained lattices are expected to live on the same grid
@@ -250,14 +256,14 @@ void readFromFile(util::Hdf5File &file, std::string const &name,
 template <typename F, typename T, typename... Ts>
 void lattice_apply(F f, Lattice<T> &a, Lattice<Ts> const &...as)
 {
-	assert(((a.grid() == as.grid()) && ...));
+	conformable(a, as...);
 	device_apply(f, a.buffer(), as.buffer()...);
 }
 
 template <typename F, typename T, typename... Ts>
 auto lattice_sum_apply(F f, Lattice<T> const &a, Lattice<Ts> const &...as)
 {
-	assert(((a.grid() == as.grid()) && ...));
+	conformable(a, as...);
 	return device_sum_apply(f, a.buffer(), as.buffer()...);
 }
 
