@@ -1,7 +1,7 @@
 #pragma once
 
 #include "fmt/format.h"
-#include "lattice/devicebuffer.h"
+#include "lattice/device.h"
 #include "lattice/grid.h"
 #include "lattice/tensor.h"
 #include "util/complex.h"
@@ -34,14 +34,14 @@ template <typename T> class Lattice
 
   private:
 	Grid grid_ = {}; // this is dimension 1, size 0
-	DeviceBuffer<T> buffer_;
+	device_buffer<T> buffer_;
 
   public:
 	Lattice() = default;
 
 	// allocates memory but does not initialize anything
 	explicit Lattice(Grid const &g)
-	    : grid_(g), buffer_(DeviceBuffer<T>(grid().size()))
+	    : grid_(g), buffer_(device_allocate<T>(grid().size()))
 	{
 		++latticeAllocCount;
 	}
@@ -55,19 +55,23 @@ template <typename T> class Lattice
 		return a;
 	}
 
-	void fill_zeros() { buffer().fill_zeros(); }
-	void fill(T const &a) { buffer().fill(a); }
+	void fill_zeros() { device_clear(buffer_.get()); }
+	// void fill(T const &a) { buffer().fill(a); }
 
 	Grid const &grid() const { return grid_; }
-	DeviceBuffer<T> &buffer() { return buffer_; }
-	DeviceBuffer<T> const &buffer() const { return buffer_; }
+	T *data() { return buffer_.get().data(); }
+	T const *data() const { return buffer_.get().data(); }
+	std::span<T> buffer() { return buffer_.get(); }
+	std::span<const T> buffer() const { return buffer_.get(); }
 
-	size_t bytes() const { return buffer().bytes(); }
+	size_t size() const { return buffer().size(); }
+	size_t bytes() const { return buffer().size() * sizeof(T); }
 
 	// copy/move operations
 	Lattice(Lattice const &other)
-	    : grid_(other.grid()), buffer_(other.buffer().copy())
+	    : grid_(other.grid()), buffer_(device_allocate<T>(other.size()))
 	{
+		device_copy(buffer(), other.buffer());
 		++latticeAllocCount;
 	}
 
@@ -78,14 +82,13 @@ template <typename T> class Lattice
 
 	Lattice &operator=(Lattice const &other)
 	{
-		if (grid() == other.grid())
-			other.buffer().copy_to(buffer());
-		else
+		if (bytes() != other.bytes())
 		{
 			++latticeAllocCount;
-			buffer_ = other.buffer().copy();
-			grid_ = other.grid();
+			buffer_ = device_allocate<T>(other.size());
 		}
+		grid_ = other.grid();
+		device_copy(buffer(), other.buffer());
 		return *this;
 	}
 
@@ -99,11 +102,17 @@ template <typename T> class Lattice
 	// copy from host memory
 	void copy_from_host(std::span<const T> data)
 	{
-		buffer().copy_from_host(data);
+		assert(data.size() == size());
+		device_copy_from_host(buffer(), data);
 	}
 
 	// copy to host memory
-	std::vector<T> copy_to_host() const { return buffer().copy_to_host(); }
+	std::vector<T> copy_to_host() const
+	{
+		std::vector<T> r(size());
+		device_copy_to_host(r, buffer());
+		return r;
+	}
 
 	// single-element access. Slow, but sometimes nice to have
 	/*T peek_site(Coordinate const &index) const
@@ -254,10 +263,10 @@ void lattice_apply(F f, LatticeStack<T> &a, LatticeStack<Ts> const &...as)
 }
 
 template <typename F, typename T, typename... Ts>
-auto lattice_sum(F f, Lattice<T> const &a, Lattice<Ts> const &...as)
+auto lattice_sum_apply(F f, Lattice<T> const &a, Lattice<Ts> const &...as)
 {
 	assert(((a.grid() == as.grid()) && ...));
-	return device_sum(f, a.buffer(), as.buffer()...);
+	return device_sum_apply(f, a.buffer(), as.buffer()...);
 }
 
 template <class T> T lattice_sum(Lattice<T> const &a)
@@ -266,12 +275,13 @@ template <class T> T lattice_sum(Lattice<T> const &a)
 }
 
 template <typename F, typename T, typename... Ts>
-auto lattice_sum(F f, LatticeStack<T> const &a, LatticeStack<Ts> const &...as)
+auto lattice_sum_apply(F f, LatticeStack<T> const &a,
+                       LatticeStack<Ts> const &...as)
 {
 	auto r =
 	    decltype(f(a[0].buffer().data()[0], as[0].buffer().data()[0]...))(0);
 	for (size_t i = 0; i < a.size(); ++i)
-		r += device_sum(f, a[i].buffer(), as[i].buffer()...);
+		r += device_sum_apply(f, a[i].buffer(), as[i].buffer()...);
 	return r;
 }
 
@@ -355,14 +365,14 @@ auto lattice_sum(F f, LatticeStack<T> const &a, LatticeStack<Ts> const &...as)
 	template <class T>                                                         \
 	auto name(Lattice<T> const &arg)->decltype(fun(std::declval<T>()))         \
 	{                                                                          \
-		return lattice_sum([] UTIL_DEVICE(T const &a) { return fun(a); },      \
-		                   arg);                                               \
+		return lattice_sum_apply(                                              \
+		    [] UTIL_DEVICE(T const &a) { return fun(a); }, arg);               \
 	}                                                                          \
 	template <class T>                                                         \
 	auto name(LatticeStack<T> const &arg)->decltype(fun(std::declval<T>()))    \
 	{                                                                          \
-		return lattice_sum([] UTIL_DEVICE(T const &a) { return fun(a); },      \
-		                   arg);                                               \
+		return lattice_sum_apply(                                              \
+		    [] UTIL_DEVICE(T const &a) { return fun(a); }, arg);               \
 	}
 
 MESH_DEFINE_LATTICE_BINARY(+)
@@ -412,9 +422,10 @@ Lattice<T> cshift(Lattice<T> const &a, int dir, int offset)
 		fast *= g.shape(i);
 
 	auto r = Lattice<T>(a.grid());
-
-	a.buffer().cshift_to(r.buffer(), offset * fast, s * fast);
-
+	auto dst = util::span_2d(r.data(), slow, s * fast);
+	auto src = util::span_2d(a.data(), slow, s * fast);
+	assert(dst.size() == src.size() && dst.size() == a.size());
+	device_cshift(dst, src, offset * fast);
 	return r;
 }
 
